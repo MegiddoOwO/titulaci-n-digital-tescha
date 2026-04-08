@@ -39,7 +39,7 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-primary/95 backdrop-blur-sm border-b border-primary">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-foreground/95 backdrop-blur-sm border-b border-foreground/20">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="TESCHA" className="h-10 w-10" />
@@ -67,7 +67,7 @@ const Landing = () => {
       <section className="relative pt-16 min-h-[85vh] flex items-center">
         <div className="absolute inset-0">
           <img src={heroImage} alt="Campus TESCHA" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/80 to-primary/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/50 to-transparent" />
         </div>
         <div className="relative container mx-auto px-4 py-20">
           <div className="max-w-2xl animate-fade-in">
@@ -91,7 +91,7 @@ const Landing = () => {
                 </Button>
               </Link>
               <Link to="/normativa">
-                <Button size="lg" variant="outline" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 font-semibold text-base px-8">
+                <Button size="lg" variant="outline" className="bg-transparent border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground font-semibold text-base px-8">
                   Ver Normativa
                 </Button>
               </Link>
