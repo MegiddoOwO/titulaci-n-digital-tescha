@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['"Playfair Display"', 'serif'],
-        body: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+        display: ['"Rubik"', 'sans-serif'],
+        body: ['"Rubik"', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

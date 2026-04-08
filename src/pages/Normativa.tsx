@@ -7,6 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import headerBg from "@/assets/banner-tescha.jpeg";
 
 const reglamentos = [
   {
@@ -40,8 +41,13 @@ const Normativa = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-primary py-16">
-        <div className="container mx-auto px-4">
+      <div 
+        className="relative py-16 bg-cover bg-center overflow-hidden"
+        style={{ backgroundImage: `url(${headerBg})` }}
+      >
+        <div className="absolute inset-0 bg-primary/90 backdrop-blur-sm z-0"></div>
+        
+        <div className="container mx-auto px-4 relative z-10">
           <Link to="/">
             <Button variant="ghost" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 mb-6 gap-2 font-body">
               <ArrowLeft className="w-4 h-4" /> Regresar al Inicio

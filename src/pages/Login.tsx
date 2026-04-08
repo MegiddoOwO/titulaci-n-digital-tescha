@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/tescha-logo.svg";
+import heroImage from "@/assets/banner-tescha.jpeg";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,17 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const validDomain = "@tesch.edu.mx";
+    if (!email.toLowerCase().endsWith(validDomain)) {
+      toast({ 
+        title: "Dominio no autorizado", 
+        description: `Para registrarte e ingresar, debes usar exclusivamente una cuenta institucional que termine en ${validDomain}.`,
+        className: "bg-primary text-primary-foreground border-primary-foreground/20"
+      });
+      return;
+    }
+
     setLoading(true);
     // Simulate login
     setTimeout(() => {
@@ -34,28 +46,42 @@ const Login = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-primary flex">
-      {/* Left - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12">
-        <div className="max-w-md text-center">
-          <img src={logo} alt="TESCHA" className="h-24 w-24 mx-auto mb-8" />
-          <h1 className="font-display text-4xl font-bold text-primary-foreground mb-4">
-            Sistema de Titulación ISC
-          </h1>
-          <p className="text-primary-foreground/70 font-body text-lg leading-relaxed">
-            Plataforma digital para la gestión integral del proceso de titulación del Tecnológico de Estudios Superiores de Chalco.
-          </p>
-          <div className="mt-12 flex items-center justify-center gap-2 text-accent">
-            <GraduationCap className="w-5 h-5" />
-            <span className="font-body text-sm font-medium">Ingeniería en Sistemas Computacionales</span>
+    <div 
+      className="min-h-screen flex relative bg-cover bg-center"
+      style={{ backgroundImage: `url(${heroImage})` }}
+    >
+      {/* Oscurecedor/Filtro corporativo para la imagen de fondo */}
+      <div className="absolute inset-0 bg-primary/90 backdrop-blur-sm z-0"></div>
+
+      <div className="relative z-10 w-full flex">
+        {/* Left - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden">
+          {/* Decorative glow */}
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="max-w-md text-center relative z-10">
+            <div className="p-4 bg-white/5 rounded-3xl backdrop-blur-sm border border-white/10 inline-block mb-8 shadow-xl">
+              <img src={logo} alt="TESCHA" className="h-28 w-28 mx-auto drop-shadow-md hover:scale-105 transition-transform duration-500" />
+            </div>
+            
+            <h1 className="font-display text-4xl lg:text-5xl font-bold text-primary-foreground mb-6 drop-shadow-sm leading-tight">
+              Sistema de Titulación <span className="text-accent font-light">ISC</span>
+            </h1>
+            <p className="text-primary-foreground/80 font-body text-lg leading-relaxed mb-10">
+              Plataforma digital interactiva para la gestión integral del proceso de titulación del Tecnológico de Estudios Superiores de Chalco.
+            </p>
+            
+            <div className="inline-flex items-center justify-center gap-3 text-accent bg-accent/10 border border-accent/20 px-6 py-3 rounded-full shadow-inner">
+              <GraduationCap className="w-5 h-5" />
+              <span className="font-body text-sm font-semibold tracking-wide uppercase">Ingeniería en Sistemas Computacionales</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Right - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-card rounded-xl shadow-2xl p-8">
-          <div className="lg:hidden flex items-center gap-3 mb-8">
+        {/* Right - Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/50 p-10 transform transition-all hover:-translate-y-1 hover:shadow-[0_25px_50px_rgba(0,0,0,0.4)]">
+            <div className="lg:hidden flex items-center gap-3 mb-8 bg-primary/5 p-3 rounded-xl border border-primary/10">
             <img src={logo} alt="TESCHA" className="h-10 w-10" />
             <div>
               <p className="font-body text-sm font-semibold text-foreground">TESCHA</p>
@@ -74,7 +100,7 @@ const Login = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="ejemplo@tescha.edu.mx"
+                placeholder="ejemplo@tesch.edu.mx"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -124,7 +150,9 @@ const Login = () => {
           </div>
         </div>
       </div>
+      
     </div>
+  </div>
   );
 };
 

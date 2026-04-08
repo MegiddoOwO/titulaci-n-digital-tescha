@@ -84,7 +84,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Welcome */}
         <div 
-          className="mb-8 rounded-2xl border border-white/60 shadow-sm relative overflow-hidden bg-cover bg-right"
+          className="mb-8 rounded-2xl border border-white/60 shadow-sm relative overflow-hidden bg-contain bg-right bg-no-repeat bg-background"
           style={{ backgroundImage: `url(${welcomeBg})` }}
         >
           {/* Degradado para ocultar la imagen debajo del texto y mostrarla solo a la derecha */}

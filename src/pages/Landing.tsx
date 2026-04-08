@@ -3,6 +3,7 @@ import { Shield, FileCheck, Bell, BookOpen, ArrowRight, CheckCircle2 } from "luc
 import { Button } from "@/components/ui/button";
 import heroImage from "@/assets/banner-tescha.jpeg";
 import logo from "@/assets/tescha-logo.svg";
+import sgclogo1 from "@/assets/logo.svg";
 
 const features = [
   {
@@ -157,15 +158,23 @@ const Landing = () => {
       {/* Footer */}
       <footer className="bg-foreground py-12">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="TESCHA" className="h-8 w-8" />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-4 md:w-1/3">
+              <img src={logo} alt="TESCHA" className="h-14 w-14" />
               <div>
                 <p className="text-background font-body text-sm font-semibold">Tecnológico de Estudios Superiores de Chalco</p>
                 <p className="text-background/50 font-body text-xs">Sistema de Control y Administración de Titulación ISC</p>
               </div>
             </div>
-            <p className="text-background/40 font-body text-sm">© 2026 TESCHA. Todos los derechos reservados.</p>
+            
+            {/* Logos Certificadores en medio */}
+            <div className="flex items-center justify-center md:w-1/3 bg-white/5 px-6 py-4 rounded-xl">
+              <img src={sgclogo1} alt="SGC Acreditación" className="h-20 w-auto opacity-80 hover:opacity-100 transition-opacity" />
+            </div>
+
+            <div className="md:w-1/3 md:text-right">
+              <p className="text-background/40 font-body text-sm">© 2026 TESCHA. Todos los derechos reservados.</p>
+            </div>
           </div>
         </div>
       </footer>
