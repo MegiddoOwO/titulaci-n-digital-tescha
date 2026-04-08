@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import logo from "@/assets/tescha-logo.svg";
 import reqImage1 from "@/assets/TITULO26_1_001.png";
 import reqImage2 from "@/assets/TITULO26_2_001.png";
@@ -47,7 +48,7 @@ const statusLabel = {
 };
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos" | "notifications">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos">("overview");
   const progress = 60;
 
   return (
@@ -62,10 +63,40 @@ const Dashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full text-[8px] flex items-center justify-center text-accent-foreground font-bold">3</span>
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 relative">
+                  <Bell className="w-4 h-4" />
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-accent rounded-full text-[8px] flex items-center justify-center text-accent-foreground font-bold">3</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0 mr-4" align="end">
+                <div className="p-4 border-b border-border font-display font-semibold text-foreground">
+                  Notificaciones
+                </div>
+                <div className="max-h-[300px] overflow-y-auto p-2 space-y-2">
+                  {notifications.map((n) => (
+                    <div key={n.id} className={`bg-card border rounded-lg p-3 flex items-start gap-3 ${
+                      n.type === "success" ? "border-success/30" :
+                      n.type === "warning" ? "border-warning/30" : "border-info/30"
+                    }`}>
+                      {n.type === "success" ? <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" /> :
+                       n.type === "warning" ? <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" /> :
+                       <Bell className="w-4 h-4 text-info flex-shrink-0 mt-0.5" />}
+                      <div className="flex-1">
+                        <p className="font-body text-[13px] leading-snug text-foreground">{n.message}</p>
+                        <p className="font-body text-[11px] text-muted-foreground mt-1">{n.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2 border-t border-border">
+                  <Button variant="ghost" size="sm" className="w-full text-xs font-body text-primary hover:bg-primary/5">
+                    Marcar todas como leídas
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <div className="flex items-center gap-2 text-primary-foreground/80">
               <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center">
                 <User className="w-3.5 h-3.5 text-accent-foreground" />
@@ -145,7 +176,6 @@ const Dashboard = () => {
             { key: "overview", icon: BarChart3, label: "Resumen" },
             { key: "documents", icon: FileText, label: "Documentos" },
             { key: "requisitos", icon: ClipboardList, label: "Requisitos" },
-            { key: "notifications", icon: Bell, label: "Notificaciones" },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -241,25 +271,6 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {activeTab === "notifications" && (
-          <div className="space-y-3 animate-fade-in">
-            {notifications.map((n) => (
-              <div key={n.id} className={`bg-card border rounded-lg p-4 flex items-start gap-3 ${
-                n.type === "success" ? "border-success/30" :
-                n.type === "warning" ? "border-warning/30" : "border-info/30"
-              }`}>
-                {n.type === "success" ? <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" /> :
-                 n.type === "warning" ? <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" /> :
-                 <Bell className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />}
-                <div className="flex-1">
-                  <p className="font-body text-sm text-foreground">{n.message}</p>
-                  <p className="font-body text-xs text-muted-foreground mt-1">{n.time}</p>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
