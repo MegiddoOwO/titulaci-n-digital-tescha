@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import logo from "@/assets/tescha-logo.png";
+import logo from "@/assets/tescha-logo.svg";
 
 const statusSteps = [
   { label: "Registro", status: "completed" as const },

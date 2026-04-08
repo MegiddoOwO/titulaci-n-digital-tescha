@@ -3,7 +3,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import logo from "@/assets/tescha-logo.png";
+import logo from "@/assets/tescha-logo.svg";
 
 import {
   Sidebar,
