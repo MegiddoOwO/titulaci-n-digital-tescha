@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,17 @@ const Login = () => {
     // Simulate login
     setTimeout(() => {
       setLoading(false);
+      localStorage.setItem("isAuthenticated", "true");
       toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     }, 1000);
   };
+
+  useEffect(() => {
+    if (localStorage.getItem("isAuthenticated") === "true") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-primary flex">

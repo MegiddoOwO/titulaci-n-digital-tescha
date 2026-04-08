@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FileText, Bell, BookOpen, CheckCircle2, Clock, AlertCircle,
-  Upload, User, LogOut, ChevronRight, BarChart3, FileCheck
+  Upload, User, LogOut, ChevronRight, BarChart3, FileCheck, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import logo from "@/assets/tescha-logo.svg";
+import reqImage1 from "@/assets/TITULO26_1_001.png";
+import reqImage2 from "@/assets/TITULO26_2_001.png";
 
 const statusSteps = [
   { label: "Registro", status: "completed" as const },
@@ -44,7 +46,7 @@ const statusLabel = {
 };
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "notifications">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos" | "notifications">("overview");
   const progress = 60;
 
   return (
@@ -69,7 +71,7 @@ const Dashboard = () => {
               </div>
               <span className="font-body text-sm hidden sm:block">Juan Pérez</span>
             </div>
-            <Link to="/">
+            <Link to="/" onClick={() => localStorage.removeItem("isAuthenticated")}>
               <Button variant="ghost" size="sm" className="text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/10">
                 <LogOut className="w-4 h-4" />
               </Button>
@@ -80,25 +82,37 @@ const Dashboard = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Welcome */}
-        <div className="mb-8">
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-1">
-            Bienvenido, Juan
-          </h1>
-          <p className="text-muted-foreground font-body">
-            Aquí puedes consultar el avance de tu proceso de titulación.
-          </p>
+        <div className="mb-8 p-8 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-sm relative overflow-hidden">
+          {/* Decorative glow element */}
+          <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-navy mb-2 drop-shadow-sm">
+              Bienvenido, <span className="text-accent">Juan</span>
+            </h1>
+            <p className="text-muted-foreground font-body text-lg tracking-wide">
+              Panel de seguimiento para tu proceso de titulación.
+            </p>
+          </div>
         </div>
 
         {/* Progress Card */}
-        <div className="bg-primary rounded-xl p-6 mb-8">
+        <div className="bg-primary rounded-xl p-8 mb-8 shadow-md">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-primary-foreground font-body font-semibold">Progreso General</h3>
-              <p className="text-primary-foreground/60 font-body text-sm">3 de 5 etapas completadas</p>
+              <h3 className="text-primary-foreground font-body text-lg font-semibold tracking-wide">Progreso General</h3>
+              <p className="text-primary-foreground/70 font-body text-sm mt-1">3 de 5 etapas completadas</p>
             </div>
-            <span className="text-accent font-display text-2xl font-bold">{progress}%</span>
+            <span className="text-accent font-display text-3xl font-bold drop-shadow-md">{progress}%</span>
           </div>
-          <Progress value={progress} className="h-2 bg-primary-foreground/10" />
+          
+          {/* Custom Progress Bar to contrast with primary background */}
+          <div className="w-full h-2.5 bg-primary-foreground/10 rounded-full overflow-hidden mb-8">
+            <div 
+              className="h-full bg-accent transition-all duration-500 ease-in-out" 
+              style={{ width: `${progress}%` }}
+            />
+          </div>
           <div className="flex justify-between mt-4">
             {statusSteps.map((step, i) => (
               <div key={i} className="flex flex-col items-center gap-1.5">
@@ -124,6 +138,7 @@ const Dashboard = () => {
           {([
             { key: "overview", icon: BarChart3, label: "Resumen" },
             { key: "documents", icon: FileText, label: "Documentos" },
+            { key: "requisitos", icon: ClipboardList, label: "Requisitos" },
             { key: "notifications", icon: Bell, label: "Notificaciones" },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
@@ -157,15 +172,29 @@ const Dashboard = () => {
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="font-display text-lg font-semibold text-foreground mb-4">Acciones Rápidas</h3>
               <div className="space-y-3">
-                <Button variant="outline" className="w-full justify-between h-11 font-body">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between h-11 font-body"
+                  onClick={() => setActiveTab("documents")}
+                >
                   <span className="flex items-center gap-2"><Upload className="w-4 h-4" /> Subir Documento</span>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" className="w-full justify-between h-11 font-body">
-                  <span className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> Ver Normativa</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" className="w-full justify-between h-11 font-body">
+                <Link to="/normativa" className="block w-full">
+                  <Button variant="outline" className="w-full justify-between h-11 font-body">
+                    <span className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> Ver Normativa</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between h-11 font-body"
+                  onClick={() => {
+                    import("sonner").then(({ toast }) => {
+                      toast.info("Próximamente", { description: "El portal de pagos en línea se habilitará pronto." })
+                    });
+                  }}
+                >
                   <span className="flex items-center gap-2"><FileCheck className="w-4 h-4" /> Pago de Derechos</span>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -194,7 +223,13 @@ const Dashboard = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {statusIcon[doc.status as keyof typeof statusIcon]}
-                    <Badge variant={doc.status === "approved" ? "default" : "secondary"} className="font-body text-xs">
+                    <Badge 
+                      className={`font-body text-xs border-transparent text-white ${
+                        doc.status === "approved" ? "bg-success hover:bg-success/80" : 
+                        doc.status === "pending" ? "bg-destructive hover:bg-destructive/80" : 
+                        "bg-muted-foreground"
+                      }`}
+                    >
                       {statusLabel[doc.status as keyof typeof statusLabel]}
                     </Badge>
                   </div>
@@ -220,6 +255,33 @@ const Dashboard = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === "requisitos" && (
+          <div className="bg-card border border-border rounded-lg p-6 animate-fade-in overflow-hidden shadow-sm">
+            <h3 className="font-display text-2xl font-semibold text-navy mb-4">Requisitos de Titulación</h3>
+            <p className="text-muted-foreground font-body mb-6">
+              A continuación se muestra el flujograma y los requisitos necesarios para iniciar tu proceso de titulación.
+              Puedes consultar esta información en cualquier momento.
+            </p>
+            <div className="flex flex-col gap-6 items-center justify-center w-full">
+              <img 
+                src={reqImage1} 
+                alt="Infografía de Requisitos Parte 1" 
+                className="w-full max-w-4xl h-auto object-contain mx-auto rounded-lg shadow-md border border-border" 
+              />
+              <img 
+                src={reqImage2} 
+                alt="Infografía de Requisitos Parte 2" 
+                className="w-full max-w-4xl h-auto object-contain mx-auto rounded-lg shadow-md border border-border" 
+              />
+            </div>
+            <div className="mt-6 flex justify-end">
+                <Button className="bg-accent text-accent-foreground hover:bg-accent/90" variant="outline">
+                    Descargar PDF
+                </Button>
+            </div>
           </div>
         )}
       </div>
