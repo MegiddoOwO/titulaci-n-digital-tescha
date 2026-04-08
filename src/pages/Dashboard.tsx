@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import logo from "@/assets/tescha-logo.svg";
 import reqImage1 from "@/assets/TITULO26_1_001.png";
 import reqImage2 from "@/assets/TITULO26_2_001.png";
+import welcomeBg from "@/assets/Gemini_Generated_Image_an5mooan5mooan5m.png";
 
 const statusSteps = [
   { label: "Registro", status: "completed" as const },
@@ -82,15 +83,20 @@ const Dashboard = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Welcome */}
-        <div className="mb-8 p-8 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-sm relative overflow-hidden">
-          {/* Decorative glow element */}
-          <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl"></div>
+        <div 
+          className="mb-8 rounded-2xl border border-white/60 shadow-sm relative overflow-hidden bg-cover bg-right"
+          style={{ backgroundImage: `url(${welcomeBg})` }}
+        >
+          {/* Degradado para ocultar la imagen debajo del texto y mostrarla solo a la derecha */}
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/10 z-0 sm:to-transparent"></div>
           
-          <div className="relative z-10">
+          <div className="absolute -top-12 -left-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl z-0"></div>
+          
+          <div className="relative z-10 p-8 w-full md:w-2/3">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-navy mb-2 drop-shadow-sm">
               Bienvenido, <span className="text-accent">Juan</span>
             </h1>
-            <p className="text-muted-foreground font-body text-lg tracking-wide">
+            <p className="text-muted-foreground font-body text-lg tracking-wide max-w-md">
               Panel de seguimiento para tu proceso de titulación.
             </p>
           </div>
@@ -186,18 +192,17 @@ const Dashboard = () => {
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between h-11 font-body"
-                  onClick={() => {
-                    import("sonner").then(({ toast }) => {
-                      toast.info("Próximamente", { description: "El portal de pagos en línea se habilitará pronto." })
-                    });
-                  }}
+                <a 
+                  href="https://sfpya.edomexico.gob.mx/recaudacion/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full"
                 >
-                  <span className="flex items-center gap-2"><FileCheck className="w-4 h-4" /> Pago de Derechos</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                  <Button variant="outline" className="w-full justify-between h-11 font-body">
+                    <span className="flex items-center gap-2"><FileCheck className="w-4 h-4" /> Pago de Derechos</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </a>
               </div>
             </div>
           </div>
