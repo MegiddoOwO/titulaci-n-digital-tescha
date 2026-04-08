@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Shield, FileCheck, Bell, BookOpen, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import heroImage from "@/assets/hero-campus.jpg";
+import heroImage from "@/assets/banner-tescha.jpeg";
 import logo from "@/assets/tescha-logo.svg";
 
 const features = [
