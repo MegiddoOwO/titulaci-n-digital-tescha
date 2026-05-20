@@ -50,6 +50,7 @@ const statusLabel = {
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos">("overview");
   const progress = 60;
+  const userEmail = localStorage.getItem("userEmail") || "correo@tesch.edu.mx";
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,9 +102,12 @@ const Dashboard = () => {
               <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center">
                 <User className="w-3.5 h-3.5 text-accent-foreground" />
               </div>
-              <span className="font-body text-sm hidden sm:block">Juan Pérez</span>
+              <span className="font-body text-sm hidden sm:block">{userEmail}</span>
             </div>
-            <Link to="/" onClick={() => localStorage.removeItem("isAuthenticated")}>
+            <Link to="/" onClick={() => {
+              localStorage.removeItem("isAuthenticated");
+              localStorage.removeItem("userEmail");
+            }}>
               <Button variant="ghost" size="sm" className="text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/10">
                 <LogOut className="w-4 h-4" />
               </Button>
@@ -125,7 +129,7 @@ const Dashboard = () => {
           
           <div className="relative z-10 p-8 w-full md:w-2/3">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-navy mb-2 drop-shadow-sm">
-              Bienvenido, <span className="text-accent">Juan</span>
+              Bienvenido, <span className="text-accent">{userEmail}</span>
             </h1>
             <p className="text-muted-foreground font-body text-lg tracking-wide max-w-md">
               Panel de seguimiento para tu proceso de titulación.

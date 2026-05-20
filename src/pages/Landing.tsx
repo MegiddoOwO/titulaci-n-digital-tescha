@@ -29,11 +29,26 @@ const features = [
 ];
 
 const steps = [
-  "Registro y autenticación en la plataforma",
-  "Carga de documentación requerida",
-  "Validación de requisitos académicos",
-  "Revisión y dictamen por el comité",
-  "Emisión de acta de titulación",
+  {
+    title: "Registro y Validación",
+    description: "Inicia tu proceso registrándote en la plataforma y validando tu estatus como egresado con el departamento de control escolar.",
+  },
+  {
+    title: "Integración de Expediente",
+    description: "Sube todos los documentos requeridos de forma digital. Nuestro sistema te indicará qué falta y qué ha sido aprobado.",
+  },
+  {
+    title: "Selección de Opción",
+    description: "Elige la modalidad de titulación que mejor se adapte a tu perfil (Tesis, CENEVAL, Promedio, etc.) y cumple con los requisitos específicos.",
+  },
+  {
+    title: "Revisión y Aprobación",
+    description: "Tu expediente y trabajo final serán revisados por el comité académico correspondiente para su aprobación formal.",
+  },
+  {
+    title: "Ceremonia y Título",
+    description: "Una vez aprobado todo, se programará tu toma de protesta y se iniciará el trámite para la emisión de tu título profesional.",
+  },
 ];
 
 const Landing = () => {
@@ -65,34 +80,32 @@ const Landing = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative pt-16 min-h-[85vh] flex items-center">
+      <section className="relative pt-16 min-h-[85vh] flex items-center justify-center">
         <div className="absolute inset-0">
           <img src={heroImage} alt="Campus TESCHA" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/50 to-transparent" />
+          <div className="absolute inset-0 bg-black/65" />
         </div>
-        <div className="relative container mx-auto px-4 py-20">
-          <div className="max-w-2xl animate-fade-in">
-            <div className="inline-flex items-center gap-2 bg-accent/20 border border-accent/30 rounded-full px-4 py-1.5 mb-6">
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span className="text-accent font-body text-sm font-medium">Plataforma Digital de Titulación</span>
+        <div className="relative container mx-auto px-4 py-20 flex flex-col items-center justify-center text-center">
+          <div className="max-w-3xl animate-fade-in flex flex-col items-center">
+            <div className="bg-white px-5 py-1.5 rounded-full mb-8 shadow-md">
+              <span className="text-[#8a2036] font-body text-xs font-semibold tracking-wider uppercase">Plataforma Digital de Titulación</span>
             </div>
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground leading-tight mb-6">
+            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-normal text-white leading-tight mb-6">
               Tu camino hacia la
               <span className="text-accent"> titulación</span>,
               simplificado
             </h1>
-            <p className="text-primary-foreground/80 font-body text-lg md:text-xl leading-relaxed mb-8 max-w-xl">
-              Gestiona, consulta y da seguimiento a tu proceso de titulación de Ingeniería en Sistemas Computacionales de manera digital, transparente y eficiente.
+            <p className="text-white/80 font-body text-lg md:text-xl leading-relaxed mb-8 max-w-2xl">
+              El Sistema de Control Académico para la Ingeniería en Sistemas Computacionales te guía paso a paso en tu proceso final.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-row gap-4 justify-center">
               <Link to="/login">
-                <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-base px-8 gap-2">
+                <Button size="lg" className="bg-accent text-white hover:bg-accent/90 font-medium text-base px-8 border-none">
                   Comenzar Ahora
-                  <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
               <Link to="/normativa">
-                <Button size="lg" variant="outline" className="bg-transparent border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground font-semibold text-base px-8">
+                <Button size="lg" variant="outline" className="bg-transparent border border-accent text-accent hover:bg-accent hover:text-white font-medium text-base px-8">
                   Ver Normativa
                 </Button>
               </Link>
@@ -131,24 +144,44 @@ const Landing = () => {
       </section>
 
       {/* Process Steps */}
-      <section className="py-20 bg-primary">
+      <section className="py-20 bg-[#56212f]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-primary-foreground mb-4">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-white mb-4">
               Proceso de Titulación
             </h2>
-            <p className="text-primary-foreground/70 font-body text-lg max-w-2xl mx-auto">
-              Sigue estos sencillos pasos para completar tu trámite de titulación.
+            <p className="text-white/70 font-body text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+              Una guía estructurada para llevarte desde la culminación de tus estudios hasta la obtención de tu título.
             </p>
           </div>
-          <div className="max-w-2xl mx-auto space-y-4">
+          <div className="max-w-3xl mx-auto">
             {steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-4 bg-primary-foreground/5 border border-primary-foreground/10 rounded-lg p-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                  <span className="text-accent-foreground font-body font-bold text-sm">{i + 1}</span>
+              <div key={i} className="relative flex items-center gap-6 sm:gap-10 py-4">
+                {/* Connector Line Segment */}
+                <div 
+                  className={`absolute left-5 w-[2px] bg-[#9A803B]/40 ${
+                    i === 0 
+                      ? "top-1/2 bottom-0" 
+                      : i === steps.length - 1 
+                      ? "top-0 bottom-1/2" 
+                      : "top-0 bottom-0"
+                  }`} 
+                />
+
+                {/* Step Number Circle */}
+                <div className="relative z-10 flex-shrink-0 w-10 h-10 rounded-full bg-[#9A803B] flex items-center justify-center text-white font-body font-bold text-base shadow-md">
+                  {i + 1}
                 </div>
-                <p className="text-primary-foreground font-body text-base">{step}</p>
-                <CheckCircle2 className="w-5 h-5 text-accent/50 ml-auto flex-shrink-0" />
+                
+                {/* Step Card Content */}
+                <div className="flex-grow bg-[#8a2036]/20 border border-white/10 rounded-lg p-6 hover:bg-[#8a2036]/30 transition-all duration-300">
+                  <h3 className="font-display text-lg sm:text-xl font-bold text-[#efe1ca] mb-2">
+                    {step.title}
+                  </h3>
+                  <p className="text-white/85 font-body text-sm sm:text-base leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
