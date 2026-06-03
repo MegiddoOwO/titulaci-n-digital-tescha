@@ -34,16 +34,13 @@ const Login = () => {
     setTimeout(() => {
       setLoading(false);
       localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("userEmail", email);
       toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
       navigate("/dashboard", { replace: true });
     }, 1000);
   };
 
-  useEffect(() => {
-    if (localStorage.getItem("isAuthenticated") === "true") {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [navigate]);
+
 
   return (
     <div 
