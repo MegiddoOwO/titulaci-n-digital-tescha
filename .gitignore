@@ -17,6 +17,8 @@ dist-ssr
 .agents
 .skills
 skills-lock.json
+*.md
+docs/
 
 # Editor directories and files
 .vscode/*
