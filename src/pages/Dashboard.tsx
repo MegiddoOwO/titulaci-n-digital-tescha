@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FileText, Bell, CheckCircle2, Clock, AlertCircle,
   Upload, LogOut, ClipboardList,
-  LayoutDashboard, Calendar, Star, Settings, Menu, X, ArrowRight, Gavel, Banknote, Contact
+  LayoutDashboard, Calendar, Star, Settings, Menu, X, ArrowRight, Gavel, Banknote, Contact, Loader2, Shield, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTramite } from "@/hooks/useTramite";
+import { useNotificaciones } from "@/hooks/useNotificaciones";
 import logo from "@/assets/tescha-logo.svg";
-import reqImage1 from "@/assets/TITULO26_1_001.png";
-import reqImage2 from "@/assets/TITULO26_2_001.png";
 
 // Helper component for stylized card corners (brackets)
 const BracketCard = ({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) => (
@@ -28,104 +29,225 @@ const BracketCard = ({ children, className = "", onClick }: { children: React.Re
   </div>
 );
 
-const notificationsData = [
-  { id: 1, message: "Tu constancia de no adeudo fue aprobada", time: "Hace 2 horas", type: "success" as const },
-  { id: 2, message: "Se requiere actualizar tu fotografía", time: "Hace 1 día", type: "warning" as const },
-  { id: 3, message: "Nuevo lineamiento de titulación publicado", time: "Hace 3 días", type: "info" as const },
-];
-
-const initialDocuments = [
-  { name: "Acta de Nacimiento", status: "approved", date: "15/03/2026" },
-  { name: "Certificado de Estudios", status: "approved", date: "15/03/2026" },
-  { name: "Constancia de No Adeudo de Colegiatura", status: "approved", date: "18/03/2026" },
-  { name: "Liberación de Servicio Social", status: "approved", date: "20/03/2026" },
-  { name: "Constancia de Prácticas Profesionales", status: "approved", date: "22/03/2026" },
-  { name: "Fotografías Infantiles", status: "pending", date: "—" },
-  { name: "Comprobante de Pago de Derechos", status: "pending", date: "—" },
-  { name: "Acreditación de Idioma Inglés", status: "pending", date: "—" },
-  { name: "No Adeudo de Laboratorio / Biblioteca", status: "pending", date: "—" },
-  { name: "Solicitud de Examen Profesional", status: "pending", date: "—" },
-  { name: "Oficio de Aprobación de Proyecto", status: "pending", date: "—" },
-  { name: "Formato de Registro de Título", status: "pending", date: "—" },
-];
-
-const statusIcon = {
-  approved: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
-  pending: <Clock className="w-4 h-4 text-amber-500" />,
-  rejected: <AlertCircle className="w-4 h-4 text-rose-500" />,
+const statusIcon: Record<string, React.ReactNode> = {
+  aprobado: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
+  pendiente: <Clock className="w-4 h-4 text-amber-500" />,
+  cargado: <Clock className="w-4 h-4 text-blue-500" />,
+  en_revision: <AlertCircle className="w-4 h-4 text-amber-500" />,
+  rechazado: <AlertCircle className="w-4 h-4 text-rose-500" />,
 };
 
-const statusLabel = {
-  approved: "Aprobado",
-  pending: "Pendiente",
-  rejected: "Rechazado",
+const statusLabel: Record<string, string> = {
+  aprobado: "Aprobado",
+  pendiente: "Pendiente",
+  cargado: "Recibido",
+  en_revision: "En Revisión",
+  rechazado: "Rechazado",
 };
 
-const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos">("overview");
-  const [documents, setDocuments] = useState(initialDocuments);
-  const [notifications, setNotifications] = useState(notificationsData);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDirectorioOpen, setIsDirectorioOpen] = useState(false);
+const DirectorioModal = ({ onClose }: { onClose: () => void }) => {
+  const [contactos, setContactos] = useState<{ id: number; nombre: string; cargo: string; departamento: string; email: string | null; telefono: string | null; extension: string | null }[]>([]);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    fetch(`/api/directorio${params}`)
+      .then((r) => r.json())
+      .then(setContactos);
+  }, [search]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <BracketCard className="w-full max-w-lg bg-white relative animate-scale-in max-h-[85vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-[#56212f] hover:bg-gray-100 rounded-full transition-all z-10"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="space-y-4">
+          <h3 className="font-bold text-lg text-[#56212f] flex items-center gap-2 border-b pb-2">
+            <Contact className="w-5 h-5 text-[#BC955B]" />
+            <span>Directorio Institucional</span>
+          </h3>
+
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cargo o departamento..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#56212f]"
+          />
+
+          <div className="space-y-3">
+            {contactos.map((c) => (
+              <div key={c.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                  {c.nombre.split(" ").filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join("")}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-gray-700">{c.nombre}</h4>
+                  <p className="text-[11px] text-gray-500">{c.cargo}</p>
+                  <p className="text-[10px] text-gray-400">{c.departamento}</p>
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} className="text-[10px] text-[#8a2036] hover:underline font-medium block mt-0.5">
+                      {c.email}
+                    </a>
+                  )}
+                  {c.extension && (
+                    <span className="text-[10px] text-gray-400 block">Ext. {c.extension}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </BracketCard>
+    </div>
+  );
+};
+
+const ArcoModal = ({ onClose }: { onClose: () => void }) => {
+  const [tipo, setTipo] = useState("acceso");
+  const [detalle, setDetalle] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [enviado, setEnviado] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
-  const userEmail = localStorage.getItem("userEmail") || "correo@tesch.edu.mx";
-
-  // Calculate dynamic metrics based on documents state
-  const approvedCount = documents.filter((doc) => doc.status === "approved").length;
-  const totalCount = documents.length;
-  const pendingCount = totalCount - approvedCount;
-  const progress = Math.round((approvedCount / totalCount) * 100);
-
-  const handleNotificationRead = () => {
-    setNotifications([]);
-    toast({
-      title: "Notificaciones",
-      description: "Todas las notificaciones han sido marcadas como leídas.",
-    });
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const fileName = e.target.files[0].name;
-      toast({
-        title: "Archivo Seleccionado",
-        description: `Subiendo "${fileName}"...`,
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("sca_token");
+      const res = await fetch("/api/solicitudes-arco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tipo, detalle: detalle.trim() }),
       });
-
-      // Find first pending document to mock change
-      setTimeout(() => {
-        setDocuments(prev => {
-          const index = prev.findIndex(doc => doc.status === "pending");
-          if (index !== -1) {
-            const updated = [...prev];
-            updated[index] = {
-              ...updated[index],
-              status: "approved",
-              date: new Date().toLocaleDateString("es-MX")
-            };
-            return updated;
-          }
-          return prev;
-        });
-
-        toast({
-          title: "Documento Subido",
-          description: "Tu documento ha sido cargado con éxito para su validación.",
-        });
-      }, 1500);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setEnviado(true);
+      toast({ title: "Solicitud enviada", description: data.message });
+    } catch (err: unknown) {
+      toast({ title: "Error", description: (err as Error).message, className: "bg-destructive text-destructive-foreground" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDownloadPDF = () => {
-    toast({
-      title: "Descarga Iniciada",
-      description: "Descargando la guía completa de requisitos de titulación (PDF)...",
-    });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <BracketCard className="w-full max-w-md bg-white relative animate-scale-in">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-[#56212f] hover:bg-gray-100 rounded-full transition-all z-10">
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="space-y-4">
+          <h3 className="font-bold text-lg text-[#56212f] flex items-center gap-2 border-b pb-2">
+            <Shield className="w-5 h-5 text-[#BC955B]" />
+            <span>Solicitud de Derechos ARCO</span>
+          </h3>
+
+          {enviado ? (
+            <div className="text-center py-6">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-700">Solicitud enviada correctamente</p>
+              <p className="text-xs text-gray-500 mt-1">Será procesada en un máximo de 15 días hábiles.</p>
+              <Button onClick={onClose} className="mt-4 bg-[#56212f] text-white text-xs">Cerrar</Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500">
+                Ejerce tus derechos de Acceso, Rectificación, Cancelación u Oposición sobre tus datos personales.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Tipo de solicitud</label>
+                <select value={tipo} onChange={(e) => setTipo(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#56212f] bg-white">
+                  <option value="acceso">Acceso a mis datos</option>
+                  <option value="rectificacion">Rectificación de datos</option>
+                  <option value="cancelacion">Cancelación / Eliminación</option>
+                  <option value="oposicion">Oposición al tratamiento</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Detalle (opcional)</label>
+                <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)}
+                  placeholder="Describe los datos que deseas acceder, rectificar, cancelar o a los que te opones..."
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#56212f] min-h-[80px] resize-none" />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[11px] text-blue-800">
+                <strong>Plazo legal:</strong> Por ley, tu solicitud debe ser respondida en un máximo de 15 días hábiles.
+              </div>
+
+              <Button onClick={handleSubmit} disabled={loading}
+                className="w-full bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold text-xs">
+                {loading ? "Enviando..." : "Enviar solicitud ARCO"}
+              </Button>
+            </>
+          )}
+        </div>
+      </BracketCard>
+    </div>
+  );
+};
+
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState<"overview" | "documents" | "requisitos" | "asesores" | "dictamen">("overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDirectorioOpen, setIsDirectorioOpen] = useState(false);
+  const [isArcoOpen, setIsArcoOpen] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { usuario, logout } = useAuth();
+  const { tramite, isLoading, historial, uploadDocumento, isUploading } = useTramite();
+  const { notificaciones, noLeidas, marcarTodas } = useNotificaciones();
+
+  const userEmail = usuario?.email || "correo@tesch.edu.mx";
+  const userName = usuario ? `${usuario.nombre} ${usuario.apellido_paterno}` : "Estudiante SCA-ISC";
+
+  // Métricas desde datos reales
+  const progress = tramite?.progreso?.porcentaje ?? 0;
+  const approvedCount = tramite?.progreso?.aprobados ?? 0;
+  const totalCount = tramite?.progreso?.total ?? 0;
+  const pendingCount = (tramite?.progreso?.pendientes ?? 0) + (tramite?.progreso?.cargados ?? 0) + (tramite?.progreso?.en_revision ?? 0);
+  const semaforoColor = tramite?.progreso?.color_semaforo ?? "ambar";
+
+  const handleDownload = (docId: number) => {
+    const token = localStorage.getItem("sca_token");
+    window.open(`/api/tramites/${tramite!.id}/documentos/${docId}?token=${token}`, "_blank");
   };
 
-  const handleSidebarClick = (tab: "overview" | "documents" | "requisitos") => {
+  const handleUploadForDoc = (tipo_documento_id: number, tipo_nombre: string, file: File) => {
+    toast({
+      title: "Subiendo documento",
+      description: `Subiendo "${file.name}" como "${tipo_nombre}"...`,
+    });
+
+    uploadDocumento(
+      { tipo_documento_id, file },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Documento Subido",
+            description: `"${tipo_nombre}" ha sido cargado para validación.`,
+          });
+        },
+        onError: (err: Error) => {
+          toast({
+            title: "Error al subir",
+            description: err.message,
+            className: "bg-destructive text-destructive-foreground",
+          });
+        },
+      }
+    );
+  };
+
+  const handleSidebarClick = (tab: "overview" | "documents" | "requisitos" | "asesores" | "dictamen") => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -172,7 +294,7 @@ const Dashboard = () => {
                 U
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-[#efe1ca] font-semibold text-sm tracking-wide truncate">Estudiante SCA-ISC</h4>
+                <h4 className="text-[#efe1ca] font-semibold text-sm tracking-wide truncate">{userName}</h4>
                 <p className="text-white/60 text-xs truncate mt-0.5">Ingeniería en Sistemas</p>
               </div>
             </div>
@@ -203,45 +325,27 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => {
-                toast({
-                  title: "Horarios",
-                  description: "La sección de horarios de asesorías estará disponible próximamente.",
-                });
-                setIsMobileMenuOpen(false);
-              }}
+              onClick={() => handleSidebarClick("asesores")}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
             >
-              <Calendar className="w-4 h-4" />
-              <span>Horarios</span>
+              <UserCheck className="w-4 h-4" />
+              <span>Asesores</span>
             </button>
 
             <button
-              onClick={() => {
-                toast({
-                  title: "Calificaciones",
-                  description: "Las actas de evaluación profesional estarán disponibles al culminar tu dictamen.",
-                });
-                setIsMobileMenuOpen(false);
-              }}
+              onClick={() => setIsArcoOpen(true)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
             >
-              <Star className="w-4 h-4" />
-              <span>Calificaciones</span>
+              <Shield className="w-4 h-4" />
+              <span>Privacidad</span>
             </button>
 
             <button
-              onClick={() => {
-                toast({
-                  title: "Configuración",
-                  description: "Configuración del perfil estudiantil disponible próximamente.",
-                });
-                setIsMobileMenuOpen(false);
-              }}
+              onClick={() => handleSidebarClick("dictamen")}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
             >
-              <Settings className="w-4 h-4" />
-              <span>Configuración</span>
+              <Gavel className="w-4 h-4" />
+              <span>Mi Dictamen</span>
             </button>
           </nav>
         </div>
@@ -250,10 +354,7 @@ const Dashboard = () => {
         <div className="p-4 border-t border-[#8a2036]/30">
           <Link
             to="/"
-            onClick={() => {
-              localStorage.removeItem("isAuthenticated");
-              localStorage.removeItem("userEmail");
-            }}
+            onClick={() => logout()}
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/70 hover:text-red-300 hover:bg-red-950/20 transition-all duration-200"
           >
             <LogOut className="w-4 h-4" />
@@ -284,7 +385,7 @@ const Dashboard = () => {
               <PopoverTrigger asChild>
                 <button className="relative p-2 text-gray-500 hover:text-[#56212f] transition-all rounded-full hover:bg-gray-100/80 active:scale-95">
                   <Bell className="w-5 h-5" />
-                  {notifications.length > 0 && (
+                  {noLeidas > 0 && (
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#BC955B] rounded-full ring-1 ring-white"></span>
                   )}
                 </button>
@@ -292,37 +393,38 @@ const Dashboard = () => {
               <PopoverContent className="w-80 p-0 mr-4 shadow-xl border-gray-100 rounded-xl overflow-hidden" align="end">
                 <div className="p-4 bg-[#56212f] text-white flex items-center justify-between">
                   <span className="font-semibold text-sm">Notificaciones</span>
-                  {notifications.length > 0 && (
+                  {noLeidas > 0 && (
                     <span className="bg-[#BC955B] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {notifications.length} Nuevas
+                      {noLeidas} Nuevas
                     </span>
                   )}
                 </div>
                 <div className="max-h-[300px] overflow-y-auto p-2 space-y-1.5 bg-gray-50">
-                  {notifications.length === 0 ? (
+                  {notificaciones.length === 0 ? (
                     <div className="py-8 text-center text-gray-400 text-xs font-medium">
                       No tienes notificaciones pendientes.
                     </div>
                   ) : (
-                    notifications.map((n) => (
-                      <div key={n.id} className={`bg-white border border-gray-100 rounded-lg p-3 flex items-start gap-2.5 shadow-sm`}>
-                        {n.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" /> :
-                          n.type === "warning" ? <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" /> :
-                            <Bell className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />}
+                    notificaciones.map((n) => (
+                      <div key={n.id} className={`bg-white border border-gray-100 rounded-lg p-3 flex items-start gap-2.5 shadow-sm ${n.leida ? "opacity-60" : ""}`}>
+                        {n.titulo?.includes("Aprobado") ? <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" /> :
+                         n.titulo?.includes("Rechazado") ? <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" /> :
+                         <Bell className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] leading-snug text-gray-700 font-medium">{n.message}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{n.time}</p>
+                          <p className="text-[12px] leading-snug text-gray-700 font-medium">{n.titulo}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{n.mensaje}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString("es-MX")}</p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-                {notifications.length > 0 && (
+                {notificaciones.length > 0 && (
                   <div className="p-2 bg-white border-t border-gray-100">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleNotificationRead}
+                      onClick={() => marcarTodas.mutate()}
                       className="w-full text-xs font-semibold text-[#56212f] hover:bg-gray-50 hover:text-[#8a2036]"
                     >
                       Marcar todas como leídas
@@ -355,11 +457,13 @@ const Dashboard = () => {
 
           {/* Sub-Navigation Tabs */}
           <div className="flex gap-8 border-b border-gray-200 mb-6">
-            {(["overview", "documents", "requisitos"] as const).map((tab) => {
+            {(["overview", "documents", "requisitos", "asesores", "dictamen"] as const).map((tab) => {
               const labels = {
                 overview: "Resumen",
                 documents: "Documentos",
-                requisitos: "Requisitos"
+                requisitos: "Requisitos",
+                asesores: "Asesores",
+                dictamen: "Dictamen"
               };
               const isActive = activeTab === tab;
               return (
@@ -383,6 +487,19 @@ const Dashboard = () => {
 
             {activeTab === "overview" && (
               <div className="space-y-6 animate-fade-in">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#56212f]" />
+                    <span className="ml-3 text-gray-500">Cargando tu trámite...</span>
+                  </div>
+                ) : !tramite ? (
+                  <BracketCard className="text-center py-12">
+                    <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                    <h3 className="font-bold text-[#56212f] mb-2">Sin trámite activo</h3>
+                    <p className="text-sm text-gray-500">No se encontró un trámite de titulación activo. Contacta a Control Escolar.</p>
+                  </BracketCard>
+                ) : (
+                  <>
 
                 {/* Progress Card (Matching styling of burgundy box) */}
                 <div className="bg-[#56212f] text-white rounded-lg p-6 md:p-8 shadow-md">
@@ -394,12 +511,29 @@ const Dashboard = () => {
                   {/* Progress bar track & fill */}
                   <div className="w-full h-3 bg-[#3f1621] rounded-full overflow-hidden mb-5">
                     <div
-                      className="h-full bg-[#BC955B] transition-all duration-700 ease-out rounded-full"
+                      className={`h-full transition-all duration-700 ease-out rounded-full ${
+                        semaforoColor === "verde" ? "bg-emerald-400" :
+                        semaforoColor === "rojo" ? "bg-rose-400" :
+                        "bg-[#BC955B]"
+                      }`}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
 
-                  <p className="text-white/80 text-xs md:text-sm tracking-wide leading-relaxed font-light">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      semaforoColor === "verde" ? "bg-emerald-400" :
+                      semaforoColor === "rojo" ? "bg-rose-400" :
+                      "bg-amber-400"
+                    }`} />
+                    <span className="text-white/80 text-sm font-medium">
+                      {semaforoColor === "verde" ? "Trámite Aprobado" :
+                       semaforoColor === "rojo" ? "Documentos Rechazados — Corrige y vuelve a subir" :
+                       "Trámite en Proceso"}
+                    </span>
+                  </div>
+
+                  <p className="text-white/80 text-xs md:text-sm tracking-wide leading-relaxed font-light mt-2">
                     Has completado {approvedCount} de {totalCount} requisitos para tu proceso de titulación. Sigue avanzando para finalizar.
                   </p>
                 </div>
@@ -432,6 +566,38 @@ const Dashboard = () => {
                   </BracketCard>
 
                 </div>
+
+                {/* Línea de tiempo del trámite */}
+                {historial.length > 0 && (
+                  <BracketCard className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#BC955B]" />
+                      <h3 className="font-bold text-sm text-[#56212f] uppercase tracking-wider">Historial de tu trámite</h3>
+                    </div>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {historial.slice(0, 10).map((entry) => (
+                        <div key={entry.id} className="flex gap-3 text-xs">
+                          <div className="flex flex-col items-center">
+                            <div className={`w-2 h-2 rounded-full mt-1.5 ${
+                              entry.estado_nuevo === "aprobado" ? "bg-emerald-500" :
+                              entry.estado_nuevo === "rechazado" ? "bg-rose-500" :
+                              entry.estado_nuevo === "cargado" ? "bg-blue-500" :
+                              "bg-amber-500"
+                            }`} />
+                            <div className="w-px flex-1 bg-gray-200 mt-1" />
+                          </div>
+                          <div className="pb-3 flex-1">
+                            <p className="font-medium text-gray-700">{entry.comentario}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {new Date(entry.fecha).toLocaleString("es-MX")}
+                              {entry.usuario_nombre ? ` — ${entry.usuario_nombre}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </BracketCard>
+                )}
 
                 {/* Quick Action Cards (2x2 Grid) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -502,6 +668,8 @@ const Dashboard = () => {
 
                 </div>
 
+                  </>
+                )}
               </div>
             )}
 
@@ -515,56 +683,118 @@ const Dashboard = () => {
                   <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
                     <div>
                       <h3 className="font-bold text-base md:text-lg text-[#56212f]">Documentos Requeridos</h3>
-                      <p className="text-xs text-gray-500 mt-1">Sube tus archivos oficiales en formato PDF para validación.</p>
-                    </div>
-                    <div>
-                      {/* Hidden File Input */}
-                      <input
-                        type="file"
-                        id="document-upload"
-                        accept=".pdf,image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                      <label htmlFor="document-upload">
-                        <Button
-                          asChild
-                          className="bg-[#56212f] hover:bg-[#8a2036] text-white gap-2 font-semibold text-xs tracking-wider cursor-pointer"
-                        >
-                          <span>
-                            <Upload className="w-3.5 h-3.5" /> SUBIR DOCUMENTO
-                          </span>
-                        </Button>
-                      </label>
+                      <p className="text-xs text-gray-500 mt-1">Sube cada archivo en el formato indicado (máx según tipo de documento).</p>
                     </div>
                   </div>
 
                   {/* Document Items List */}
                   <div className="divide-y divide-gray-100">
-                    {documents.map((doc) => (
-                      <div key={doc.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-5 hover:bg-gray-50/50 transition-colors gap-3">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <FileText className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs md:text-sm font-semibold text-gray-700 truncate">{doc.name}</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Fecha de carga: {doc.date}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 sm:self-center self-end">
-                          <div className="flex items-center gap-1.5">
-                            {statusIcon[doc.status as keyof typeof statusIcon]}
-                            <Badge
-                              className={`text-[10px] font-semibold px-2 py-0.5 border border-transparent tracking-wide ${doc.status === "approved" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                  doc.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                    "bg-rose-50 text-rose-700 border-rose-200"
-                                }`}
-                            >
-                              {statusLabel[doc.status as keyof typeof statusLabel]}
-                            </Badge>
-                          </div>
-                        </div>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#56212f]" />
+                        <span className="ml-2 text-sm text-gray-500">Cargando documentos...</span>
                       </div>
-                    ))}
+                    ) : (tramite?.documentos || []).length === 0 ? (
+                      <div className="py-12 text-center text-gray-400 text-xs">
+                        No se encontraron documentos para tu trámite.
+                      </div>
+                    ) : (
+                      (tramite?.documentos || []).map((doc) => {
+                        const puedeSubir = doc.estatus === "pendiente" && !doc.bloqueado;
+                        const puedeVer = doc.estatus !== "pendiente" && doc.id !== null;
+
+                        return (
+                        <div
+                          key={doc.tipo_documento_id}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-5 transition-colors gap-3 ${doc.bloqueado ? "bg-gray-100/50 opacity-60" : "hover:bg-gray-50/50"}`}
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <FileText className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs md:text-sm font-semibold text-gray-700 truncate">
+                                {doc.tipo_documento_nombre}
+                                {doc.tipo_documento_obligatorio === 1 && (
+                                  <span className="ml-1 text-[10px] text-rose-500">*</span>
+                                )}
+                              </p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {doc.fecha_subida
+                                  ? `Subido: ${new Date(doc.fecha_subida).toLocaleDateString("es-MX")} | ${doc.archivo_nombre || ""}`
+                                  : doc.bloqueado
+                                    ? doc.motivo_bloqueo
+                                    : "Aún no subido — " + doc.formato_permitido + " (máx " + doc.tamaño_max_mb + " MB)"}
+                              </p>
+                              {doc.estatus === "rechazado" && doc.motivo_rechazo && (
+                                <p className="text-[10px] text-rose-600 mt-0.5 font-medium">
+                                  Motivo: {doc.motivo_rechazo}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 sm:self-center self-end">
+                            <div className="flex items-center gap-1.5">
+                              {statusIcon[doc.estatus] || <Clock className="w-4 h-4 text-gray-400" />}
+                              <Badge
+                                className={`text-[10px] font-semibold px-2 py-0.5 border border-transparent tracking-wide ${
+                                  doc.estatus === "aprobado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                  doc.estatus === "rechazado" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                                  doc.estatus === "cargado" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                  doc.estatus === "en_revision" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                  "bg-gray-50 text-gray-600 border-gray-200"
+                                }`}
+                              >
+                                {statusLabel[doc.estatus] || "Pendiente"}
+                              </Badge>
+                            </div>
+                            {/* Botón Subir o Ver */}
+                            {puedeSubir && (
+                              <>
+                                <input
+                                  type="file"
+                                  id={`upload-${doc.tipo_documento_id}`}
+                                  accept={doc.formato_permitido.split(",").map(f => f.trim() === "PDF" ? ".pdf" : f.trim() === "JPEG" ? ".jpg,.jpeg" : f.trim() === "PNG" ? ".png" : ".pdf").join(",")}
+                                  onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                      handleUploadForDoc(doc.tipo_documento_id, doc.tipo_documento_nombre, e.target.files[0]);
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                                <label htmlFor={`upload-${doc.tipo_documento_id}`}>
+                                  <Button
+                                    size="sm"
+                                    disabled={isUploading}
+                                    className="bg-[#56212f] hover:bg-[#8a2036] text-white text-[10px] h-7 px-3 cursor-pointer"
+                                    asChild
+                                  >
+                                    <span>
+                                      {isUploading ? (
+                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Upload className="w-3 h-3 mr-1" />
+                                      )}
+                                      Subir
+                                    </span>
+                                  </Button>
+                                </label>
+                              </>
+                            )}
+                            {puedeVer && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDownload(doc.id!)}
+                                className="text-[10px] h-7 px-3 border-[#56212f] text-[#56212f] hover:bg-[#56212f]/10"
+                              >
+                                <FileText className="w-3 h-3 mr-1" />
+                                Ver
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )})
+                    )}
                   </div>
 
                 </BracketCard>
@@ -575,42 +805,250 @@ const Dashboard = () => {
             {activeTab === "requisitos" && (
               <div className="animate-fade-in space-y-6">
 
-                {/* Requirements info card */}
-                <BracketCard className="space-y-6">
+                {/* Especificaciones de Fotografía (informativo) */}
+                <BracketCard className="space-y-4">
                   <div>
-                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-2">Requisitos de Titulación</h3>
-                    <p className="text-gray-500 text-xs md:text-sm leading-relaxed max-w-3xl">
-                      A continuación se muestra el flujograma y los requisitos necesarios para iniciar tu proceso de titulación.
-                      Puedes consultar esta información en cualquier momento.
+                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-1">Especificaciones de Fotografía</h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Requisitos obligatorios para tu fotografía tamaño miñón. Si no cumples, será rechazada.
                     </p>
                   </div>
-
-                  {/* Flowcharts */}
-                  <div className="flex flex-col gap-6 items-center justify-center w-full bg-gray-50/50 p-4 rounded-lg border border-gray-100">
-                    <img
-                      src={reqImage1}
-                      alt="Infografía de Requisitos Parte 1"
-                      className="w-full max-w-4xl h-auto object-contain mx-auto rounded-lg shadow-sm border border-gray-100"
-                    />
-                    <img
-                      src={reqImage2}
-                      alt="Infografía de Requisitos Parte 2"
-                      className="w-full max-w-4xl h-auto object-contain mx-auto rounded-lg shadow-sm border border-gray-100"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {[
+                      "Tamaño miñón (4.5 × 3.5 cm)",
+                      "Fondo blanco mate (sin brillos ni sombras)",
+                      "Camisa blanca formal",
+                      "Saco oscuro (negro o azul marino)",
+                      "Sin maquillaje visible",
+                      "Sin patillas largas (corte escolar)",
+                      "Sin lentes (ni oscuros ni de aumento)",
+                      "Frente completamente descubierta (sin fleco sobre cejas)",
+                      "Sin retoques digitales ni filtros",
+                      "Iluminación uniforme (sin sombras en el rostro)",
+                      "Pose frontal (mirando directamente a la cámara)",
+                      "Papel fotográfico mate (no brillante)",
+                    ].map((req, i) => (
+                      <div key={i} className="flex items-center gap-2 p-1.5 text-xs text-gray-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#BC955B] flex-shrink-0" />
+                        {req}
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Download button */}
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      onClick={handleDownloadPDF}
-                      className="bg-transparent hover:bg-gray-50 text-[#56212f] border border-[#56212f] hover:text-[#8a2036] font-semibold text-xs tracking-wider"
-                      variant="outline"
-                    >
-                      Descargar PDF
-                    </Button>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-800">
+                    <strong>Importante:</strong> Las fotografías que no cumplan con estas especificaciones serán rechazadas por el comité de titulación. Deberás repetir el gasto y volver a subirlas.
                   </div>
                 </BracketCard>
 
+                {/* Requisitos por Documento (datos reales del trámite) */}
+                <BracketCard className="space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-1">Requisitos por Documento</h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Formatos aceptados y tamaños máximos para cada documento de tu trámite de {tramite?.opcion_titulacion || "titulación"}.
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-200 text-left">
+                          <th className="py-2 pr-4 font-semibold text-gray-700">Documento</th>
+                          <th className="py-2 pr-4 font-semibold text-gray-700">Formato</th>
+                          <th className="py-2 font-semibold text-gray-700">Tamaño máx</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(tramite?.documentos || []).map((doc) => (
+                          <tr key={doc.tipo_documento_id} className="border-b border-gray-100">
+                            <td className="py-2 pr-4 text-gray-600">
+                              {doc.tipo_documento_nombre}
+                              {doc.tipo_documento_obligatorio === 1 && <span className="text-rose-500 ml-0.5">*</span>}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{doc.formato_permitido}</span>
+                            </td>
+                            <td className="py-2 text-gray-600">{doc.tamaño_max_mb} MB</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </BracketCard>
+
+                {/* Guía de Pago de Derechos */}
+                <BracketCard className="space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-1">Guía de Pago de Derechos</h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Sigue estos pasos para generar correctamente tu línea de captura en el portal estatal.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { step: 1, title: "Ingresa al portal", desc: "Accede al Portal de Servicios al Contribuyente del Estado de México: sfpya.edomexico.gob.mx" },
+                      { step: 2, title: "Selecciona el concepto", desc: "Elige 'Derechos de Titulación Nivel Superior' en el catálogo de servicios." },
+                      { step: 3, title: "Genera la línea de captura", desc: "Completa tus datos. La referencia debe contener 18 dígitos. Verifica antes de continuar." },
+                      { step: 4, title: "Realiza el pago", desc: "Paga en banco, tienda de conveniencia o banca en línea usando la línea de captura." },
+                      { step: 5, title: "Sube el comprobante", desc: "Descarga el comprobante PDF y súbelo en la sección 'Documentos' de este panel." },
+                    ].map((item) => (
+                      <div key={item.step} className="flex gap-3 p-3 bg-gray-50 rounded-lg border">
+                        <div className="w-7 h-7 rounded-full bg-[#56212f] text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          {item.step}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-[#56212f]">{item.title}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-800">
+                    <strong>Importante:</strong> La referencia bancaria debe tener exactamente 18 dígitos. Una referencia incorrecta invalidará tu pago.
+                  </div>
+                </BracketCard>
+
+              </div>
+            )}
+
+            {activeTab === "asesores" && (
+              <div className="animate-fade-in space-y-6">
+                <BracketCard className="space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-1">Mis Asesores</h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Docentes asignados a tu trámite de {tramite?.opcion_titulacion || "titulación"}. Contacta con ellos para coordinar revisiones.
+                    </p>
+                  </div>
+
+                  {!tramite?.asignaciones || tramite.asignaciones.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">Aún no tienes asesores asignados.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {tramite.asignaciones
+                        .filter((a) => a.rol_asignacion === "asesor")
+                        .map((asesor, i) => (
+                          <div key={i} className="p-4 bg-[#56212f]/5 rounded-lg border border-[#56212f]/10 flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[#56212f] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                              {asesor.nombre.charAt(0)}{asesor.apellido_paterno.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#56212f] uppercase bg-[#56212f]/10 px-2 py-0.5 rounded">Asesor</span>
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {asesor.grado_academico ? `${asesor.grado_academico} ` : ""}{asesor.nombre} {asesor.apellido_paterno}
+                                </p>
+                              </div>
+                              <a href={`mailto:${asesor.email}`} className="text-xs text-[#8a2036] hover:underline block mt-1">
+                                {asesor.email}
+                              </a>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                Coordina fechas de revisión y entrega de avances con tu asesor.
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                      {tramite.asignaciones.filter((a) => a.rol_asignacion === "sinodal").length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-[#56212f] mb-2">Sinodales</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {tramite.asignaciones
+                              .filter((a) => a.rol_asignacion === "sinodal")
+                              .map((sinodal, i) => (
+                                <div key={i} className="p-3 bg-gray-50 rounded-lg border flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full bg-[#BC955B]/20 text-[#56212f] flex items-center justify-center font-bold text-[11px] flex-shrink-0">
+                                    {sinodal.nombre.charAt(0)}{sinodal.apellido_paterno.charAt(0)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-700 truncate">
+                                      {sinodal.grado_academico ? `${sinodal.grado_academico} ` : ""}{sinodal.nombre} {sinodal.apellido_paterno}
+                                    </p>
+                                    <a href={`mailto:${sinodal.email}`} className="text-[10px] text-[#8a2036] hover:underline">
+                                      {sinodal.email}
+                                    </a>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </BracketCard>
+              </div>
+            )}
+
+            {activeTab === "dictamen" && (
+              <div className="animate-fade-in space-y-6">
+                <BracketCard className="space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg md:text-xl text-[#56212f] mb-1">Mi Dictamen</h3>
+                    <p className="text-gray-500 text-xs leading-relaxed">
+                      Resultado oficial de tu proceso de titulación emitido por el comité.
+                    </p>
+                  </div>
+
+                  {!tramite?.dictamen ? (
+                    <div className="text-center py-8">
+                      <Clock className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-gray-600">Dictamen pendiente</p>
+                      <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+                        Tu dictamen estará disponible cuando el comité termine la revisión de tu expediente y emita el resultado oficial.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className={`p-6 rounded-xl border-2 ${
+                      tramite.dictamen.resultado === "aprobado"
+                        ? "bg-emerald-50 border-emerald-300"
+                        : "bg-rose-50 border-rose-300"
+                    }`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                          tramite.dictamen.resultado === "aprobado"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-rose-100 text-rose-700"
+                        }`}>
+                          {tramite.dictamen.resultado === "aprobado" ? (
+                            <CheckCircle2 className="w-7 h-7" />
+                          ) : (
+                            <AlertCircle className="w-7 h-7" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className={`text-xl font-bold ${
+                            tramite.dictamen.resultado === "aprobado" ? "text-emerald-800" : "text-rose-800"
+                          }`}>
+                            {tramite.dictamen.resultado === "aprobado" ? "Trámite Aprobado" : "Trámite Rechazado"}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            Emitido por {tramite.dictamen.emitido_por} el {new Date(tramite.dictamen.fecha_emision).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {tramite.dictamen.observaciones && (
+                        <div className={`p-3 rounded-lg text-sm ${
+                          tramite.dictamen.resultado === "aprobado"
+                            ? "bg-emerald-100/50 text-emerald-800"
+                            : "bg-rose-100/50 text-rose-800"
+                        }`}>
+                          <strong>Observaciones:</strong> {tramite.dictamen.observaciones}
+                        </div>
+                      )}
+
+                      {tramite.dictamen.resultado === "aprobado" && (
+                        <div className="mt-4 bg-white rounded-lg p-3 border border-emerald-200 text-xs text-emerald-700">
+                          <strong>Próximo paso:</strong> Acude a ventanilla de Control Escolar en horario 08:00–14:00 hrs para continuar con el trámite presencial de titulación.
+                        </div>
+                      )}
+
+                      {tramite.dictamen.resultado === "rechazado" && (
+                        <div className="mt-4 bg-white rounded-lg p-3 border border-rose-200 text-xs text-rose-700">
+                          <strong>Importante:</strong> Revisa las observaciones, corrige los documentos señalados y contacta a tu asesor o Control Escolar para continuar con el proceso.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </BracketCard>
               </div>
             )}
 
@@ -633,81 +1071,12 @@ const Dashboard = () => {
 
       {/* Directory Dialog (Modal overlay) */}
       {isDirectorioOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <BracketCard className="w-full max-w-lg bg-white relative animate-scale-in max-h-[90vh] overflow-y-auto">
-            {/* Close Button */}
-            <button
-              onClick={() => setIsDirectorioOpen(false)}
-              className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-[#56212f] hover:bg-gray-100 rounded-full transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <DirectorioModal onClose={() => setIsDirectorioOpen(false)} />
+      )}
 
-            <div className="space-y-4">
-              <h3 className="font-bold text-lg text-[#56212f] flex items-center gap-2 border-b pb-2">
-                <Contact className="w-5 h-5 text-[#BC955B]" />
-                <span>Directorio del Proceso de Titulación</span>
-              </h3>
-
-              <p className="text-xs text-gray-500">
-                Ponte en contacto con el personal encargado del departamento para cualquier duda sobre tus trámites.
-              </p>
-
-              <div className="space-y-3.5 mt-2">
-                {/* Contact 1 */}
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-sm mt-0.5">
-                    JE
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-700">Jefatura de División (SCA-ISC)</h4>
-                    <p className="text-[11px] text-gray-500">Ing. Elena Romero Flores</p>
-                    <a href="mailto:sistemas@tesch.edu.mx" className="text-[11px] text-[#8a2036] hover:underline font-semibold block mt-0.5">
-                      sistemas@tesch.edu.mx
-                    </a>
-                  </div>
-                </div>
-
-                {/* Contact 2 */}
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-sm mt-0.5">
-                    CE
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-700">Control Escolar (Trámites)</h4>
-                    <p className="text-[11px] text-gray-500">Lic. Roberto Sánchez Pérez</p>
-                    <a href="mailto:controlescolar@tesch.edu.mx" className="text-[11px] text-[#8a2036] hover:underline font-semibold block mt-0.5">
-                      controlescolar@tesch.edu.mx
-                    </a>
-                  </div>
-                </div>
-
-                {/* Contact 3 */}
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-sm mt-0.5">
-                    CJ
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-700">Caja y Finanzas (Pagos)</h4>
-                    <p className="text-[11px] text-gray-500">Área de Tesorería General</p>
-                    <a href="mailto:caja@tesch.edu.mx" className="text-[11px] text-[#8a2036] hover:underline font-semibold block mt-0.5">
-                      caja@tesch.edu.mx
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-3">
-                <Button
-                  onClick={() => setIsDirectorioOpen(false)}
-                  className="bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold text-xs tracking-wider px-5"
-                >
-                  Cerrar
-                </Button>
-              </div>
-            </div>
-          </BracketCard>
-        </div>
+      {/* ARCO Request Modal */}
+      {isArcoOpen && (
+        <ArcoModal onClose={() => setIsArcoOpen(false)} />
       )}
 
     </div>
