@@ -1,43 +1,60 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, GraduationCap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, GraduationCap, Mail, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/tescha-logo.svg";
 import heroImage from "@/assets/banner-tescha.jpeg";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
+  const [numeroControl, setNumeroControl] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showRegistroModal, setShowRegistroModal] = useState(false);
+  const [contactos, setContactos] = useState<{ id: number; nombre: string; cargo: string; departamento: string; email: string | null; extension: string | null }[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    fetch("/api/directorio")
+      .then((r) => r.json())
+      .then((data) => setContactos(
+        data.filter((c: { departamento: string }) =>
+          c.departamento.includes("Control Escolar") ||
+          c.departamento.includes("Jefatura")
+        )
+      ));
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const validDomain = "@tesch.edu.mx";
-    if (!email.toLowerCase().endsWith(validDomain)) {
-      toast({ 
-        title: "Dominio no autorizado", 
-        description: `Para registrarte e ingresar, debes usar exclusivamente una cuenta institucional que termine en ${validDomain}.`,
-        className: "bg-primary text-primary-foreground border-primary-foreground/20"
+    setLoading(true);
+
+    const result = await login(numeroControl, password);
+    setLoading(false);
+
+    if (result.error) {
+      toast({
+        title: result.bloqueado ? "Cuenta bloqueada" : "Error de autenticación",
+        description: result.error,
+        className: "bg-destructive text-destructive-foreground border-destructive-foreground/20",
       });
       return;
     }
 
-    setLoading(true);
-    // Simulate login
-    setTimeout(() => {
-      setLoading(false);
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("userEmail", email);
-      toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
+    toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente." });
+    if (result.usuario?.rol === "administrativo") {
+      navigate("/admin", { replace: true });
+    } else if (result.usuario?.rol === "asesor") {
       navigate("/dashboard", { replace: true });
-    }, 1000);
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
   };
 
 
@@ -58,7 +75,7 @@ const Login = () => {
           
           <div className="max-w-md text-center relative z-10">
             <div className="p-4 bg-white/5 rounded-3xl backdrop-blur-sm border border-white/10 inline-block mb-8 shadow-xl">
-              <img src={logo} alt="TESCHA" className="h-28 w-28 mx-auto drop-shadow-md hover:scale-105 transition-transform duration-500" />
+                <img src={logo} alt="Escudo del Tecnológico de Estudios Superiores de Chalco" className="h-28 w-28 mx-auto drop-shadow-md hover:scale-105 transition-transform duration-500" />
             </div>
             
             <h1 className="font-display text-4xl lg:text-5xl font-bold text-primary-foreground mb-6 drop-shadow-sm leading-tight">
@@ -93,13 +110,13 @@ const Login = () => {
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="font-body text-sm font-medium">Correo Institucional</Label>
+              <Label htmlFor="numero-control" className="font-body text-sm font-medium">Número de Control</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="ejemplo@tesch.edu.mx"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="numero-control"
+                type="text"
+                placeholder="2021-0001"
+                value={numeroControl}
+                onChange={(e) => setNumeroControl(e.target.value)}
                 required
                 className="h-11"
               />
@@ -140,14 +157,79 @@ const Login = () => {
           <div className="mt-6 text-center">
             <p className="text-muted-foreground font-body text-sm">
               ¿No tienes cuenta?{" "}
-              <Link to="/" className="text-accent font-medium hover:underline">
-                Contacta a tu coordinación
-              </Link>
+              <button
+                type="button"
+                onClick={() => setShowRegistroModal(true)}
+                className="text-accent font-medium hover:underline bg-transparent border-0 cursor-pointer"
+              >
+                Solicita tu acceso aquí
+              </button>
             </p>
           </div>
         </div>
       </div>
-      
+       
+      {/* Modal de registro */}
+      {showRegistroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
+            <div className="bg-[#56212f] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <GraduationCap className="w-6 h-6 text-[#BC955B]" />
+                <div>
+                  <h2 className="font-display text-lg font-bold">¿Cómo obtener acceso?</h2>
+                  <p className="text-white/70 text-xs">Registro gestionado por la institución</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRegistroModal(false)} className="text-white/60 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                El registro en el sistema es <strong>exclusivamente institucional</strong>. Para solicitar tu alta,
+                envía un correo a alguno de los siguientes contactos incluyendo tu <strong>número de control</strong> y <strong>nombre completo</strong>.
+              </p>
+
+              <div className="space-y-3">
+                {contactos.map((c) => (
+                  <div key={c.id} className="p-3 bg-gray-50 rounded-lg border flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      {c.nombre.split(" ").filter((w: string) => w.length > 1).slice(0, 2).map((w: string) => w[0]).join("")}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-700">{c.nombre}</p>
+                      <p className="text-xs text-gray-500">{c.cargo} — {c.departamento}</p>
+                      {c.email && (
+                        <a href={`mailto:${c.email}?subject=Solicitud de alta - SCA-ISC&body=Estimado/a, solicito mi alta en el Sistema de Titulación.%0D%0A%0D%0ANúmero de control: %0D%0ANombre completo: %0D%0A`}
+                          className="text-xs text-[#8a2036] hover:underline font-semibold flex items-center gap-1 mt-1">
+                          <Mail className="w-3 h-3" /> {c.email}
+                        </a>
+                      )}
+                      {c.extension && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">Ext. {c.extension}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+                <strong>Importante:</strong> Solo el personal autorizado (Control Escolar y Jefatura de División) puede dar de alta nuevos usuarios en la plataforma.
+              </div>
+
+              <Button
+                onClick={() => setShowRegistroModal(false)}
+                className="w-full bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold"
+              >
+                Entendido
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   </div>
   );
