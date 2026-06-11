@@ -1,124 +1,155 @@
 import { useState } from "react";
-import { ClipboardCheck, Send, FileText, CheckCircle2, Clock } from "lucide-react";
+import { ClipboardCheck, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 
-const candidates = [
-  { id: "EXP-001", name: "María García López", modalidad: "Tesis", docsComplete: true },
-  { id: "EXP-005", name: "Rosa Jiménez Castro", modalidad: "Promedio", docsComplete: true },
-];
-
-const emitted = [
-  { id: "DICT-001", student: "Fernando Reyes", result: "Aprobado", date: "28/03/2026", modalidad: "EGEL" },
-  { id: "DICT-002", student: "Lucía Morales", result: "Aprobado", date: "25/03/2026", modalidad: "Tesis" },
-  { id: "DICT-003", student: "Jorge Vázquez", result: "Condicionado", date: "20/03/2026", modalidad: "Residencia" },
-];
-
 const AdminDictamenes = () => {
-  const [selectedCandidate, setSelectedCandidate] = useState("");
-  const [result, setResult] = useState("");
-  const [observations, setObservations] = useState("");
+  const [tramiteId, setTramiteId] = useState<string>("");
+  const [resultado, setResultado] = useState<string>("aprobado");
+  const [observaciones, setObservaciones] = useState("");
+  const { listarExpedientes, emitirDictamen } = useAdmin();
   const { toast } = useToast();
 
-  const handleEmit = () => {
-    if (!selectedCandidate || !result) return;
-    toast({ title: "Dictamen emitido", description: "El dictamen ha sido registrado y notificado al egresado." });
-    setSelectedCandidate("");
-    setResult("");
-    setObservations("");
+  const { data, isLoading } = listarExpedientes({ page: 1 });
+
+  const candidatos = data?.expedientes.filter(
+    (e) => e.estatus === "aprobado" || e.estatus === "en_revision"
+  ) || [];
+
+  const handleEmitir = () => {
+    if (!tramiteId) return;
+    emitirDictamen.mutate(
+      {
+        tramite_id: parseInt(tramiteId),
+        resultado: resultado as "aprobado" | "rechazado",
+        observaciones: observaciones.trim(),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Dictamen emitido", description: "El dictamen ha sido registrado correctamente." });
+          setTramiteId("");
+          setObservaciones("");
+        },
+        onError: (err: Error) => {
+          toast({ title: "Error", description: err.message, className: "bg-destructive text-destructive-foreground" });
+        },
+      }
+    );
   };
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">Dictámenes</h1>
-        <p className="text-muted-foreground font-body text-sm">Emite y consulta dictámenes de titulación</p>
+        <p className="text-muted-foreground font-body text-sm">Emite dictámenes oficiales de titulación</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Emit */}
-        <Card className="border-accent/30">
-          <CardHeader>
-            <CardTitle className="font-display text-lg flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-accent" /> Emitir Dictamen
-            </CardTitle>
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base">Emitir Dictamen</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Egresado</label>
-              <Select value={selectedCandidate} onValueChange={setSelectedCandidate}>
-                <SelectTrigger className="font-body">
-                  <SelectValue placeholder="Seleccionar egresado..." />
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Selecciona el trámite</label>
+              <Select value={tramiteId} onValueChange={setTramiteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Elige un trámite aprobado/en revisión..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {candidates.map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="font-body">
-                      {c.name} — {c.modalidad}
+                  {candidatos.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.numero_control} — {c.nombre_completo} ({c.porcentaje}%)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Resultado</label>
-              <Select value={result} onValueChange={setResult}>
-                <SelectTrigger className="font-body">
-                  <SelectValue placeholder="Seleccionar resultado..." />
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Resultado</label>
+              <Select value={resultado} onValueChange={setResultado}>
+                <SelectTrigger>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="aprobado" className="font-body">Aprobado</SelectItem>
-                  <SelectItem value="condicionado" className="font-body">Condicionado</SelectItem>
-                  <SelectItem value="no_aprobado" className="font-body">No aprobado</SelectItem>
+                  <SelectItem value="aprobado">Aprobado</SelectItem>
+                  <SelectItem value="rechazado">Rechazado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="font-body text-sm font-medium text-foreground mb-1.5 block">Observaciones</label>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Observaciones</label>
               <Textarea
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                placeholder="Escriba las observaciones del dictamen..."
-                className="font-body text-sm min-h-[100px]"
+                placeholder="Observaciones del dictamen..."
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                rows={3}
               />
             </div>
+
             <Button
-              className="w-full bg-primary text-primary-foreground hover:bg-navy-light gap-2 font-body"
-              onClick={handleEmit}
-              disabled={!selectedCandidate || !result}
+              className="w-full bg-navy text-white hover:bg-navy/90"
+              disabled={!tramiteId || emitirDictamen.isPending}
+              onClick={handleEmitir}
             >
-              <Send className="w-4 h-4" /> Emitir Dictamen
+              {emitirDictamen.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ClipboardCheck className="w-4 h-4 mr-2" />
+              )}
+              Emitir Dictamen
             </Button>
           </CardContent>
         </Card>
 
-        {/* History */}
         <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="font-display text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5 text-muted-foreground" /> Dictámenes Emitidos
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base">Expedientes disponibles</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {emitted.map((d) => (
-                <div key={d.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${d.result === "Aprobado" ? "text-success" : "text-warning"}`} />
-                    <div>
-                      <p className="font-body text-sm font-medium text-foreground">{d.student}</p>
-                      <p className="font-body text-xs text-muted-foreground">{d.modalidad} · {d.date}</p>
+            {isLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {candidatos.map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => setTramiteId(String(c.id))}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      tramiteId === String(c.id)
+                        ? "border-navy bg-navy/5"
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold">{c.nombre_completo}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {c.numero_control} · {c.opcion_titulacion}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={`text-[10px] ${
+                          c.color_semaforo === "verde" ? "bg-emerald-100 text-emerald-700" :
+                          "bg-amber-100 text-amber-700"
+                        }`}>
+                          {c.porcentaje}%
+                        </Badge>
+                      </div>
                     </div>
+                    <Progress value={c.porcentaje} className="h-1 mt-2" />
                   </div>
-                  <Badge variant={d.result === "Aprobado" ? "default" : "secondary"} className="font-body text-[10px]">
-                    {d.result}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,148 +1,239 @@
 import { useState } from "react";
-import { Search, Eye, Filter, ChevronDown } from "lucide-react";
+import { Search, ArrowUpDown, Eye, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAdmin } from "@/hooks/useAdmin";
 
-const expedientes = [
-  { id: "EXP-001", name: "María García López", matricula: "20190001", modalidad: "Tesis", progress: 100, status: "listo", docs: 5 },
-  { id: "EXP-002", name: "Carlos Hernández Ruiz", matricula: "20190015", modalidad: "EGEL", progress: 80, status: "revision", docs: 4 },
-  { id: "EXP-003", name: "Ana Martínez Torres", matricula: "20190023", modalidad: "Residencia", progress: 60, status: "documentacion", docs: 3 },
-  { id: "EXP-004", name: "Luis Sánchez Pérez", matricula: "20190042", modalidad: "Tesis", progress: 40, status: "documentacion", docs: 2 },
-  { id: "EXP-005", name: "Rosa Jiménez Castro", matricula: "20190055", modalidad: "Promedio", progress: 100, status: "dictamen", docs: 5 },
-  { id: "EXP-006", name: "Pedro López Díaz", matricula: "20190061", modalidad: "EGEL", progress: 20, status: "registro", docs: 1 },
-];
-
-const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  registro: { label: "Registro", variant: "secondary" },
-  documentacion: { label: "Documentación", variant: "outline" },
-  revision: { label: "En revisión", variant: "outline" },
-  listo: { label: "Listo", variant: "default" },
-  dictamen: { label: "Dictamen", variant: "default" },
+const semaforoColor: Record<string, string> = {
+  verde: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  ambar: "bg-amber-100 text-amber-800 border-amber-200",
+  rojo: "bg-rose-100 text-rose-800 border-rose-200",
 };
 
 const AdminExpedientes = () => {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<typeof expedientes[0] | null>(null);
+  const [estatusFilter, setEstatusFilter] = useState("todos");
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const filtered = expedientes.filter(
-    (e) => e.name.toLowerCase().includes(search.toLowerCase()) || e.matricula.includes(search)
-  );
+  const { listarExpedientes, detalleExpediente, aprobarDoc, rechazarDoc } = useAdmin();
+
+  const { data, isLoading } = listarExpedientes({
+    search: search || undefined,
+    estatus: estatusFilter === "todos" ? undefined : estatusFilter,
+    page,
+  });
+
+  const detalle = detalleExpediente(selectedId);
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Expedientes</h1>
-          <p className="text-muted-foreground font-body text-sm">{expedientes.length} egresados registrados</p>
-        </div>
-        <div className="flex gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre o matrícula..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-64 h-9 font-body text-sm"
-            />
-          </div>
-          <Button variant="outline" size="sm" className="gap-1 font-body">
-            <Filter className="w-3.5 h-3.5" /> Filtrar <ChevronDown className="w-3 h-3" />
-          </Button>
-        </div>
+      <div>
+        <h1 className="font-display text-2xl font-bold text-foreground">Expedientes</h1>
+        <p className="text-muted-foreground font-body text-sm">Gestiona los trámites de titulación</p>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por número de control o nombre..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9"
+          />
+        </div>
+        <Select value={estatusFilter} onValueChange={(v) => { setEstatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Todos los estados" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="en_proceso">En Proceso</SelectItem>
+            <SelectItem value="en_revision">En Revisión</SelectItem>
+            <SelectItem value="aprobado">Aprobado</SelectItem>
+            <SelectItem value="rechazado">Rechazado</SelectItem>
+            <SelectItem value="completado">Completado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="font-body text-xs font-semibold">ID</TableHead>
-              <TableHead className="font-body text-xs font-semibold">Egresado</TableHead>
-              <TableHead className="font-body text-xs font-semibold">Matrícula</TableHead>
-              <TableHead className="font-body text-xs font-semibold">Modalidad</TableHead>
-              <TableHead className="font-body text-xs font-semibold">Progreso</TableHead>
-              <TableHead className="font-body text-xs font-semibold">Estatus</TableHead>
-              <TableHead className="font-body text-xs font-semibold text-right">Acciones</TableHead>
+            <TableRow>
+              <TableHead className="font-body text-xs">Matrícula</TableHead>
+              <TableHead className="font-body text-xs">Estudiante</TableHead>
+              <TableHead className="font-body text-xs">Opción</TableHead>
+              <TableHead className="font-body text-xs">Avance</TableHead>
+              <TableHead className="font-body text-xs">Estado</TableHead>
+              <TableHead className="font-body text-xs w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((exp) => (
-              <TableRow key={exp.id} className="hover:bg-muted/30">
-                <TableCell className="font-body text-sm font-mono text-muted-foreground">{exp.id}</TableCell>
-                <TableCell className="font-body text-sm font-medium">{exp.name}</TableCell>
-                <TableCell className="font-body text-sm text-muted-foreground">{exp.matricula}</TableCell>
-                <TableCell className="font-body text-sm">{exp.modalidad}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Progress value={exp.progress} className="h-1.5 w-16" />
-                    <span className="font-body text-xs text-muted-foreground">{exp.progress}%</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={statusMap[exp.status].variant} className="font-body text-[10px]">
-                    {statusMap[exp.status].label}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" className="h-7 gap-1 font-body text-xs" onClick={() => setSelected(exp)}>
-                    <Eye className="w-3.5 h-3.5" /> Ver
-                  </Button>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-navy" />
                 </TableCell>
               </TableRow>
-            ))}
+            ) : data?.expedientes.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                  No se encontraron expedientes.
+                </TableCell>
+              </TableRow>
+            ) : (
+              data?.expedientes.map((exp) => (
+                <TableRow key={exp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedId(exp.id)}>
+                  <TableCell className="font-body text-sm font-mono">{exp.numero_control}</TableCell>
+                  <TableCell className="font-body text-sm font-medium">{exp.nombre_completo}</TableCell>
+                  <TableCell className="font-body text-xs text-muted-foreground">{exp.opcion_titulacion}</TableCell>
+                  <TableCell className="w-32">
+                    <div className="flex items-center gap-2">
+                      <Progress value={exp.porcentaje} className="h-1.5 flex-1" />
+                      <span className="font-body text-[11px] text-muted-foreground w-8">{exp.porcentaje}%</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`text-[10px] ${semaforoColor[exp.color_semaforo] || "bg-gray-100"}`}>
+                      {exp.estatus.replace(/_/g, " ")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Eye className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg">
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            Página {data.page} de {data.totalPages} ({data.total} expedientes)
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              Anterior
+            </Button>
+            <Button size="sm" variant="outline" disabled={page >= data.totalPages} onClick={() => setPage(p => p + 1)}>
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Expediente {selected?.id}</DialogTitle>
-            <DialogDescription className="font-body">Detalle del expediente de titulación</DialogDescription>
+            <DialogTitle className="font-display text-lg">
+              Expediente {detalle.data?.id}
+              <span className="ml-2 text-sm text-muted-foreground font-normal">
+                — {detalle.data?.opcion_titulacion}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="font-body text-sm">
+              {detalle.data?.titulo_proyecto || "Sin título de proyecto"}
+            </DialogDescription>
           </DialogHeader>
-          {selected && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-body text-xs text-muted-foreground">Egresado</p>
-                  <p className="font-body text-sm font-medium">{selected.name}</p>
-                </div>
-                <div>
-                  <p className="font-body text-xs text-muted-foreground">Matrícula</p>
-                  <p className="font-body text-sm font-medium">{selected.matricula}</p>
-                </div>
-                <div>
-                  <p className="font-body text-xs text-muted-foreground">Modalidad</p>
-                  <p className="font-body text-sm font-medium">{selected.modalidad}</p>
-                </div>
-                <div>
-                  <p className="font-body text-xs text-muted-foreground">Documentos</p>
-                  <p className="font-body text-sm font-medium">{selected.docs}/5 entregados</p>
-                </div>
+          {detalle.isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-3 h-3 rounded-full ${
+                  detalle.data?.progreso.color_semaforo === "verde" ? "bg-emerald-500" :
+                  detalle.data?.progreso.color_semaforo === "rojo" ? "bg-rose-500" : "bg-amber-500"
+                }`} />
+                <span className="text-xs font-medium">{detalle.data?.estatus.replace(/_/g, " ")}</span>
+                <span className="text-xs text-muted-foreground">— {detalle.data?.progreso.porcentaje}%</span>
               </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="font-body text-xs font-medium">Progreso general</span>
-                  <span className="font-body text-xs text-muted-foreground">{selected.progress}%</span>
+              {detalle.data?.documentos.map((doc) => (
+                <div
+                  key={doc.tipo_documento_id}
+                  className={`p-3 rounded-lg border flex items-center justify-between ${
+                    doc.estatus === "aprobado" ? "bg-emerald-50/50 border-emerald-200" :
+                    doc.estatus === "rechazado" ? "bg-rose-50/50 border-rose-200" :
+                    doc.estatus === "pendiente" ? "bg-gray-50/50" :
+                    "bg-blue-50/50 border-blue-100"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">
+                      {doc.tipo_documento_nombre}
+                      {doc.tipo_documento_obligatorio === 1 && <span className="text-rose-500 ml-0.5">*</span>}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {doc.fecha_subida
+                        ? `Subido: ${new Date(doc.fecha_subida).toLocaleDateString("es-MX")} | ${doc.archivo_nombre || ""}`
+                        : "No subido aún"}
+                      {doc.estatus === "rechazado" && doc.motivo_rechazo && (
+                        <span className="text-rose-600 block">Motivo: {doc.motivo_rechazo}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge className={`text-[10px] ${
+                      doc.estatus === "aprobado" ? "bg-emerald-100 text-emerald-700" :
+                      doc.estatus === "rechazado" ? "bg-rose-100 text-rose-700" :
+                      doc.estatus === "cargado" ? "bg-blue-100 text-blue-700" :
+                      doc.estatus === "en_revision" ? "bg-amber-100 text-amber-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {doc.estatus === "cargado" ? "Recibido" : doc.estatus === "en_revision" ? "En Revisión" : doc.estatus}
+                    </Badge>
+                    {doc.id && (
+                      <>
+                        {doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => aprobarDoc.mutate(doc.id!)}
+                              disabled={aprobarDoc.isPending}
+                            >
+                              Aprobar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-7 text-[10px]"
+                              onClick={() => {
+                                const motivo = prompt("Motivo del rechazo:");
+                                if (motivo) rechazarDoc.mutate({ docId: doc.id!, motivo });
+                              }}
+                              disabled={rechazarDoc.isPending}
+                            >
+                              Rechazar
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px]"
+                          onClick={() => {
+                            const token = localStorage.getItem("sca_token");
+                            window.open(`/api/tramites/${detalle.data!.id}/documentos/${doc.id}?token=${token}`, "_blank");
+                          }}
+                        >
+                          Ver
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <Progress value={selected.progress} className="h-2" />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button className="flex-1 bg-primary text-primary-foreground hover:bg-navy-light font-body" onClick={() => setSelected(null)}>
-                  Aprobar Documentos
-                </Button>
-                <Button variant="outline" className="flex-1 font-body" onClick={() => setSelected(null)}>
-                  Solicitar Corrección
-                </Button>
-              </div>
+              ))}
             </div>
           )}
         </DialogContent>

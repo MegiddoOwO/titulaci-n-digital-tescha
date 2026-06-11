@@ -3,6 +3,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/tescha-logo.svg";
 
 import {
@@ -23,13 +24,14 @@ const menuItems = [
   { title: "Expedientes", url: "/admin/expedientes", icon: Users },
   { title: "Documentos", url: "/admin/documentos", icon: FileText },
   { title: "Dictámenes", url: "/admin/dictamenes", icon: ClipboardCheck },
-  { title: "Configuración", url: "/admin/configuracion", icon: Settings },
+  { title: "Usuarios", url: "/admin/configuracion", icon: Settings },
 ];
 
 export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { usuario, logout } = useAuth();
   const isActive = (path: string) =>
     path === "/admin" ? location.pathname === "/admin" : location.pathname.startsWith(path);
 
@@ -80,12 +82,12 @@ export function AdminSidebar() {
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sidebar-foreground font-body text-sm font-medium truncate">Admin TESCHA</p>
-              <p className="text-sidebar-foreground/50 font-body text-[10px] truncate">admin@tescha.edu.mx</p>
+              <p className="text-sidebar-foreground font-body text-sm font-medium truncate">{usuario?.nombre || "Admin"} TESCHA</p>
+              <p className="text-sidebar-foreground/50 font-body text-[10px] truncate">{usuario?.email || "admin@tescha.edu.mx"}</p>
             </div>
           )}
           {!collapsed && (
-            <NavLink to="/" className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
+            <NavLink to="/" onClick={logout} className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
               <LogOut className="w-4 h-4" />
             </NavLink>
           )}
