@@ -8,6 +8,8 @@ export interface ExpedienteListItem {
   total_docs: number;
   docs_aprobados: number;
   docs_rechazados: number;
+  docs_cargados: number;
+  docs_en_revision: number;
   color_semaforo: string;
   porcentaje: number;
   fecha_inicio: string;

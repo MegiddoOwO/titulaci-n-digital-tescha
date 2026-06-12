@@ -73,6 +73,7 @@ const AdminExpedientes = () => {
               <TableHead className="font-body text-xs">Estudiante</TableHead>
               <TableHead className="font-body text-xs">Opción</TableHead>
               <TableHead className="font-body text-xs">Avance</TableHead>
+              <TableHead className="font-body text-xs">Revisión</TableHead>
               <TableHead className="font-body text-xs">Estado</TableHead>
               <TableHead className="font-body text-xs w-10"></TableHead>
             </TableRow>
@@ -101,6 +102,13 @@ const AdminExpedientes = () => {
                       <Progress value={exp.porcentaje} className="h-1.5 flex-1" />
                       <span className="font-body text-[11px] text-muted-foreground w-8">{exp.porcentaje}%</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {(exp.docs_cargados + exp.docs_en_revision) > 0 && (
+                      <Badge className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 cursor-help" title={`${exp.docs_cargados} cargados, ${exp.docs_en_revision} en revisión`}>
+                        {exp.docs_cargados + exp.docs_en_revision} por revisar
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge className={`text-[10px] ${semaforoColor[exp.color_semaforo] || "bg-gray-100"}`}>

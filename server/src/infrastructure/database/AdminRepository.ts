@@ -43,7 +43,7 @@ export class AdminRepository {
     limit: number;
   }): Promise<{ expedientes: ExpedienteListItem[]; total: number }> {
     const offset = (params.page - 1) * params.limit;
-    const conditions: string[] = ["t.activo = 1"];
+    const conditions: string[] = ["t.activo = 1", "u.rol = 'estudiante'"];
     const vals: unknown[] = [];
 
     if (params.search) {
@@ -72,6 +72,8 @@ export class AdminRepository {
         COALESCE(v.total_documentos, 0) AS total_docs,
         COALESCE(v.docs_aprobados, 0) AS docs_aprobados,
         COALESCE(v.docs_rechazados, 0) AS docs_rechazados,
+        COALESCE(v.docs_cargados, 0) AS docs_cargados,
+        COALESCE(v.docs_en_revision, 0) AS docs_en_revision,
         COALESCE(v.color_semaforo, 'ambar') AS color_semaforo,
         COALESCE(v.porcentaje_avance, 0) AS porcentaje
       FROM tramites t
@@ -332,6 +334,7 @@ export class AdminRepository {
     rol: "estudiante" | "asesor" | "administrativo";
     grado_academico?: string;
     carga_maxima?: number;
+    asesor_id?: number;
   }): Promise<{ success: boolean; id?: number; error?: string }> {
     const existente = await query<{ id: number }[]>(
       "SELECT id FROM usuarios WHERE numero_control = ? OR email = ?",
@@ -348,16 +351,93 @@ export class AdminRepository {
        data.apellido_materno || null, data.rol, data.grado_academico || null,
        data.rol === "asesor" ? (data.carga_maxima || 5) : null]
     );
+
+    // Si es estudiante, crear trámite y documentos pendientes automáticamente
+    if (data.rol === "estudiante") {
+      const tramite = await query<{ insertId: number }>(
+        "INSERT INTO tramites (usuario_id, opcion_titulacion_id, estatus) VALUES (?, 1, 'en_proceso')",
+        [result.insertId]
+      );
+      await query(
+        `INSERT INTO documentos (tramite_id, tipo_documento_id, estatus)
+         SELECT ?, td.id, 'pendiente'
+         FROM tipos_documento td
+         WHERE (td.opcion_titulacion_id IS NULL OR td.opcion_titulacion_id = 1)
+           AND td.activo = 1`,
+        [tramite.insertId]
+      );
+
+      // Asignar asesor si se especificó
+      if (data.asesor_id) {
+        const carga = await query<{ carga_maxima: number; carga_actual: number }[]>(
+          "SELECT carga_maxima, carga_actual FROM vw_carga_docente WHERE docente_id = ?",
+          [data.asesor_id]
+        );
+        if (carga.length > 0 && carga[0].carga_actual < (carga[0].carga_maxima || 5)) {
+          await query(
+            "INSERT INTO asignaciones (tramite_id, usuario_id, rol_asignacion) VALUES (?, ?, 'asesor')",
+            [tramite.insertId, data.asesor_id]
+          );
+        }
+      }
+    }
+
     return { success: true, id: result.insertId };
   }
 
   async toggleActivo(userId: number): Promise<{ success: boolean; activo?: number; error?: string }> {
     const rows = await query<{ activo: number }[]>("SELECT activo FROM usuarios WHERE id = ?", [userId]);
     if (rows.length === 0) return { success: false, error: "Usuario no encontrado." };
-
     const nuevoEstado = rows[0].activo ? 0 : 1;
     await query("UPDATE usuarios SET activo = ?, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?", [nuevoEstado, userId]);
     return { success: true, activo: nuevoEstado };
+  }
+
+  async getUsuario(id: number) {
+    const rows = await query("SELECT * FROM usuarios WHERE id = ?", [id]);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  async actualizarUsuario(id: number, data: {
+    numero_control?: string; email?: string; password_hash?: string;
+    nombre?: string; apellido_paterno?: string; apellido_materno?: string;
+    rol?: string; grado_academico?: string; carga_maxima?: number;
+  }): Promise<{ success: boolean; error?: string }> {
+    const campos: string[] = [];
+    const vals: unknown[] = [];
+
+    if (data.numero_control !== undefined) { campos.push("numero_control = ?"); vals.push(data.numero_control); }
+    if (data.email !== undefined) { campos.push("email = ?"); vals.push(data.email); }
+    if (data.password_hash !== undefined) { campos.push("password_hash = ?"); vals.push(data.password_hash); }
+    if (data.nombre !== undefined) { campos.push("nombre = ?"); vals.push(data.nombre); }
+    if (data.apellido_paterno !== undefined) { campos.push("apellido_paterno = ?"); vals.push(data.apellido_paterno); }
+    if (data.apellido_materno !== undefined) { campos.push("apellido_materno = ?"); vals.push(data.apellido_materno); }
+    if (data.rol !== undefined) { campos.push("rol = ?"); vals.push(data.rol); }
+    if (data.grado_academico !== undefined) { campos.push("grado_academico = ?"); vals.push(data.grado_academico); }
+    if (data.carga_maxima !== undefined) { campos.push("carga_maxima = ?"); vals.push(data.carga_maxima); }
+
+    if (campos.length === 0) return { success: false, error: "No hay campos para actualizar." };
+
+    vals.push(id);
+    await query(`UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`, vals);
+    return { success: true };
+  }
+
+  async eliminarUsuario(id: number): Promise<{ success: boolean; error?: string }> {
+    const rows = await query<{ rol: string; activo: number }[]>("SELECT rol, activo FROM usuarios WHERE id = ?", [id]);
+    if (rows.length === 0) return { success: false, error: "Usuario no encontrado." };
+
+    if (rows[0].rol === "administrativo") {
+      const adminCount = await query<{ cnt: number }[]>(
+        "SELECT COUNT(*) AS cnt FROM usuarios WHERE rol = 'administrativo' AND activo = 1"
+      );
+      if (adminCount[0]?.cnt <= 1) {
+        return { success: false, error: "No se puede eliminar el último administrador activo." };
+      }
+    }
+
+    await query("DELETE FROM usuarios WHERE id = ?", [id]);
+    return { success: true };
   }
 }
 

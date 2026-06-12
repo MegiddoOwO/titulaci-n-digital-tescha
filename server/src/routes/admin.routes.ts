@@ -156,7 +156,7 @@ router.post(
   authenticate,
   authorize("administrativo"),
   async (req: Request, res: Response): Promise<void> => {
-    const { numero_control, email, password, nombre, apellido_paterno, apellido_materno, rol, grado_academico, carga_maxima } = req.body;
+    const { numero_control, email, password, nombre, apellido_paterno, apellido_materno, rol, grado_academico, carga_maxima, asesor_id } = req.body;
 
     if (!numero_control || !email || !password || !nombre || !apellido_paterno || !rol) {
       res.status(400).json({ error: "Campos requeridos: numero_control, email, password, nombre, apellido_paterno, rol." });
@@ -172,6 +172,7 @@ router.post(
     const result = await adminRepository.crearUsuario({
       numero_control, email, password_hash, nombre, apellido_paterno,
       apellido_materno, rol, grado_academico, carga_maxima,
+      asesor_id: asesor_id ? parseInt(asesor_id, 10) : undefined,
     });
 
     if (!result.success) {
@@ -196,6 +197,65 @@ router.put(
       return;
     }
     res.json({ message: result.activo ? "Usuario activado." : "Usuario desactivado.", activo: result.activo });
+  }
+);
+
+// GET /api/admin/usuarios/:id — Obtener un usuario
+router.get(
+  "/usuarios/:id",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(req.params.id, 10);
+    const usuario = await adminRepository.getUsuario(id);
+    if (!usuario) { res.status(404).json({ error: "Usuario no encontrado." }); return; }
+    res.json(usuario);
+  }
+);
+
+// PUT /api/admin/usuarios/:id — Actualizar usuario
+router.put(
+  "/usuarios/:id",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(req.params.id, 10);
+    const { numero_control, email, password, nombre, apellido_paterno, apellido_materno, rol, grado_academico, carga_maxima } = req.body;
+
+    const updateData: Record<string, unknown> = {};
+    if (numero_control) updateData.numero_control = numero_control;
+    if (email) updateData.email = email;
+    if (nombre) updateData.nombre = nombre;
+    if (apellido_paterno) updateData.apellido_paterno = apellido_paterno;
+    if (apellido_materno !== undefined) updateData.apellido_materno = apellido_materno;
+    if (rol) updateData.rol = rol;
+    if (grado_academico !== undefined) updateData.grado_academico = grado_academico;
+    if (carga_maxima !== undefined) updateData.carga_maxima = carga_maxima;
+
+    if (password && password.length > 0) {
+      updateData.password_hash = await bcrypt.hash(password, 12);
+    }
+
+    const result = await adminRepository.actualizarUsuario(id, updateData);
+    if (!result.success) { res.status(400).json({ error: result.error }); return; }
+    res.json({ message: "Usuario actualizado correctamente." });
+  }
+);
+
+// DELETE /api/admin/usuarios/:id — Eliminar usuario
+router.delete(
+  "/usuarios/:id",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(req.params.id, 10);
+    if (id === req.user!.sub) {
+      res.status(400).json({ error: "No puede eliminarse a sí mismo." });
+      return;
+    }
+    const result = await adminRepository.eliminarUsuario(id);
+    if (!result.success) { res.status(400).json({ error: result.error }); return; }
+    res.json({ message: "Usuario eliminado correctamente." });
   }
 );
 
