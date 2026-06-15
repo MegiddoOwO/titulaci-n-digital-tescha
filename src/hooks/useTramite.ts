@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/services/api";
+import { apiGet, apiPost, getToken } from "@/services/api";
 
 interface DocumentoInfo {
   id: number | null;
@@ -100,7 +100,7 @@ export function useTramite() {
       formData.append("archivo", file);
       formData.append("tipo_documento_id", String(tipo_documento_id));
 
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const response = await fetch(`/api/tramites/${tramiteQuery.data!.id}/documentos`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},

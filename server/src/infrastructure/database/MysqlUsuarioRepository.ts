@@ -18,11 +18,16 @@ export class MysqlUsuarioRepository {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  async incrementarIntentos(id: number): Promise<void> {
-    await query(
+  async incrementarIntentos(id: number): Promise<number> {
+    const result = await query<{ cnt: number }[]>(
       "UPDATE usuarios SET intentos_fallidos = intentos_fallidos + 1 WHERE id = ?",
       [id]
     );
+    const row = await query<{ intentos_fallidos: number }[]>(
+      "SELECT intentos_fallidos FROM usuarios WHERE id = ?",
+      [id]
+    );
+    return row.length > 0 ? row[0].intentos_fallidos : 0;
   }
 
   async resetearIntentos(id: number): Promise<void> {
@@ -36,13 +41,6 @@ export class MysqlUsuarioRepository {
     await query(
       "UPDATE usuarios SET bloqueado_hasta = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE id = ?",
       [minutos, id]
-    );
-  }
-
-  async registrarLoginExitoso(id: number): Promise<void> {
-    await query(
-      "UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?",
-      [id]
     );
   }
 

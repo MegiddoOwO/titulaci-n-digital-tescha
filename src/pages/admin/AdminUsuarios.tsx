@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from "@/components/ui/dialog";
-import { useAdmin } from "@/hooks/useAdmin";
+import { getToken } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 
 const AdminUsuarios = () => {
@@ -30,18 +30,23 @@ const AdminUsuarios = () => {
   const { toast } = useToast();
   const [docentes, setDocentes] = useState<{ id: number; nombre_completo: string; carga_actual: number; carga_maxima: number | null }[]>([]);
   const [asesorSeleccionado, setAsesorSeleccionado] = useState("none");
+  const [opcionesTitulacion, setOpcionesTitulacion] = useState<{ id: number; nombre: string }[]>([]);
+  const [opcionTitulacionSeleccionada, setOpcionTitulacionSeleccionada] = useState("1");
 
   useEffect(() => {
-    const token = localStorage.getItem("sca_token");
+    const token = getToken();
     fetch("/api/admin/docentes", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setDocentes);
+    fetch("/api/admin/opciones-titulacion", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(setOpcionesTitulacion);
   }, []);
 
   const fetchUsuarios = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const qs = new URLSearchParams();
       if (search) qs.set("search", search);
       if (rolFilter !== "todos") qs.set("rol", rolFilter);
@@ -60,11 +65,11 @@ const AdminUsuarios = () => {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const res = await fetch("/api/admin/usuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...formData, asesor_id: asesorSeleccionado !== "none" ? asesorSeleccionado : undefined }),
+        body: JSON.stringify({ ...formData, asesor_id: asesorSeleccionado !== "none" ? asesorSeleccionado : undefined, opcion_titulacion_id: opcionTitulacionSeleccionada }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -72,6 +77,7 @@ const AdminUsuarios = () => {
       setShowCreate(false);
       setFormData({ numero_control: "", email: "", password: "", nombre: "", apellido_paterno: "", apellido_materno: "", rol: "estudiante", grado_academico: "", carga_maxima: 5 });
       setAsesorSeleccionado("none");
+      setOpcionTitulacionSeleccionada("1");
       fetchUsuarios();
     } catch (err: unknown) {
       toast({ title: "Error", description: (err as Error).message, className: "bg-destructive text-destructive-foreground" });
@@ -82,7 +88,7 @@ const AdminUsuarios = () => {
 
   const handleToggle = async (id: number) => {
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const res = await fetch(`/api/admin/usuarios/${id}/toggle`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
@@ -103,7 +109,7 @@ const AdminUsuarios = () => {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const res = await fetch(`/api/admin/usuarios/${deleteId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -148,7 +154,7 @@ const AdminUsuarios = () => {
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const body: Record<string, unknown> = {
         numero_control: editData.numero_control,
         email: editData.email,
@@ -236,7 +242,7 @@ const AdminUsuarios = () => {
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">No se encontraron usuarios.</TableCell></TableRow>
             ) : (
               usuarios.usuarios.map((u) => (
-                <TableRow key={u.id}>
+                <TableRow key={u.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="text-xs font-mono">{u.numero_control}</TableCell>
                   <TableCell className="text-xs font-medium">
                     {u.nombre} {u.apellido_paterno}
@@ -342,20 +348,33 @@ const AdminUsuarios = () => {
               <Input value={formData.apellido_materno} onChange={e => setFormData({ ...formData, apellido_materno: e.target.value })} className="h-8 text-xs" />
             </div>
             {formData.rol === "estudiante" && (
-              <div>
-                <label className="text-xs">Asesor (opcional)</label>
-                <Select value={asesorSeleccionado} onValueChange={setAsesorSeleccionado}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin asesor" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin asesor</SelectItem>
-                    {docentes.map(d => (
-                      <SelectItem key={d.id} value={String(d.id)} disabled={d.carga_actual >= (d.carga_maxima || 5)}>
-                        {d.nombre_completo} ({d.carga_actual}/{d.carga_maxima || 5})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div>
+                  <label className="text-xs">Opción de Titulación</label>
+                  <Select value={opcionTitulacionSeleccionada} onValueChange={setOpcionTitulacionSeleccionada}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {opcionesTitulacion.map(o => (
+                        <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs">Asesor (opcional)</label>
+                  <Select value={asesorSeleccionado} onValueChange={setAsesorSeleccionado}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin asesor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin asesor</SelectItem>
+                      {docentes.map(d => (
+                        <SelectItem key={d.id} value={String(d.id)} disabled={d.carga_actual >= (d.carga_maxima || 5)}>
+                          {d.nombre_completo} ({d.carga_actual}/{d.carga_maxima || 5})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
             {formData.rol === "asesor" && (
               <div>

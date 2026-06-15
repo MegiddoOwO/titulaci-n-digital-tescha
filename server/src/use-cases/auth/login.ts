@@ -43,10 +43,8 @@ export async function loginUseCase(
   // Verificar contraseña con bcrypt
   const passwordValido = await bcrypt.compare(password, usuario.password_hash);
   if (!passwordValido) {
-    await usuarioRepository.incrementarIntentos(usuario.id);
-
-    const nuevosIntentos = usuario.intentos_fallidos + 1;
-    if (nuevosIntentos >= env.LOGIN_MAX_ATTEMPTS) {
+    const intentosActuales = await usuarioRepository.incrementarIntentos(usuario.id);
+    if (intentosActuales >= env.LOGIN_MAX_ATTEMPTS) {
       await usuarioRepository.bloquearUsuario(usuario.id, env.LOGIN_BLOCK_MINUTES);
       return {
         success: false,
@@ -55,7 +53,7 @@ export async function loginUseCase(
       };
     }
 
-    const restantes = env.LOGIN_MAX_ATTEMPTS - nuevosIntentos;
+    const restantes = env.LOGIN_MAX_ATTEMPTS - intentosActuales;
     return {
       success: false,
       error: `Número de control o contraseña incorrectos. Intentos restantes: ${restantes}.`,
@@ -63,7 +61,7 @@ export async function loginUseCase(
   }
 
   // Login exitoso — resetear intentos y bloqueo
-  await usuarioRepository.registrarLoginExitoso(usuario.id);
+  await usuarioRepository.resetearIntentos(usuario.id);
 
   // Generar JWT
   const payload: Omit<JwtPayload, "iat" | "exp"> = {

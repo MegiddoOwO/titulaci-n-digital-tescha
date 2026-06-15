@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdmin } from "@/hooks/useAdmin";
+import { getToken } from "@/services/api";
 
 const AdminDocumentos = () => {
   const [search, setSearch] = useState("");
@@ -107,7 +108,7 @@ const AdminDocumentos = () => {
                         <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                         <p className="text-xs font-semibold truncate">{doc.tipo_documento_nombre}</p>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 ml-5.5">
+                      <p className="text-[10px] text-muted-foreground mt-0.5 ml-[1.375rem]">
                         {doc.archivo_nombre || "No subido"} · {doc.formato_permitido}
                         {doc.estatus === "rechazado" && doc.motivo_rechazo && (
                           <span className="text-rose-600 block mt-0.5">Rechazado: {doc.motivo_rechazo}</span>
@@ -115,12 +116,12 @@ const AdminDocumentos = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className={`text-[10px] ${
-                        doc.estatus === "aprobado" ? "bg-emerald-100 text-emerald-700" :
-                        doc.estatus === "rechazado" ? "bg-rose-100 text-rose-700" :
-                        doc.estatus === "cargado" ? "bg-blue-100 text-blue-700" :
-                        doc.estatus === "en_revision" ? "bg-amber-100 text-amber-700" :
-                        "bg-gray-100 text-gray-600"
+                      <Badge className={`text-[10px] transition-colors ${
+                        doc.estatus === "aprobado" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" :
+                        doc.estatus === "rechazado" ? "bg-rose-100 text-rose-700 hover:bg-rose-200" :
+                        doc.estatus === "cargado" ? "bg-blue-100 text-blue-700 hover:bg-blue-200" :
+                        doc.estatus === "en_revision" ? "bg-amber-100 text-amber-700 hover:bg-amber-200" :
+                        "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}>
                         {doc.estatus === "cargado" ? "Recibido" : doc.estatus === "en_revision" ? "En Revisión" : doc.estatus}
                       </Badge>
@@ -141,7 +142,7 @@ const AdminDocumentos = () => {
                         <Button
                           size="sm" variant="outline" className="h-7 text-[10px]"
                           onClick={() => {
-                            const token = localStorage.getItem("sca_token");
+                            const token = getToken();
                             window.open(`/api/tramites/${detalle.data!.id}/documentos/${doc.id}?token=${token}`, "_blank");
                           }}
                         >Ver</Button>

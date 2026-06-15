@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet } from "@/services/api";
+import { apiGet, apiPut } from "@/services/api";
 
 interface Notificacion {
   id: number;
@@ -22,26 +22,7 @@ export function useNotificaciones() {
   });
 
   const marcarTodas = useMutation({
-    mutationFn: async () => {
-      const token = localStorage.getItem("sca_token");
-      await fetch("/api/notificaciones/leer-todas", {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notificaciones"] });
-    },
-  });
-
-  const marcarUna = useMutation({
-    mutationFn: async (id: number) => {
-      const token = localStorage.getItem("sca_token");
-      await fetch(`/api/notificaciones/${id}/leida`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    },
+    mutationFn: () => apiPut("/api/notificaciones/leer-todas"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notificaciones"] });
     },
@@ -52,7 +33,6 @@ export function useNotificaciones() {
     noLeidas: query.data?.noLeidas || 0,
     isLoading: query.isLoading,
     marcarTodas,
-    marcarUna,
     refetch: query.refetch,
   };
 }

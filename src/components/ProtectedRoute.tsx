@@ -24,6 +24,7 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
   if (roles && usuario && !roles.includes(usuario.rol)) {
     // Redirigir según el rol
     if (usuario.rol === "estudiante") return <Navigate to="/dashboard" replace />;
+    if (usuario.rol === "asesor") return <Navigate to="/asesor" replace />;
     if (usuario.rol === "administrativo") return <Navigate to="/admin" replace />;
     return <Navigate to="/" replace />;
   }

@@ -1,8 +1,7 @@
 import {
-  LayoutDashboard, Users, FileText, ClipboardCheck, Settings, LogOut, GraduationCap
+  LayoutDashboard, Users, FileText, ClipboardCheck, Settings, LogOut, GraduationCap, Library, Shield
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/tescha-logo.svg";
 
@@ -24,16 +23,15 @@ const menuItems = [
   { title: "Expedientes", url: "/admin/expedientes", icon: Users },
   { title: "Documentos", url: "/admin/documentos", icon: FileText },
   { title: "Dictámenes", url: "/admin/dictamenes", icon: ClipboardCheck },
-  { title: "Usuarios", url: "/admin/configuracion", icon: Settings },
+  { title: "Usuarios", url: "/admin/usuarios", icon: Settings },
+  { title: "Catálogos", url: "/admin/catalogos", icon: Library },
+  { title: "ARCO", url: "/admin/arco", icon: Shield },
 ];
 
 export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const { usuario, logout } = useAuth();
-  const isActive = (path: string) =>
-    path === "/admin" ? location.pathname === "/admin" : location.pathname.startsWith(path);
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -61,8 +59,8 @@ export function AdminSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/admin"}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sidebar-foreground/70 hover:bg-white/10 hover:text-sidebar-foreground transition-all duration-200"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary-foreground font-semibold shadow-inner"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!collapsed && <span className="font-body text-sm">{item.title}</span>}
@@ -78,7 +76,7 @@ export function AdminSidebar() {
       <SidebarFooter className="bg-primary border-t border-sidebar-border">
         <div className={`flex items-center gap-3 px-3 py-3 ${collapsed ? "justify-center" : ""}`}>
           <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="w-4 h-4 text-sidebar-primary" />
+            <GraduationCap className="w-4 h-4 text-white" />
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">

@@ -55,3 +55,31 @@ export async function apiPost<T>(
   });
   return handleResponse<T>(response);
 }
+
+export async function apiPut<T>(
+  url: string,
+  body?: Record<string, unknown>
+): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return handleResponse<T>(response);
+}
+
+export async function apiDelete<T>(url: string): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers,
+  });
+  return handleResponse<T>(response);
+}

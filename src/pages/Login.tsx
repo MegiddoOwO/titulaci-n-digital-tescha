@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, GraduationCap, Mail, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, GraduationCap, Mail, X, Send, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,10 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotNumeroControl, setForgotNumeroControl] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const [contactos, setContactos] = useState<{ id: number; nombre: string; cargo: string; departamento: string; email: string | null; extension: string | null }[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -30,6 +34,30 @@ const Login = () => {
         )
       ));
   }, []);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numero_control: forgotNumeroControl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setForgotSent(true);
+      toast({ title: "Solicitud enviada", description: data.message });
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: (err as Error).message || "Error al enviar solicitud.",
+        className: "bg-destructive text-destructive-foreground",
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +79,7 @@ const Login = () => {
     if (result.usuario?.rol === "administrativo") {
       navigate("/admin", { replace: true });
     } else if (result.usuario?.rol === "asesor") {
-      navigate("/dashboard", { replace: true });
+      navigate("/asesor", { replace: true });
     } else {
       navigate("/dashboard", { replace: true });
     }
@@ -125,7 +153,7 @@ const Login = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="font-body text-sm font-medium">Contraseña</Label>
-                <button type="button" className="text-accent font-body text-xs hover:underline">
+                <button type="button" onClick={() => { setForgotNumeroControl(""); setForgotSent(false); setShowForgotModal(true); }} className="text-accent font-body text-xs hover:underline">
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
@@ -226,6 +254,44 @@ const Login = () => {
                 Entendido
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold">Recuperar contraseña</h3>
+              <button onClick={() => setShowForgotModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {forgotSent ? (
+              <div className="text-center py-6">
+                <Send className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+                <p className="text-sm font-medium">Solicitud enviada</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Si el número de control existe, recibirás un correo con instrucciones.
+                </p>
+                <Button onClick={() => setShowForgotModal(false)} className="mt-4 w-full bg-[#56212f] hover:bg-[#8a2036] text-white">
+                  Cerrar
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Ingresa tu número de control. Te enviaremos un enlace para restablecer tu contraseña.
+                </p>
+                <div>
+                  <label className="text-xs font-medium">Número de Control</label>
+                  <Input value={forgotNumeroControl} onChange={e => setForgotNumeroControl(e.target.value)} required placeholder="Ej: 202324055" className="h-10" />
+                </div>
+                <Button type="submit" disabled={forgotLoading} className="w-full bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold">
+                  {forgotLoading ? "Enviando..." : "Enviar enlace"}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       )}

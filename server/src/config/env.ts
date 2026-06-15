@@ -24,4 +24,14 @@ export const env = {
   // Rate limiting
   LOGIN_MAX_ATTEMPTS: parseInt(process.env.LOGIN_MAX_ATTEMPTS || "5", 10),
   LOGIN_BLOCK_MINUTES: parseInt(process.env.LOGIN_BLOCK_MINUTES || "15", 10),
+
+  // SMTP (email notifications)
+  SMTP_HOST: process.env.SMTP_HOST || "",
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || "587", 10),
+  SMTP_USER: process.env.SMTP_USER || "",
+  SMTP_PASS: process.env.SMTP_PASS || "",
+  SMTP_FROM: process.env.SMTP_FROM || "no-reply@tescha.edu.mx",
+
+  // App
+  APP_URL: process.env.APP_URL || "http://localhost:8080",
 };

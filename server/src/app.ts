@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import cookieParser from "cookie-parser";
 import path from "path";
 import { env } from "./config/env";
 import authRoutes from "./routes/auth.routes";
@@ -13,6 +12,8 @@ import normativaRoutes from "./routes/normativa.routes";
 import contenidoRoutes from "./routes/contenido.routes";
 import privacidadRoutes from "./routes/privacidad.routes";
 import arcoRoutes from "./routes/arco.routes";
+import asesorRoutes from "./routes/asesor.routes";
+import catalogosRoutes from "./routes/catalogos.routes";
 
 const app = express();
 
@@ -26,8 +27,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use(express.json({ limit: "10mb" }));
-app.use(cookieParser());
+app.use(express.json({ limit: "20mb" }));
 app.use(express.static(path.resolve(process.cwd(), "public")));
 
 // Rutas
@@ -40,6 +40,8 @@ app.use("/api/normativa", normativaRoutes);
 app.use("/api/requisitos-fotografia", contenidoRoutes);
 app.use("/api/privacidad", privacidadRoutes);
 app.use("/api/solicitudes-arco", arcoRoutes);
+app.use("/api/asesor", asesorRoutes);
+app.use("/api/admin", catalogosRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

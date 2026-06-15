@@ -10,7 +10,7 @@ const ALLOWED_MIMES: Record<string, string[]> = {
   PNG: ["image/png"],
 };
 
-const UPLOAD_DIR = path.resolve(__dirname, "../../../uploads");
+const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 
 export async function subirDocumentoUseCase(
   tramite_id: number,
@@ -45,7 +45,7 @@ export async function subirDocumentoUseCase(
 
   // Validar formato (P-12)
   const formatosPermitidos = tipo.formato_permitido.split(",").map((f) => f.trim().toUpperCase());
-  let allowedMimes: string[] = [];
+  const allowedMimes: string[] = [];
   for (const fmt of formatosPermitidos) {
     if (ALLOWED_MIMES[fmt]) {
       allowedMimes.push(...ALLOWED_MIMES[fmt]);

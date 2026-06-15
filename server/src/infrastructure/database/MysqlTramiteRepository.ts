@@ -1,4 +1,4 @@
-import { query, getConnection } from "../../config/database";
+import { query } from "../../config/database";
 import type { Tramite, TramiteConDocumentos } from "../../domain/entities/Tramite";
 import type { DocumentoInfo, HistorialEntry } from "../../domain/entities/Documento";
 
@@ -165,25 +165,16 @@ export class MysqlDocumentoRepository {
     archivo_nombre: string,
     archivo_tamaño: number
   ): Promise<number> {
-    // Upsert: si ya existe un registro para este tipo_documento en este trámite, actualizar
-    const existing = await query<{ id: number }[]>(
-      "SELECT id FROM documentos WHERE tramite_id = ? AND tipo_documento_id = ?",
-      [tramite_id, tipo_documento_id]
-    );
-
-    if (existing.length > 0) {
-      await query(
-        `UPDATE documentos SET archivo_url = ?, archivo_nombre = ?, archivo_tamaño = ?,
-         estatus = 'cargado', fecha_subida = NOW(), motivo_rechazo = NULL
-         WHERE id = ?`,
-        [archivo_url, archivo_nombre, archivo_tamaño, existing[0].id]
-      );
-      return existing[0].id;
-    }
-
     const result = await query<{ insertId: number }>(
       `INSERT INTO documentos (tramite_id, tipo_documento_id, archivo_url, archivo_nombre, archivo_tamaño, estatus, fecha_subida)
-       VALUES (?, ?, ?, ?, ?, 'cargado', NOW())`,
+       VALUES (?, ?, ?, ?, ?, 'cargado', NOW())
+       ON DUPLICATE KEY UPDATE
+         archivo_url = VALUES(archivo_url),
+         archivo_nombre = VALUES(archivo_nombre),
+         archivo_tamaño = VALUES(archivo_tamaño),
+         estatus = 'cargado',
+         fecha_subida = NOW(),
+         motivo_rechazo = NULL`,
       [tramite_id, tipo_documento_id, archivo_url, archivo_nombre, archivo_tamaño]
     );
     return result.insertId;

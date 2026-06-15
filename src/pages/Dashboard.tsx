@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { getToken } from "@/services/api";
 import { useTramite } from "@/hooks/useTramite";
 import { useNotificaciones } from "@/hooks/useNotificaciones";
 import logo from "@/assets/tescha-logo.svg";
@@ -18,7 +19,7 @@ import logo from "@/assets/tescha-logo.svg";
 const BracketCard = ({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) => (
   <div
     onClick={onClick}
-    className={`relative bg-white rounded-md p-6 border border-[#efe1ca]/40 shadow-sm transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-[1.01]' : ''} ${className}`}
+    className={`relative bg-white rounded-md p-6 border border-[#efe1ca]/40 shadow-sm transition-all duration-200 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-[#BC955B]/40 hover:-translate-y-0.5' : ''} ${className}`}
   >
     {/* Corner brackets */}
     <div className="absolute top-2.5 left-2.5 w-3.5 h-3.5 border-t-2 border-l-2 border-[#BC955B] rounded-tl-[3px] pointer-events-none opacity-60"></div>
@@ -118,7 +119,7 @@ const ArcoModal = ({ onClose }: { onClose: () => void }) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("sca_token");
+      const token = getToken();
       const res = await fetch("/api/solicitudes-arco", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -217,7 +218,7 @@ const Dashboard = () => {
   const semaforoColor = tramite?.progreso?.color_semaforo ?? "ambar";
 
   const handleDownload = (docId: number) => {
-    const token = localStorage.getItem("sca_token");
+    const token = getToken();
     window.open(`/api/tramites/${tramite!.id}/documentos/${docId}?token=${token}`, "_blank");
   };
 
@@ -305,8 +306,8 @@ const Dashboard = () => {
             <button
               onClick={() => handleSidebarClick("overview")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${activeTab === "overview"
-                  ? "bg-[#706147] text-white shadow-inner"
-                  : "text-white/80 hover:text-white hover:bg-white/5"
+                  ? "bg-sidebar-accent text-sidebar-primary-foreground shadow-inner"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
                 }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -316,8 +317,8 @@ const Dashboard = () => {
             <button
               onClick={() => handleSidebarClick("documents")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${activeTab === "documents"
-                  ? "bg-[#706147] text-white shadow-inner"
-                  : "text-white/80 hover:text-white hover:bg-white/5"
+                  ? "bg-sidebar-accent text-sidebar-primary-foreground shadow-inner"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
                 }`}
             >
               <FileText className="w-4 h-4" />
@@ -326,7 +327,7 @@ const Dashboard = () => {
 
             <button
               onClick={() => handleSidebarClick("asesores")}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
             >
               <UserCheck className="w-4 h-4" />
               <span>Asesores</span>
@@ -334,7 +335,7 @@ const Dashboard = () => {
 
             <button
               onClick={() => setIsArcoOpen(true)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
             >
               <Shield className="w-4 h-4" />
               <span>Privacidad</span>
@@ -342,7 +343,7 @@ const Dashboard = () => {
 
             <button
               onClick={() => handleSidebarClick("dictamen")}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/80 hover:text-white hover:bg-white/5 transition-all duration-200"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
             >
               <Gavel className="w-4 h-4" />
               <span>Mi Dictamen</span>
@@ -470,12 +471,11 @@ const Dashboard = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`pb-3 font-semibold text-sm relative transition-all ${isActive ? "text-[#56212f]" : "text-gray-400 hover:text-gray-600"
-                    }`}
+                  className={`pb-3 font-semibold text-sm relative transition-all duration-200 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {labels[tab]}
                   {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#56212f] rounded-full"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary rounded-full"></div>
                   )}
                 </button>
               );
@@ -706,7 +706,7 @@ const Dashboard = () => {
                         return (
                         <div
                           key={doc.tipo_documento_id}
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-5 transition-colors gap-3 ${doc.bloqueado ? "bg-gray-100/50 opacity-60" : "hover:bg-gray-50/50"}`}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-5 transition-colors duration-150 gap-3 ${doc.bloqueado ? "bg-muted/50 opacity-60" : "hover:bg-muted/30"}`}
                         >
                           <div className="flex items-start gap-3 min-w-0">
                             <FileText className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -735,12 +735,12 @@ const Dashboard = () => {
                             <div className="flex items-center gap-1.5">
                               {statusIcon[doc.estatus] || <Clock className="w-4 h-4 text-gray-400" />}
                               <Badge
-                                className={`text-[10px] font-semibold px-2 py-0.5 border border-transparent tracking-wide ${
-                                  doc.estatus === "aprobado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                  doc.estatus === "rechazado" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                                  doc.estatus === "cargado" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                  doc.estatus === "en_revision" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                  "bg-gray-50 text-gray-600 border-gray-200"
+                                className={`text-[10px] font-semibold px-2 py-0.5 border border-transparent tracking-wide transition-colors cursor-default ${
+                                  doc.estatus === "aprobado" ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" :
+                                  doc.estatus === "rechazado" ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100" :
+                                  doc.estatus === "cargado" ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
+                                  doc.estatus === "en_revision" ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" :
+                                  "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
                                 }`}
                               >
                                 {statusLabel[doc.estatus] || "Pendiente"}

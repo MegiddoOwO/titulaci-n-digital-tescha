@@ -1,5 +1,6 @@
 import { query } from "../../config/database";
 import { env } from "../../config/env";
+import nodemailer from "nodemailer";
 
 export interface Notificacion {
   id: number;
@@ -63,17 +64,40 @@ class NotificacionService {
 
   private async sendEmail(usuario_id: number, titulo: string, mensaje: string): Promise<void> {
     try {
-      const users = await query<{ email: string }[]>(
-        "SELECT email FROM usuarios WHERE id = ?", [usuario_id]
+      const users = await query<{ email: string; nombre: string }[]>(
+        "SELECT email, nombre FROM usuarios WHERE id = ?", [usuario_id]
       );
       if (users.length === 0) return;
 
       const email = users[0].email;
-      console.log(`[EMAIL] Para: ${email} | Asunto: ${titulo} | ${mensaje.substring(0, 80)}...`);
+      const nombre = users[0].nombre;
 
-      // En producción: usar nodemailer con SMTP
-      // const transporter = nodemailer.createTransport({ ... });
-      // await transporter.sendMail({ from, to: email, subject: titulo, text: mensaje });
+      if (env.SMTP_HOST) {
+        const transporter = nodemailer.createTransport({
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_PORT === 465,
+          auth: {
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+          },
+        });
+
+        await transporter.sendMail({
+          from: `"SCA-TESCHA" <${env.SMTP_FROM}>`,
+          to: email,
+          subject: titulo,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+            <h2 style="color:#8A2036">SCA-TESCHA</h2>
+            <p>Hola ${nombre},</p>
+            <p>${mensaje}</p>
+            <hr style="border-color:#efe1ca">
+            <p style="color:#666;font-size:12px">Sistema de Control y Administración de Titulación</p>
+          </div>`,
+        });
+      } else {
+        console.log(`[EMAIL] Para: ${email} | Asunto: ${titulo} | ${mensaje.substring(0, 80)}...`);
+      }
     } catch (err) {
       console.error("[EMAIL] Error al enviar:", err);
     }

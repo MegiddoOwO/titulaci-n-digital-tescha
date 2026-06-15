@@ -112,6 +112,8 @@ CREATE TABLE usuarios (
 
     -- Campos específicos para estudiantes
     programa_academico  VARCHAR(100) NULL DEFAULT 'Ingeniería en Sistemas Computacionales',
+    reset_token         VARCHAR(255) NULL,
+    reset_expira        DATETIME NULL,
 
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -169,7 +171,8 @@ CREATE TABLE documentos (
 
     INDEX idx_documentos_tramite (tramite_id),
     INDEX idx_documentos_estatus (estatus),
-    INDEX idx_documentos_tipo    (tipo_documento_id)
+    INDEX idx_documentos_tipo    (tipo_documento_id),
+    UNIQUE KEY uq_documento_tramite_tipo (tramite_id, tipo_documento_id)
 ) ENGINE=InnoDB;
 
 

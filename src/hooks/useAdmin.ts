@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet } from "@/services/api";
+import { apiGet, getToken, apiPut, apiPost } from "@/services/api";
 
 interface DashboardStats {
   total_activos: number;
@@ -61,15 +61,6 @@ interface DocumentoAdmin {
   bloqueado: boolean;
 }
 
-interface DocenteInfo {
-  id: number;
-  numero_control: string;
-  nombre_completo: string;
-  grado_academico: string | null;
-  carga_maxima: number | null;
-  carga_actual: number;
-}
-
 export function useAdmin() {
   const queryClient = useQueryClient();
 
@@ -100,21 +91,9 @@ export function useAdmin() {
       enabled: !!id,
     });
 
-  const docentes = useQuery<DocenteInfo[]>({
-    queryKey: ["admin", "docentes"],
-    queryFn: () => apiGet<DocenteInfo[]>("/api/admin/docentes"),
-    staleTime: 60_000,
-  });
-
   const aprobarDoc = useMutation({
     mutationFn: async (docId: number) => {
-      const token = localStorage.getItem("sca_token");
-      const res = await fetch(`/api/admin/documentos/${docId}/aprobar`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-      return res.json();
+      return apiPut(`/api/admin/documentos/${docId}/aprobar`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
@@ -123,14 +102,7 @@ export function useAdmin() {
 
   const rechazarDoc = useMutation({
     mutationFn: async ({ docId, motivo }: { docId: number; motivo: string }) => {
-      const token = localStorage.getItem("sca_token");
-      const res = await fetch(`/api/admin/documentos/${docId}/rechazar`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ motivo }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-      return res.json();
+      return apiPut(`/api/admin/documentos/${docId}/rechazar`, { motivo });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
@@ -139,19 +111,12 @@ export function useAdmin() {
 
   const emitirDictamen = useMutation({
     mutationFn: async (data: { tramite_id: number; resultado: "aprobado" | "rechazado"; observaciones: string }) => {
-      const token = localStorage.getItem("sca_token");
-      const res = await fetch("/api/admin/dictamenes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-      return res.json();
+      return apiPost("/api/admin/dictamenes", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
   });
 
-  return { stats, listarExpedientes, detalleExpediente, docentes, aprobarDoc, rechazarDoc, emitirDictamen };
+  return { stats, listarExpedientes, detalleExpediente, aprobarDoc, rechazarDoc, emitirDictamen };
 }

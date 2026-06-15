@@ -74,10 +74,11 @@ const Normativa = () => {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-4">
-                  <div
-                    className="prose prose-sm max-w-none text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: item.contenido.replace(/\n/g, "<br>") }}
-                  />
+                  <div className="prose prose-sm max-w-none text-muted-foreground">
+                    {item.contenido.split("\n").map((paragraph: string, i: number) => (
+                      <p key={i}>{paragraph || "\u00A0"}</p>
+                    ))}
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}

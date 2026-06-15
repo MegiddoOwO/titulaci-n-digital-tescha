@@ -102,20 +102,30 @@ router.get(
         res.status(403).json({ error: "No tiene permisos para ver este recurso." });
         return;
       }
+      (req as Record<string, unknown>).decodedToken = decoded;
       next();
     } catch {
       res.status(401).json({ error: "Token inválido o expirado." });
     }
   },
   async (req: Request, res: Response): Promise<void> => {
+    const decoded = (req as Record<string, unknown>).decodedToken as { sub: number; rol: string };
     const docId = parseInt(req.params.docId, 10);
-    const rows = await query<{ archivo_url: string; archivo_nombre: string }[]>(
-      "SELECT archivo_url, archivo_nombre FROM documentos WHERE id = ?",
+    const rows = await query<{ archivo_url: string; archivo_nombre: string; usuario_id: number }[]>(
+      `SELECT d.archivo_url, d.archivo_nombre, t.usuario_id
+       FROM documentos d
+       JOIN tramites t ON d.tramite_id = t.id
+       WHERE d.id = ?`,
       [docId]
     );
 
     if (rows.length === 0 || !rows[0].archivo_url) {
       res.status(404).json({ error: "Documento no encontrado." });
+      return;
+    }
+
+    if (decoded.rol !== "administrativo" && rows[0].usuario_id !== decoded.sub) {
+      res.status(403).json({ error: "No tiene permisos para ver este documento." });
       return;
     }
 

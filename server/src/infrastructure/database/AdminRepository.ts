@@ -1,4 +1,4 @@
-import { query } from "../../config/database";
+import { query, transaction } from "../../config/database";
 import { notificacionService, bitacoraService } from "../services/NotificacionService";
 import type { ExpedienteListItem, AdminDashboardStats } from "../../domain/entities/Admin";
 import type { TramiteConDocumentos } from "../../domain/entities/Tramite";
@@ -138,6 +138,24 @@ export class AdminRepository {
     const color = rechazados > 0 ? "rojo" as const : aprobados === total ? "verde" as const : "ambar" as const;
     const porcentaje = total > 0 ? Math.round((aprobados / total) * 100) : 0;
 
+    const asignaciones = await query<import("../../domain/entities/Tramite").Asignacion[]>(
+      `SELECT a.id, a.rol_asignacion, u.nombre, u.apellido_paterno, u.grado_academico, u.email
+       FROM asignaciones a
+       JOIN usuarios u ON a.usuario_id = u.id
+       WHERE a.tramite_id = ?
+       ORDER BY FIELD(a.rol_asignacion, 'asesor', 'sinodal', 'revisor')`,
+      [t.id]
+    );
+
+    const dictamenData = await query<import("../../domain/entities/Tramite").DictamenInfo[]>(
+      `SELECT d.id, d.resultado, d.observaciones, d.fecha_emision,
+              CONCAT(u.nombre, ' ', u.apellido_paterno) AS emitido_por
+       FROM dictamenes d
+       JOIN usuarios u ON d.emitido_por = u.id
+       WHERE d.tramite_id = ?`,
+      [t.id]
+    );
+
     return {
       id: t.id, usuario_id: t.usuario_id,
       opcion_titulacion_id: t.opcion_titulacion_id,
@@ -148,6 +166,8 @@ export class AdminRepository {
       titulo_proyecto: t.titulo_proyecto, activo: t.activo,
       opcion_titulacion: opciones[0]?.nombre ?? "Desconocida",
       documentos: docs,
+      asignaciones,
+      dictamen: dictamenData.length > 0 ? dictamenData[0] : null,
       progreso: { total, aprobados, rechazados, cargados: 0, en_revision: 0, pendientes: 0, color_semaforo: color, porcentaje },
     };
   }
@@ -215,7 +235,7 @@ export class AdminRepository {
       detalle: { tipo: tipo[0]?.nombre, tramite_id: doc.tramite_id, motivo },
     });
 
-    await query("UPDATE tramites SET estatus = 'rechazado', fecha_actualizacion = NOW() WHERE id = ?", [doc.tramite_id]);
+    await this.actualizarEstatusTramite(doc.tramite_id);
 
     return { success: true, tramite_id: doc.tramite_id };
   }
@@ -225,6 +245,23 @@ export class AdminRepository {
       "SELECT id, estatus, usuario_id FROM tramites WHERE id = ? AND activo = 1", [tramite_id]
     );
     if (tramite.length === 0) return { success: false, error: "Trámite no encontrado." };
+
+    if (resultado === "aprobado") {
+      const docsObligatorios = await query<{ estatus: string; nombre: string }[]>(
+        `SELECT d.estatus, td.nombre FROM documentos d
+         JOIN tipos_documento td ON d.tipo_documento_id = td.id
+         WHERE d.tramite_id = ? AND td.obligatorio = 1`,
+        [tramite_id]
+      );
+      const pendientes = docsObligatorios.filter((d) => d.estatus !== "aprobado");
+      if (pendientes.length > 0) {
+        const nombres = pendientes.map((d) => d.nombre).join(", ");
+        return {
+          success: false,
+          error: `No se puede aprobar el dictamen. Los siguientes documentos obligatorios no han sido aprobados: ${nombres}.`,
+        };
+      }
+    }
 
     const existente = await query<{ id: number }[]>("SELECT id FROM dictamenes WHERE tramite_id = ?", [tramite_id]);
     if (existente.length > 0) {
@@ -335,6 +372,7 @@ export class AdminRepository {
     grado_academico?: string;
     carga_maxima?: number;
     asesor_id?: number;
+    opcion_titulacion_id?: number;
   }): Promise<{ success: boolean; id?: number; error?: string }> {
     const existente = await query<{ id: number }[]>(
       "SELECT id FROM usuarios WHERE numero_control = ? OR email = ?",
@@ -344,43 +382,47 @@ export class AdminRepository {
       return { success: false, error: "Ya existe un usuario con ese número de control o email." };
     }
 
-    const result = await query<{ insertId: number }>(
-      `INSERT INTO usuarios (numero_control, email, password_hash, nombre, apellido_paterno, apellido_materno, rol, grado_academico, carga_maxima)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [data.numero_control, data.email, data.password_hash, data.nombre, data.apellido_paterno,
-       data.apellido_materno || null, data.rol, data.grado_academico || null,
-       data.rol === "asesor" ? (data.carga_maxima || 5) : null]
-    );
+    const result = await transaction(async (q) => {
+      const userResult = await q(
+        `INSERT INTO usuarios (numero_control, email, password_hash, nombre, apellido_paterno, apellido_materno, rol, grado_academico, carga_maxima)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [data.numero_control, data.email, data.password_hash, data.nombre, data.apellido_paterno,
+         data.apellido_materno || null, data.rol, data.grado_academico || null,
+         data.rol === "asesor" ? (data.carga_maxima || 5) : null]
+      ) as { insertId: number };
 
-    // Si es estudiante, crear trámite y documentos pendientes automáticamente
-    if (data.rol === "estudiante") {
-      const tramite = await query<{ insertId: number }>(
-        "INSERT INTO tramites (usuario_id, opcion_titulacion_id, estatus) VALUES (?, 1, 'en_proceso')",
-        [result.insertId]
-      );
-      await query(
-        `INSERT INTO documentos (tramite_id, tipo_documento_id, estatus)
-         SELECT ?, td.id, 'pendiente'
-         FROM tipos_documento td
-         WHERE (td.opcion_titulacion_id IS NULL OR td.opcion_titulacion_id = 1)
-           AND td.activo = 1`,
-        [tramite.insertId]
-      );
+      if (data.rol === "estudiante") {
+        const opcionId = data.opcion_titulacion_id || 1;
+        const tramiteResult = await q(
+          "INSERT INTO tramites (usuario_id, opcion_titulacion_id, estatus) VALUES (?, ?, 'en_proceso')",
+          [userResult.insertId, opcionId]
+        ) as { insertId: number };
 
-      // Asignar asesor si se especificó
-      if (data.asesor_id) {
-        const carga = await query<{ carga_maxima: number; carga_actual: number }[]>(
-          "SELECT carga_maxima, carga_actual FROM vw_carga_docente WHERE docente_id = ?",
-          [data.asesor_id]
+        await q(
+          `INSERT INTO documentos (tramite_id, tipo_documento_id, estatus)
+           SELECT ?, td.id, 'pendiente'
+           FROM tipos_documento td
+           WHERE (td.opcion_titulacion_id IS NULL OR td.opcion_titulacion_id = ?)
+             AND td.activo = 1`,
+          [tramiteResult.insertId, opcionId]
         );
-        if (carga.length > 0 && carga[0].carga_actual < (carga[0].carga_maxima || 5)) {
-          await query(
-            "INSERT INTO asignaciones (tramite_id, usuario_id, rol_asignacion) VALUES (?, ?, 'asesor')",
-            [tramite.insertId, data.asesor_id]
-          );
+
+        if (data.asesor_id) {
+          const carga = await q(
+            "SELECT carga_maxima, carga_actual FROM vw_carga_docente WHERE docente_id = ?",
+            [data.asesor_id]
+          ) as { carga_maxima: number; carga_actual: number }[];
+          if (carga.length > 0 && carga[0].carga_actual < (carga[0].carga_maxima || 5)) {
+            await q(
+              "INSERT INTO asignaciones (tramite_id, usuario_id, rol_asignacion) VALUES (?, ?, 'asesor')",
+              [tramiteResult.insertId, data.asesor_id]
+            );
+          }
         }
       }
-    }
+
+      return userResult as { insertId: number };
+    });
 
     return { success: true, id: result.insertId };
   }
@@ -421,6 +463,39 @@ export class AdminRepository {
     vals.push(id);
     await query(`UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`, vals);
     return { success: true };
+  }
+
+  async actualizarTramite(id: number, data: { opcion_titulacion_id?: number; titulo_proyecto?: string }): Promise<{ success: boolean; error?: string }> {
+    const tramite = await query<{ id: number }[]>("SELECT id FROM tramites WHERE id = ? AND activo = 1", [id]);
+    if (tramite.length === 0) return { success: false, error: "Trámite no encontrado." };
+
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+
+    if (data.opcion_titulacion_id !== undefined) {
+      sets.push("opcion_titulacion_id = ?");
+      vals.push(data.opcion_titulacion_id);
+    }
+    if (data.titulo_proyecto !== undefined) {
+      sets.push("titulo_proyecto = ?");
+      vals.push(data.titulo_proyecto);
+    }
+
+    if (sets.length === 0) return { success: false, error: "No hay campos para actualizar." };
+
+    sets.push("fecha_actualizacion = NOW()");
+    vals.push(id);
+    await query(`UPDATE tramites SET ${sets.join(", ")} WHERE id = ?`, vals);
+    return { success: true };
+  }
+
+  async toggleTramiteActivo(id: number): Promise<{ success: boolean; activo?: number; error?: string }> {
+    const tramite = await query<{ activo: number }[]>("SELECT activo FROM tramites WHERE id = ?", [id]);
+    if (tramite.length === 0) return { success: false, error: "Trámite no encontrado." };
+
+    const nuevo = tramite[0].activo ? 0 : 1;
+    await query("UPDATE tramites SET activo = ?, fecha_actualizacion = NOW() WHERE id = ?", [nuevo, id]);
+    return { success: true, activo: nuevo };
   }
 
   async eliminarUsuario(id: number): Promise<{ success: boolean; error?: string }> {

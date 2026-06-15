@@ -25,6 +25,25 @@ export async function query<T>(sql: string, params?: unknown[]): Promise<T> {
   return rows as T;
 }
 
-export async function getConnection() {
+export async function getConnection(): Promise<mysql.PoolConnection> {
   return getPool().getConnection();
+}
+
+export async function transaction<T>(fn: (query: (sql: string, params?: unknown[]) => Promise<unknown>) => Promise<T>): Promise<T> {
+  const conn = await getConnection();
+  await conn.beginTransaction();
+  try {
+    const queryOnConn = async (sql: string, params?: unknown[]): Promise<unknown> => {
+      const [rows] = await conn.execute(sql, params);
+      return rows;
+    };
+    const result = await fn(queryOnConn);
+    await conn.commit();
+    return result;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
