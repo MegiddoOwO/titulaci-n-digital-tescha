@@ -1,9 +1,14 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import path from "path";
+import fs from "fs";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { adminRepository } from "../infrastructure/database/AdminRepository";
 import { query } from "../config/database";
+import { env } from "../config/env";
+import { generarDictamenPDF } from "../infrastructure/services/generarDictamenPDF";
 
 const router = Router();
 
@@ -25,6 +30,74 @@ router.get(
       page,
       totalPages: Math.ceil(result.total / limit),
     });
+  }
+);
+
+// GET /api/admin/expedientes/export — Descargar Excel
+router.get(
+  "/expedientes/export",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const XLSX = await import("xlsx");
+    const search = (req.query.search as string) || undefined;
+    const estatus = (req.query.estatus as string) || undefined;
+
+    const result = await adminRepository.listarExpedientes({ search, estatus, page: 1, limit: 10000 });
+    const data = result.expedientes.map((e) => ({
+      Matrícula: e.numero_control,
+      Estudiante: e.nombre_completo,
+      "Opción Titulación": e.opcion_titulacion,
+      Avance: `${e.porcentaje}%`,
+      Estado: e.estatus,
+      "Docs Aprobados": e.docs_aprobados,
+      "Docs Rechazados": e.docs_rechazados,
+      "Última Actualización": new Date(e.fecha_actualizacion).toLocaleDateString("es-MX"),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Expedientes");
+
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", "attachment; filename=expedientes.xlsx");
+    res.send(buf);
+  }
+);
+
+// GET /api/admin/expedientes/:id/descargar — Descargar todos los documentos en ZIP
+router.get(
+  "/expedientes/:id/descargar",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(req.params.id, 10);
+    const docs = await query<{ archivo_url: string; archivo_nombre: string }[]>(
+      "SELECT archivo_url, archivo_nombre FROM documentos WHERE tramite_id = ? AND archivo_url IS NOT NULL",
+      [id]
+    );
+
+    if (docs.length === 0) {
+      res.status(404).json({ error: "No hay documentos para descargar." });
+      return;
+    }
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename=expediente_${id}.zip`);
+
+    const AdmZip = (await import("adm-zip")).default;
+    const zip = new AdmZip();
+    const uploadsDir = path.resolve(process.cwd(), "uploads");
+
+    for (const doc of docs) {
+      const filepath = path.join(uploadsDir, doc.archivo_url);
+      if (fs.existsSync(filepath)) {
+        zip.addLocalFile(filepath);
+      }
+    }
+
+    res.send(zip.toBuffer());
   }
 );
 
@@ -159,6 +232,66 @@ router.post(
   }
 );
 
+// GET /api/admin/dictamenes/:tramite_id/pdf — Descargar dictamen en PDF
+router.get(
+  "/dictamenes/:tramite_id/pdf",
+  async (req: Request, res: Response): Promise<void> => {
+    const token = (req.query.token as string) || req.headers.authorization?.replace("Bearer ", "");
+    if (!token) { res.status(401).json({ error: "Token requerido." }); return; }
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as { sub: number; rol: string };
+      if (decoded.rol !== "administrativo" && decoded.rol !== "estudiante") {
+        res.status(403).json({ error: "Acceso denegado." }); return;
+      }
+      (req as Record<string, unknown>).decodedToken = decoded;
+    } catch {
+      res.status(401).json({ error: "Token inválido." }); return;
+    }
+    const tramiteId = parseInt(req.params.tramite_id, 10);
+    const decoded = (req as Record<string, unknown>).decodedToken as { sub: number; rol: string };
+
+    const dictamen = await query<{
+      resultado: string; observaciones: string | null; fecha_emision: string;
+      emitido_nombre: string; emitido_rol: string;
+      estudiante: string; numero_control: string; opcion: string;
+      usuario_id: number;
+    }[]>(
+      `SELECT d.resultado, d.observaciones, d.fecha_emision,
+              CONCAT(ua.nombre, ' ', ua.apellido_paterno) AS emitido_nombre, ua.rol AS emitido_rol,
+              CONCAT(ue.nombre, ' ', ue.apellido_paterno, ' ', COALESCE(ue.apellido_materno,'')) AS estudiante,
+              ue.numero_control, o.nombre AS opcion
+       FROM dictamenes d
+       JOIN tramites t ON d.tramite_id = t.id
+       JOIN usuarios ua ON d.emitido_por = ua.id
+       JOIN usuarios ue ON t.usuario_id = ue.id
+       JOIN opciones_titulacion o ON t.opcion_titulacion_id = o.id
+       WHERE d.tramite_id = ?`,
+      [tramiteId]
+    );
+
+    if (dictamen.length === 0) {
+      res.status(404).json({ error: "Dictamen no encontrado." });
+      return;
+    }
+
+    if (decoded.rol !== "administrativo" && dictamen[0].usuario_id !== decoded.sub) {
+      res.status(403).json({ error: "No tienes permiso para ver este dictamen." });
+      return;
+    }
+
+    const d = dictamen[0];
+    generarDictamenPDF(res, {
+      estudiante: d.estudiante,
+      numero_control: d.numero_control,
+      opcion: d.opcion,
+      fecha_emision: d.fecha_emision,
+      resultado: d.resultado,
+      observaciones: d.observaciones,
+      emitido_nombre: d.emitido_nombre,
+    });
+  }
+);
+
 // GET /api/admin/solicitudes-arco — Listar solicitudes ARCO
 router.get(
   "/solicitudes-arco",
@@ -184,7 +317,7 @@ router.put(
   async (req: Request, res: Response): Promise<void> => {
     const id = parseInt(req.params.id, 10);
     const { estado, respuesta } = req.body;
-    if (!estado || !["procesando", "resuelta", "rechazada"].includes(estado)) {
+    if (!estado || !["en_proceso", "completada", "rechazada"].includes(estado)) {
       res.status(400).json({ error: "Estado inválido." });
       return;
     }
@@ -235,6 +368,35 @@ router.delete(
     const id = parseInt(req.params.id, 10);
     await query("DELETE FROM asignaciones WHERE id = ?", [id]);
     res.json({ message: "Asignación eliminada." });
+  }
+);
+
+// GET /api/admin/bitacora — Visor de auditoría
+router.get(
+  "/bitacora",
+  authenticate,
+  authorize("administrativo"),
+  async (req: Request, res: Response): Promise<void> => {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    const countResult = await query<{ total: number }[]>(
+      "SELECT COUNT(*) AS total FROM bitacora"
+    );
+    const total = countResult[0]?.total ?? 0;
+
+    const rows = await query(
+      `SELECT b.id, b.accion, b.entidad, b.entidad_id, b.detalle, b.ip_origen, b.fecha,
+              CONCAT(u.nombre, ' ', u.apellido_paterno) AS usuario_nombre
+       FROM bitacora b
+       LEFT JOIN usuarios u ON b.usuario_id = u.id
+       ORDER BY b.fecha DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    res.json({ rows, total, page, totalPages: Math.ceil(total / limit) });
   }
 );
 

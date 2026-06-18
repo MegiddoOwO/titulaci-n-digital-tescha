@@ -28,6 +28,7 @@ export interface Asignacion {
 
 export interface TramiteConDocumentos extends Tramite {
   opcion_titulacion: string;
+  fecha_limite: string | null;
   documentos: DocumentoInfo[];
   asignaciones: Asignacion[];
   dictamen: DictamenInfo | null;

@@ -24,8 +24,8 @@ export class MysqlTramiteRepository {
     if (!tramite) return null;
 
     // Obtener opción de titulación
-    const opciones = await query<{ nombre: string }[]>(
-      "SELECT nombre FROM opciones_titulacion WHERE id = ?",
+    const opciones = await query<{ nombre: string; fecha_limite: string | null }[]>(
+      "SELECT nombre, fecha_limite FROM opciones_titulacion WHERE id = ?",
       [tramite.opcion_titulacion_id]
     );
 
@@ -114,6 +114,7 @@ export class MysqlTramiteRepository {
     return {
       ...tramite,
       opcion_titulacion: opciones.length > 0 ? opciones[0].nombre : "Desconocida",
+      fecha_limite: opciones.length > 0 ? opciones[0].fecha_limite : null,
       documentos: documentosConBloqueo,
       asignaciones,
       dictamen: dictamen.length > 0 ? dictamen[0] : null,

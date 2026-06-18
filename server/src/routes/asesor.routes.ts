@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { query } from "../config/database";
+import { adminRepository } from "../infrastructure/database/AdminRepository";
 
 const router = Router();
 
@@ -44,6 +45,78 @@ router.get(
     );
 
     res.json({ estudiantes });
+  }
+);
+
+// PUT /api/asesor/documentos/:id/aprobar
+router.put(
+  "/documentos/:id/aprobar",
+  authenticate,
+  authorize("asesor"),
+  async (req: Request, res: Response): Promise<void> => {
+    const docId = parseInt(req.params.id, 10);
+    const docs = await query<{ tramite_id: number }[]>(
+      "SELECT tramite_id FROM documentos WHERE id = ?", [docId]
+    );
+    if (docs.length === 0) {
+      res.status(404).json({ error: "Documento no encontrado." });
+      return;
+    }
+
+    const asignado = await query<{ id: number }[]>(
+      "SELECT id FROM asignaciones WHERE tramite_id = ? AND usuario_id = ?",
+      [docs[0].tramite_id, req.user!.sub]
+    );
+    if (asignado.length === 0) {
+      res.status(403).json({ error: "No estás asignado a este trámite." });
+      return;
+    }
+
+    const result = await adminRepository.aprobarDocumento(docId, req.user!.sub);
+    if (!result.success) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({ message: "Documento aprobado." });
+  }
+);
+
+// PUT /api/asesor/documentos/:id/rechazar
+router.put(
+  "/documentos/:id/rechazar",
+  authenticate,
+  authorize("asesor"),
+  async (req: Request, res: Response): Promise<void> => {
+    const docId = parseInt(req.params.id, 10);
+    const { motivo } = req.body;
+    if (!motivo || !motivo.trim()) {
+      res.status(400).json({ error: "El motivo de rechazo es requerido." });
+      return;
+    }
+
+    const docs = await query<{ tramite_id: number }[]>(
+      "SELECT tramite_id FROM documentos WHERE id = ?", [docId]
+    );
+    if (docs.length === 0) {
+      res.status(404).json({ error: "Documento no encontrado." });
+      return;
+    }
+
+    const asignado = await query<{ id: number }[]>(
+      "SELECT id FROM asignaciones WHERE tramite_id = ? AND usuario_id = ?",
+      [docs[0].tramite_id, req.user!.sub]
+    );
+    if (asignado.length === 0) {
+      res.status(403).json({ error: "No estás asignado a este trámite." });
+      return;
+    }
+
+    const result = await adminRepository.rechazarDocumento(docId, req.user!.sub, motivo.trim());
+    if (!result.success) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({ message: "Documento rechazado." });
   }
 );
 

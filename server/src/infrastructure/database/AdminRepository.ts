@@ -96,8 +96,8 @@ export class AdminRepository {
     if (tramite.length === 0) return null;
     const t = tramite[0];
 
-    const opciones = await query<{ nombre: string }[]>(
-      "SELECT nombre FROM opciones_titulacion WHERE id = ?", [t.opcion_titulacion_id]
+    const opciones = await query<{ nombre: string; fecha_limite: string | null }[]>(
+      "SELECT nombre, fecha_limite FROM opciones_titulacion WHERE id = ?", [t.opcion_titulacion_id]
     );
 
     const documentos = await query<DocumentoInfo[]>(
@@ -134,6 +134,9 @@ export class AdminRepository {
     const obligatorios = docs.filter((d) => d.tipo_documento_obligatorio === 1);
     const aprobados = obligatorios.filter((d) => d.estatus === "aprobado").length;
     const rechazados = obligatorios.filter((d) => d.estatus === "rechazado").length;
+    const cargados = obligatorios.filter((d) => d.estatus === "cargado").length;
+    const enRevision = obligatorios.filter((d) => d.estatus === "en_revision").length;
+    const pendientes = obligatorios.filter((d) => d.estatus === "pendiente").length;
     const total = obligatorios.length;
     const color = rechazados > 0 ? "rojo" as const : aprobados === total ? "verde" as const : "ambar" as const;
     const porcentaje = total > 0 ? Math.round((aprobados / total) * 100) : 0;
@@ -165,10 +168,11 @@ export class AdminRepository {
       fecha_fin: t.fecha_fin ? new Date(t.fecha_fin) : null,
       titulo_proyecto: t.titulo_proyecto, activo: t.activo,
       opcion_titulacion: opciones[0]?.nombre ?? "Desconocida",
+      fecha_limite: opciones[0]?.fecha_limite ?? null,
       documentos: docs,
       asignaciones,
       dictamen: dictamenData.length > 0 ? dictamenData[0] : null,
-      progreso: { total, aprobados, rechazados, cargados: 0, en_revision: 0, pendientes: 0, color_semaforo: color, porcentaje },
+      progreso: { total, aprobados, rechazados, cargados, en_revision: enRevision, pendientes, color_semaforo: color, porcentaje },
     };
   }
 

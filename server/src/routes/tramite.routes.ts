@@ -9,6 +9,7 @@ import { obtenerMiTramiteUseCase, obtenerHistorialUseCase } from "../use-cases/t
 import { subirDocumentoUseCase } from "../use-cases/tramites/subirDocumento";
 import { query } from "../config/database";
 import { env } from "../config/env";
+import { generarDictamenPDF } from "../infrastructure/services/generarDictamenPDF";
 
 const router = Router();
 
@@ -154,6 +155,59 @@ router.get(
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", `inline; filename="${originalName}"`);
     res.sendFile(filepath);
+  }
+);
+
+// GET /api/tramites/mi-dictamen/pdf — Estudiante descarga su dictamen en PDF (token por query o header)
+router.get(
+  "/mi-dictamen/pdf",
+  async (req: Request, res: Response): Promise<void> => {
+    const token = (req.query.token as string) || req.headers.authorization?.replace("Bearer ", "");
+    if (!token) { res.status(401).json({ error: "Token requerido." }); return; }
+    let userId: number;
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as { sub: number; rol: string };
+      if (decoded.rol !== "estudiante" && decoded.rol !== "administrativo") {
+        res.status(403).json({ error: "Acceso denegado." }); return;
+      }
+      userId = decoded.sub;
+    } catch {
+      res.status(401).json({ error: "Token inválido." }); return;
+    }
+
+    const dictamen = await query<{
+      resultado: string; observaciones: string | null; fecha_emision: string;
+      emitido_nombre: string; emitido_rol: string;
+      estudiante: string; numero_control: string; opcion: string;
+    }[]>(
+      `SELECT d.resultado, d.observaciones, d.fecha_emision,
+              CONCAT(ua.nombre, ' ', ua.apellido_paterno) AS emitido_nombre, ua.rol AS emitido_rol,
+              CONCAT(ue.nombre, ' ', ue.apellido_paterno, ' ', COALESCE(ue.apellido_materno,'')) AS estudiante,
+              ue.numero_control, o.nombre AS opcion
+       FROM dictamenes d
+       JOIN tramites t ON d.tramite_id = t.id
+       JOIN usuarios ua ON d.emitido_por = ua.id
+       JOIN usuarios ue ON t.usuario_id = ue.id
+       JOIN opciones_titulacion o ON t.opcion_titulacion_id = o.id
+       WHERE t.usuario_id = ?`,
+      [userId]
+    );
+
+    if (dictamen.length === 0) {
+      res.status(404).json({ error: "No tienes un dictamen emitido aún." });
+      return;
+    }
+
+    const d = dictamen[0];
+    generarDictamenPDF(res, {
+      estudiante: d.estudiante,
+      numero_control: d.numero_control,
+      opcion: d.opcion,
+      fecha_emision: d.fecha_emision,
+      resultado: d.resultado,
+      observaciones: d.observaciones,
+      emitido_nombre: d.emitido_nombre,
+    });
   }
 );
 

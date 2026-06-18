@@ -105,8 +105,8 @@ function crudRoutes(
   );
 }
 
-// Opciones de Titulación
-crudRoutes("opciones", "opciones_titulacion");
+// Opciones de Titulación (con fecha límite)
+crudRoutes("opciones", "opciones_titulacion", ["fecha_limite"]);
 
 // Tipos de Documento (solo nombre por ahora)
 crudRoutes("tipos-documento", "tipos_documento");
