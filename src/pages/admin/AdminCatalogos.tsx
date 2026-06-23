@@ -10,7 +10,7 @@ import {
 import { getToken } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 
-interface Item { id: number; nombre: string; activo: number; }
+interface Item { id: number; nombre: string; activo: number; fecha_limite?: string | null; }
 
 const TABS = [
   { key: "opciones", label: "Opciones de Titulación", icon: FileCheck },
@@ -27,6 +27,7 @@ const AdminCatalogos = () => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [nombre, setNombre] = useState("");
+  const [fechaLimite, setFechaLimite] = useState("");
   const [saving, setSaving] = useState(false);
 
   const { icon: Icon } = TABS.find(t => t.key === tab) || TABS[0];
@@ -38,7 +39,7 @@ const AdminCatalogos = () => {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       setItems(await res.json());
-    } catch { /* ignore */ } finally { setLoading(false); }
+    } catch { setItems([]); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchItems(); }, [tab]);
@@ -50,15 +51,17 @@ const AdminCatalogos = () => {
       const url = editing
         ? `/api/admin/catalogos/${tab}/${editing.id}`
         : `/api/admin/catalogos/${tab}`;
+      const body: Record<string, unknown> = { nombre };
+      if (tab === "opciones") body.fecha_limite = fechaLimite || null;
       const res = await fetch(url, {
         method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ nombre }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast({ title: data.message });
-      setShowForm(false); setEditing(null); setNombre("");
+      setShowForm(false); setEditing(null); setNombre(""); setFechaLimite("");
       fetchItems();
     } catch (err: unknown) {
       toast({ title: "Error", description: (err as Error).message, className: "bg-destructive text-destructive-foreground" });
@@ -110,7 +113,7 @@ const AdminCatalogos = () => {
         </div>
         <Button
           size="sm"
-          onClick={() => { setEditing(null); setNombre(""); setShowForm(true); }}
+          onClick={() => { setEditing(null); setNombre(""); setFechaLimite(""); setShowForm(true); }}
           className="gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" /> Nuevo
@@ -122,6 +125,7 @@ const AdminCatalogos = () => {
           <TableHeader>
             <TableRow>
               <TableHead className="font-body text-xs">Nombre</TableHead>
+              {tab === "opciones" && <TableHead className="font-body text-xs w-32">Fecha límite</TableHead>}
               <TableHead className="font-body text-xs w-24">Estado</TableHead>
               <TableHead className="font-body text-xs w-24">Acciones</TableHead>
             </TableRow>
@@ -135,6 +139,11 @@ const AdminCatalogos = () => {
               items.map(item => (
                 <TableRow key={item.id}>
                   <TableCell className="font-body text-sm">{item.nombre}</TableCell>
+                  {tab === "opciones" && (
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.fecha_limite ? new Date(item.fecha_limite + "T00:00:00").toLocaleDateString("es-MX") : "Sin fecha"}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Badge className={`text-[10px] ${item.activo ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                       {item.activo ? "Activo" : "Inactivo"}
@@ -142,7 +151,7 @@ const AdminCatalogos = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(item); setNombre(item.nombre); setShowForm(true); }}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(item); setNombre(item.nombre); setFechaLimite(item.fecha_limite || ""); setShowForm(true); }}>
                         <Pencil className="w-3 h-3" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggle(item.id)}>
@@ -168,6 +177,12 @@ const AdminCatalogos = () => {
               <label className="text-xs">Nombre *</label>
               <Input value={nombre} onChange={e => setNombre(e.target.value)} required className="h-9" />
             </div>
+            {tab === "opciones" && (
+              <div>
+                <label className="text-xs">Fecha límite (opcional)</label>
+                <Input type="date" value={fechaLimite} onChange={e => setFechaLimite(e.target.value)} className="h-9" />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
               <Button size="sm" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>

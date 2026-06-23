@@ -19,6 +19,7 @@ import AdminDictamenes from "./pages/admin/AdminDictamenes.tsx";
 import AdminUsuarios from "./pages/admin/AdminUsuarios.tsx";
 import AdminCatalogos from "./pages/admin/AdminCatalogos.tsx";
 import AdminARCO from "./pages/admin/AdminARCO.tsx";
+import AdminBitacora from "./pages/admin/AdminBitacora.tsx";
 import AsesorDashboard from "./pages/asesor/AsesorDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="usuarios" element={<AdminUsuarios />} />
               <Route path="catalogos" element={<AdminCatalogos />} />
               <Route path="arco" element={<AdminARCO />} />
+              <Route path="bitacora" element={<AdminBitacora />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

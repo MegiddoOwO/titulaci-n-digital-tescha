@@ -1,8 +1,7 @@
 import { Users, FileText, ClipboardCheck, Clock, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useAdmin } from "@/hooks/useAdmin";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 const estatusLabel: Record<string, string> = {
   en_proceso: "En Proceso",
@@ -24,6 +23,17 @@ const AdminDashboard = () => {
   }
 
   const s = stats.data;
+
+  const barData = s ? Object.entries(s.por_estatus).map(([key, count]) => ({
+    name: estatusLabel[key] || key,
+    count,
+  })) : [];
+
+  const pieData = s ? [
+    { name: "Aprobados/Completados", value: (s.por_estatus.aprobado ?? 0) + (s.por_estatus.completado ?? 0), color: "#10B981" },
+    { name: "En proceso/Revisión", value: (s.por_estatus.en_proceso ?? 0) + (s.por_estatus.en_revision ?? 0), color: "#F59E0B" },
+    { name: "Rechazados", value: s.por_estatus.rechazado ?? 0, color: "#EF4444" },
+  ] : [];
 
   return (
     <div className="p-6 space-y-6">
@@ -89,50 +99,42 @@ const AdminDashboard = () => {
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card className="border-border">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-1">
             <CardTitle className="font-display text-lg">Distribución por Estado</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {s && Object.entries(s.por_estatus).map(([key, count]) => (
-              <div key={key}>
-                <div className="flex justify-between mb-1">
-                  <span className="font-body text-xs font-medium text-foreground flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ${
-                        key === "aprobado" || key === "completado" ? "border-emerald-200 text-emerald-700" :
-                        key === "rechazado" ? "border-rose-200 text-rose-700" :
-                        "border-amber-200 text-amber-700"
-                      }`}
-                    >
-                      {estatusLabel[key] || key}
-                    </Badge>
-                  </span>
-                  <span className="font-body text-xs text-muted-foreground">{count}</span>
-                </div>
-                <Progress value={s.total_activos > 0 ? (count / s.total_activos) * 100 : 0} className="h-1.5" />
-              </div>
-            ))}
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={barData} layout="vertical" margin={{ left: 80, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} />
+                <Tooltip />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  {barData.map((_, i) => (
+                    <Cell key={i} fill={["#F59E0B", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6"][i] || "#6B7280"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
         <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-lg">Resumen</CardTitle>
+          <CardHeader className="pb-1">
+            <CardTitle className="font-display text-lg">Resumen General</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 bg-emerald-50 rounded-lg flex items-center justify-between">
-              <span className="font-body text-sm font-medium text-emerald-800">Expedientes aprobados/completados</span>
-              <span className="font-display text-xl font-bold text-emerald-700">{(s?.por_estatus.aprobado ?? 0) + (s?.por_estatus.completado ?? 0)}</span>
-            </div>
-            <div className="p-3 bg-amber-50 rounded-lg flex items-center justify-between">
-              <span className="font-body text-sm font-medium text-amber-800">En revisión / proceso</span>
-              <span className="font-display text-xl font-bold text-amber-700">{(s?.por_estatus.en_proceso ?? 0) + (s?.por_estatus.en_revision ?? 0)}</span>
-            </div>
-            <div className="p-3 bg-rose-50 rounded-lg flex items-center justify-between">
-              <span className="font-body text-sm font-medium text-rose-800">Rechazados</span>
-              <span className="font-display text-xl font-bold text-rose-700">{s?.por_estatus.rechazado ?? 0}</span>
-            </div>
+          <CardContent className="flex items-center justify-center">
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} paddingAngle={3}>
+                  {pieData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>

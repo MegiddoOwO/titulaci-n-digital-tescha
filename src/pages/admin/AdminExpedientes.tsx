@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, ArrowUpDown, Eye, Loader2 } from "lucide-react";
+import { Search, Eye, Loader2, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -126,6 +126,29 @@ const AdminExpedientes = () => {
             <SelectItem value="completado">Completado</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={async () => {
+            const qs = new URLSearchParams();
+            if (search) qs.set("search", search);
+            if (estatusFilter !== "todos") qs.set("estatus", estatusFilter);
+            const res = await fetch(`/api/admin/expedientes/export?${qs.toString()}`, {
+              headers: { Authorization: `Bearer ${getToken()}` },
+            });
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "expedientes.xlsx";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download className="w-3.5 h-3.5" />
+          Exportar Excel
+        </Button>
       </div>
 
       <div className="border rounded-lg bg-white">
@@ -233,6 +256,33 @@ const AdminExpedientes = () => {
                 >
                   {togglingId === detalle.data?.id ? "..." : "Cancelar trámite"}
                 </button>
+                <button
+                  className="text-[10px] px-2 py-0.5 rounded border text-navy hover:bg-navy/10 flex items-center gap-1"
+                  onClick={async () => {
+                    const res = await fetch(`/api/admin/expedientes/${detalle.data!.id}/descargar`, {
+                      headers: { Authorization: `Bearer ${getToken()}` },
+                    });
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `expediente_${detalle.data!.id}.zip`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Descargar ZIP
+                </button>
+                {(detalle.data as { dictamen?: { resultado: string } | null } | undefined)?.dictamen && (
+                  <button
+                    className="text-[10px] px-2 py-0.5 rounded border text-emerald-600 hover:bg-emerald-50 flex items-center gap-1"
+                    onClick={() => {
+                      window.open(`/api/admin/dictamenes/${detalle.data!.id}/pdf?token=${getToken()}`, "_blank");
+                    }}
+                  >
+                    Ver Dictamen PDF
+                  </button>
+                )}
               </div>
             </DialogDescription>
           </DialogHeader>

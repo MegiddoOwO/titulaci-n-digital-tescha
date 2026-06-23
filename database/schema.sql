@@ -19,6 +19,7 @@ USE sca_tescha;
 CREATE TABLE opciones_titulacion (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(100) NOT NULL UNIQUE,
+    fecha_limite    DATE NULL COMMENT 'Fecha límite para completar el trámite en esta opción',
     descripcion     TEXT,
     activo          TINYINT(1) NOT NULL DEFAULT 1,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

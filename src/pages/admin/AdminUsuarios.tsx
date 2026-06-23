@@ -56,13 +56,16 @@ const AdminUsuarios = () => {
       });
       const data = await res.json();
       if (res.ok) setUsuarios(data);
-    } catch { /* */ }
+    } catch { setUsuarios(null); }
     setLoading(false);
   };
 
   useEffect(() => { fetchUsuarios(); }, []);
 
   const handleCreate = async () => {
+    if (formData.rol === "estudiante" && asesorSeleccionado === "none" && !window.confirm("¿Crear estudiante sin asesor asignado? El asesor podrá asignarse después.")) {
+      return;
+    }
     setCreating(true);
     try {
       const token = getToken();
@@ -133,9 +136,12 @@ const AdminUsuarios = () => {
     numero_control: "", email: "", nombre: "", apellido_paterno: "", apellido_materno: "",
     rol: "estudiante" as string, grado_academico: "", carga_maxima: 5, password: "",
   });
+  const [editAsesorSeleccionado, setEditAsesorSeleccionado] = useState("none");
+  const [editOpcionSeleccionada, setEditOpcionSeleccionada] = useState("1");
+  const [editTramiteId, setEditTramiteId] = useState<number | null>(null);
   const [updating, setUpdating] = useState(false);
 
-  const handleEdit = (user: Record<string, unknown>) => {
+  const handleEdit = async (user: Record<string, unknown>) => {
     setEditId(user.id as number);
     setEditData({
       numero_control: (user.numero_control as string) || "",
@@ -148,6 +154,32 @@ const AdminUsuarios = () => {
       carga_maxima: (user.carga_maxima as number) || 5,
       password: "",
     });
+    setEditAsesorSeleccionado("none");
+    setEditOpcionSeleccionada("1");
+    setEditTramiteId(null);
+
+    if (user.rol === "estudiante") {
+      const token = getToken();
+      try {
+        const res = await fetch(`/api/admin/expedientes?search=${user.numero_control}&limit=1`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        const tramiteId = data.expedientes?.[0]?.id;
+
+          if (tramiteId) {
+            setEditTramiteId(tramiteId);
+            const detalle = await fetch(`/api/admin/expedientes/${tramiteId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const tramite = await detalle.json();
+          const asesor = (tramite.asignaciones as { usuario_id?: number }[] | undefined)?.find(a => a.usuario_id);
+          if (asesor?.usuario_id) setEditAsesorSeleccionado(String(asesor.usuario_id));
+          if (tramite.opcion_titulacion_id) setEditOpcionSeleccionada(String(tramite.opcion_titulacion_id));
+        }
+      } catch { /* best effort */ }
+    }
+
     setShowEdit(true);
   };
 
@@ -174,6 +206,28 @@ const AdminUsuarios = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (editData.rol === "estudiante" && editTramiteId) {
+        if (editAsesorSeleccionado !== "none") {
+          await fetch("/api/admin/asignaciones", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              tramite_id: editTramiteId,
+              usuario_id: parseInt(editAsesorSeleccionado),
+              rol_asignacion: "asesor",
+            }),
+          });
+        }
+        if (editOpcionSeleccionada) {
+          await fetch(`/api/admin/expedientes/${editTramiteId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ opcion_titulacion_id: parseInt(editOpcionSeleccionada) }),
+          });
+        }
+      }
+
       toast({ title: "Usuario actualizado", description: data.message });
       setShowEdit(false);
       fetchUsuarios();
@@ -436,6 +490,35 @@ const AdminUsuarios = () => {
               <label className="text-xs">Apellido Materno</label>
               <Input value={editData.apellido_materno} onChange={e => setEditData({ ...editData, apellido_materno: e.target.value })} className="h-8 text-xs" />
             </div>
+            {editData.rol === "estudiante" && (
+              <>
+                <div>
+                  <label className="text-xs">Opción de Titulación</label>
+                  <Select value={editOpcionSeleccionada} onValueChange={setEditOpcionSeleccionada}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {opcionesTitulacion.map(o => (
+                        <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs">Asesor</label>
+                  <Select value={editAsesorSeleccionado} onValueChange={setEditAsesorSeleccionado}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin asesor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin asesor</SelectItem>
+                      {docentes.map(d => (
+                        <SelectItem key={d.id} value={String(d.id)} disabled={d.carga_actual >= (d.carga_maxima || 5)}>
+                          {d.nombre_completo} ({d.carga_actual}/{d.carga_maxima || 5})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             {editData.rol === "asesor" && (
               <div>
                 <label className="text-xs">Grado Académico</label>

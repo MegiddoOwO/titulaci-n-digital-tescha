@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { GraduationCap, Loader2, User, FileText } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { GraduationCap, Loader2, User, FileText, CheckCircle2, Ban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiGet } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
+import { apiGet, getToken } from "@/services/api";
 
 interface EstudianteAsignado {
   tramite_id: number;
@@ -26,7 +29,11 @@ const semaforoColor: Record<string, string> = {
 
 const AsesorDashboard = () => {
   const { usuario } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedTramite, setSelectedTramite] = useState<number | null>(null);
+  const [motivoRechazo, setMotivoRechazo] = useState("");
+  const [rechazarDocId, setRechazarDocId] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<{ estudiantes: EstudianteAsignado[] }>({
     queryKey: ["asesor", "estudiantes"],
@@ -40,6 +47,37 @@ const AsesorDashboard = () => {
     queryKey: ["asesor", "tramite", selectedTramite],
     queryFn: () => apiGet(`/api/admin/expedientes/${selectedTramite}`),
     enabled: !!selectedTramite,
+  });
+
+  const aprobarMutation = useMutation({
+    mutationFn: async (docId: number) => {
+      const res = await fetch(`/api/asesor/documentos/${docId}/aprobar`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    },
+    onSuccess: () => {
+      toast({ title: "Documento aprobado" });
+      queryClient.invalidateQueries({ queryKey: ["asesor"] });
+    },
+  });
+
+  const rechazarMutation = useMutation({
+    mutationFn: async ({ docId, motivo }: { docId: number; motivo: string }) => {
+      const res = await fetch(`/api/asesor/documentos/${docId}/rechazar`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ motivo }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    },
+    onSuccess: () => {
+      toast({ title: "Documento rechazado" });
+      setRechazarDocId(null);
+      setMotivoRechazo("");
+      queryClient.invalidateQueries({ queryKey: ["asesor"] });
+    },
   });
 
   return (
@@ -180,11 +218,11 @@ const AsesorDashboard = () => {
                     — {(detalle.data as { progreso: { porcentaje: number } }).progreso?.porcentaje}%
                   </span>
                 </div>
-                {(detalle.data as { documentos: { tipo_documento_id: number; tipo_documento_nombre: string; estatus: string; tipo_documento_obligatorio: number; motivo_rechazo: string | null }[] }).documentos?.map(
+                {(detalle.data as { documentos: { id: number | null; tipo_documento_id: number; tipo_documento_nombre: string; estatus: string; tipo_documento_obligatorio: number; motivo_rechazo: string | null; archivo_nombre: string | null; fecha_subida: string | null }[] }).documentos?.map(
                   (doc) => (
                     <div
                       key={doc.tipo_documento_id}
-                      className={`p-2 rounded border text-xs flex items-center justify-between ${
+                      className={`p-2 rounded border text-xs flex items-center justify-between gap-2 ${
                         doc.estatus === "aprobado"
                           ? "bg-emerald-50 border-emerald-200"
                           : doc.estatus === "rechazado"
@@ -199,25 +237,53 @@ const AsesorDashboard = () => {
                         {doc.tipo_documento_obligatorio === 1 && (
                           <span className="text-rose-500 ml-0.5">*</span>
                         )}
+                        {doc.archivo_nombre && (
+                          <span className="text-[10px] text-muted-foreground block mt-0.5">
+                            {doc.archivo_nombre}
+                            {doc.fecha_subida ? ` · ${new Date(doc.fecha_subida).toLocaleDateString("es-MX")}` : ""}
+                          </span>
+                        )}
                         {doc.estatus === "rechazado" && doc.motivo_rechazo && (
                           <span className="text-rose-600 block text-[10px] mt-0.5">
                             {doc.motivo_rechazo}
                           </span>
                         )}
                       </div>
-                      <Badge
-                        className={`text-[9px] ${
-                          doc.estatus === "aprobado"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : doc.estatus === "rechazado"
-                            ? "bg-rose-100 text-rose-700"
-                            : doc.estatus === "cargado"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {doc.estatus}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          className={`text-[9px] ${
+                            doc.estatus === "aprobado"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : doc.estatus === "rechazado"
+                              ? "bg-rose-100 text-rose-700"
+                              : doc.estatus === "cargado"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {doc.estatus}
+                        </Badge>
+                        {doc.id && doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="h-6 text-[9px] bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => aprobarMutation.mutate(doc.id!)}
+                              disabled={aprobarMutation.isPending}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-6 text-[9px]"
+                              onClick={() => setRechazarDocId(doc.id!)}
+                            >
+                              <Ban className="w-3 h-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )
                 )}
@@ -226,6 +292,40 @@ const AsesorDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {rechazarDocId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="font-display text-base">Motivo del rechazo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Describe por qué se rechaza este documento..."
+                value={motivoRechazo}
+                onChange={(e) => setMotivoRechazo(e.target.value)}
+                rows={3}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setRechazarDocId(null); setMotivoRechazo(""); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm" variant="destructive"
+                  disabled={!motivoRechazo.trim() || rechazarMutation.isPending}
+                  onClick={() => {
+                    rechazarMutation.mutate(
+                      { docId: rechazarDocId, motivo: motivoRechazo.trim() }
+                    );
+                  }}
+                >
+                  {rechazarMutation.isPending ? "Rechazando..." : "Confirmar rechazo"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

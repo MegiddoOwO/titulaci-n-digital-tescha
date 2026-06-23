@@ -1,8 +1,9 @@
 import {
-  LayoutDashboard, Users, FileText, ClipboardCheck, Settings, LogOut, GraduationCap, Library, Shield
+  LayoutDashboard, Users, FileText, ClipboardCheck, Settings, LogOut, GraduationCap, Library, Shield, Bell, History
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotificaciones } from "@/hooks/useNotificaciones";
 import logo from "@/assets/tescha-logo.svg";
 
 import {
@@ -26,12 +27,14 @@ const menuItems = [
   { title: "Usuarios", url: "/admin/usuarios", icon: Settings },
   { title: "Catálogos", url: "/admin/catalogos", icon: Library },
   { title: "ARCO", url: "/admin/arco", icon: Shield },
+  { title: "Bitácora", url: "/admin/bitacora", icon: History },
 ];
 
 export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { usuario, logout } = useAuth();
+  const { noLeidas } = useNotificaciones();
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -40,11 +43,19 @@ export function AdminSidebar() {
         <div className={`flex items-center gap-3 px-4 py-5 border-b border-sidebar-border ${collapsed ? "justify-center" : ""}`}>
           <img src={logo} alt="TESCHA" className="h-8 w-8 flex-shrink-0" />
           {!collapsed && (
-            <div>
+            <div className="flex-1">
               <p className="text-sidebar-foreground font-body text-sm font-semibold">TESCHA</p>
               <p className="text-sidebar-foreground/50 font-body text-[10px]">Administración</p>
             </div>
           )}
+          <div className="relative">
+            <Bell className="w-4 h-4 text-sidebar-foreground/70" />
+            {noLeidas > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                {noLeidas > 9 ? "9+" : noLeidas}
+              </span>
+            )}
+          </div>
         </div>
 
         <SidebarGroup>

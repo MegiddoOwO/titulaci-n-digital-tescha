@@ -45,8 +45,14 @@ El proceso tradicional requiere hasta 7 visitas presenciales del egresado, con e
 | **Panel Administrativo** | Dashboard con métricas, revisión de documentos, aprobación/rechazo con justificación, emisión de dictámenes |
 | **Notificaciones** | Campana in-app con badge de no leídas, registro de emails (infraestructura lista para SMTP) |
 | **Contenido Informativo** | Normativa dinámica con filtro por modalidad, directorio institucional con búsqueda, guía de fotografía, wizard de pago |
-| **Privacidad** | Consentimiento LGPDPPSO en primer login, formulario de derechos ARCO |
+| **Privacidad** | Consentimiento LGPDPPSO en primer login, formulario de derechos ARCO, panel admin ARCO, bitácora de auditoría |
 | **Gestión de Usuarios** | CRUD de usuarios por admin, activación/desactivación, asignación de asesores y sinodales |
+| **Catálogos** | CRUD genérico de opciones de titulación, tipos de documento, normativa y directorio desde panel admin |
+| **Panel Asesor** | Vista de estudiantes asignados, revisión y aprobación/rechazo de documentos por asesor |
+| **Reset Password** | Restablecimiento de contraseña vía token por URL (`/reset-password?token=...`) |
+| **Dictamen PDF** | Generación de dictamen en PDF con PDFKit, colores institucionales, firma y observaciones |
+| **Theme Toggle** | Alternancia dark/light mode con persistencia en localStorage |
+| **Error Boundary** | Componente de clase que captura errores de renderizado con pantalla de fallback |
 
 ---
 
@@ -218,7 +224,9 @@ server/src/
 │   ├── normativa.routes.ts
 │   ├── contenido.routes.ts
 │   ├── privacidad.routes.ts
-│   └── arco.routes.ts
+│   ├── arco.routes.ts
+│   ├── asesor.routes.ts
+│   └── catalogos.routes.ts
 ├── app.ts               # Configuración Express
 └── index.ts             # Entrypoint
 ```
@@ -308,6 +316,24 @@ Centraliza la creación de notificaciones. Método `create()`:
 #### `BitacoraService`
 Registra acciones administrativas para auditoría. Cada acción de aprobar/rechazar/emitir dictamen genera una entrada con: usuario, acción, entidad afectada, ID, detalles en JSON, IP.
 
+#### `generarDictamenPDF.ts` (PDFKit)
+Genera un dictamen oficial de titulación en PDF tamaño Carta con colores institucionales TESCHA:
+- **Cabecera**: rectángulo guinda `#8A2036` con nombre TESCHA y división ISC en dorado `#BC955B`
+- **Campos**: Alumno, Número de Control, Opción de Titulación, Fecha de Emisión — con líneas divisorias
+- **Resultado**: recuadro con fondo verde (#ECFDF5) o rojo (#FFF1F2) según aprobado/rechazado
+- **Observaciones**: 5 líneas guía con texto real sobrepuesto (si existe)
+- **Firma**: línea para firma del administrativo
+- **Footer**: texto institucional SCA-TESCHA
+- Se envía como stream HTTP con `Content-Type: application/pdf` y `Content-Disposition: inline`
+
+#### `catalogos.routes.ts` (CRUD Genérico Parametrizado)
+Implementa un patrón de CRUD genérico mediante la función `crudRoutes(path, table, extraCols?)` que registra automáticamente 4 endpoints REST por cada catálogo:
+- `GET /api/admin/catalogos/{path}` — SELECT * FROM table ORDER BY nombre
+- `POST` — INSERT con validación de nombre requerido
+- `PUT /:id` — UPDATE dinámico con columnas extras opcionales (ej. `fecha_limite` en opciones_titulacion)
+- `PUT /:id/toggle` — `UPDATE table SET activo = NOT activo`
+Se aplica a 4 catálogos: `opciones` (opciones_titulacion + fecha_limite), `tipos-documento` (tipos_documento), `normativa` (normativa), `directorio` (directorio).
+
 ---
 
 ## 5. Frontend — SPA React
@@ -326,24 +352,33 @@ src/
 │   ├── Dashboard.tsx          # Panel estudiante (~1100 líneas)
 │   ├── Normativa.tsx          # Reglamentos dinámicos
 │   ├── NotFound.tsx           # Página 404
+│   ├── ResetPassword.tsx        # Restablecer contraseña vía token
 │   └── admin/
-│       ├── AdminLayout.tsx    # Sidebar + Outlet
+│       ├── AdminLayout.tsx    # Sidebar + Outlet + ThemeToggle
 │       ├── AdminDashboard.tsx # Métricas y gráficos
 │       ├── AdminExpedientes.tsx # Tabla + búsqueda + detalle
 │       ├── AdminDocumentos.tsx  # Revisión con aprobar/rechazar
 │       ├── AdminDictamenes.tsx  # Emisión de dictámenes
-│       └── AdminUsuarios.tsx    # CRUD de usuarios
+│       ├── AdminUsuarios.tsx    # CRUD de usuarios
+│       ├── AdminARCO.tsx        # Gestión administrativa solicitudes ARCO
+│       ├── AdminBitacora.tsx    # Visualización bitácora de auditoría
+│       └── AdminCatalogos.tsx   # CRUD de catálogos (opciones, tipos doc, normativa, directorio)
+│   └── asesor/
+│       └── AsesorDashboard.tsx  # Panel de asesor con estudiantes asignados
 ├── components/
 │   ├── NavLink.tsx            # NavLink con activeClassName
 │   ├── AdminSidebar.tsx       # Sidebar admin colapsable
 │   ├── ProtectedRoute.tsx     # Guard de autenticación + RBAC
-│   └── PrivacyConsentModal.tsx # Modal LGPDPPSO primer login
+│   ├── PrivacyConsentModal.tsx # Modal LGPDPPSO primer login
+│   ├── ErrorBoundary.tsx      # Captura errores renderizado (Class Component)
+│   └── ThemeToggle.tsx        # Dark/light mode con localStorage
 ├── contexts/
 │   └── AuthContext.tsx        # Estado global de autenticación
 ├── hooks/
 │   ├── useTramite.ts          # TanStack Query: trámite + upload + historial
 │   ├── useAdmin.ts            # TanStack Query: admin stats, expedientes, dictámenes
 │   ├── useNotificaciones.ts   # TanStack Query: notificaciones + polling 30s
+│   ├── use-toast.ts           # Hook de toasts (shadcn/ui sonner wrapper)
 │   └── use-mobile.tsx         # Detección viewport < 768px
 ├── services/
 │   └── api.ts                 # Cliente HTTP con JWT interceptor
@@ -418,6 +453,34 @@ Panel dividido: izquierda lista de expedientes, derecha documentos del expedient
 
 Tabla CRUD completa: lista con búsqueda y filtro por rol, botón "Nuevo Usuario" con formulario modal (número de control, email, contraseña, nombre, apellidos, rol, grado académico condicional para asesores), toggle activar/desactivar con icono de escudo. Contraseña se hashea con bcrypt en el backend.
 
+#### `AdminARCO.tsx`
+
+**Propósito**: gestión administrativa de solicitudes de derechos ARCO (LGPDPPSO). Panel dividido en dos columnas: izquierda tabla de solicitudes con filtro por estado (pendiente/completada/rechazada), derecha formulario de procesamiento con Textarea para respuesta y botones [Resolver]/[Rechazar]. Cada solicitud muestra solicitante, tipo (acceso/rectificación/cancelación/oposición), detalle y fecha. APIs: `GET /api/admin/solicitudes-arco`, `PUT /api/admin/solicitudes-arco/:id`.
+
+#### `AdminBitacora.tsx`
+
+**Propósito**: visualización de la bitácora de auditoría del sistema (`tabla bitacora`). Lista cronológica con paginación (20 registros/página) mostrando: acción, entidad afectada, ID, detalle (JSON truncado a 200 chars), usuario responsable, IP origen y timestamp. Datos desde `GET /api/admin/bitacora?page=&limit=`. Diseño tipo timeline con indicadores circulares color navy.
+
+#### `AdminCatalogos.tsx`
+
+**Propósito**: CRUD genérico sobre 4 catálogos del sistema mediante tabs: Opciones de Titulación (con fecha límite), Tipos de Documento, Normativa y Directorio. Cada tab comparte interfaz unificada: tabla con columnas nombre, estado (activo/inactivo) y acciones (editar, toggle activar/desactivar). Modal reutilizable para crear/editar registros con validación de nombre requerido. API usa ruta genérica `/api/admin/catalogos/{tab}` con operaciones CRUD estándar.
+
+#### `AsesorDashboard.tsx`
+
+**Propósito**: panel del docente/asesor que muestra los estudiantes asignados. Layout de 2 columnas: izquierda lista de estudiantes con nombre, número de control, opción de titulación, semáforo y barra de progreso; derecha detalle del expediente seleccionado con documentos y botones [Aprobar]/[Rechazar] con modal de motivo. Usa TanStack Query con queries `["asesor", "estudiantes"]` y `["asesor", "tramite", id]`. APIs: `GET /api/asesor/estudiantes`, `PUT /api/asesor/documentos/:id/aprobar`, `PUT /api/asesor/documentos/:id/rechazar`.
+
+#### `ResetPassword.tsx`
+
+**Propósito**: pantalla pública de restablecimiento de contraseña. Recibe `token` vía query param (`/reset-password?token=...`). Tres estados: token inválido/expirado (mensaje + link a login), formulario de nueva contraseña (mínimo 8 caracteres, toggle visibilidad), y confirmación de éxito (ícono verde + link a login). API: `POST /api/auth/reset-password` con `{token, password}`.
+
+#### `ErrorBoundary.tsx`
+
+**Propósito**: componente de clase React que captura errores de renderizado en cualquier parte del árbol de componentes. Usa `getDerivedStateFromError` y `componentDidCatch`. Muestra pantalla de fallback con ícono AlertTriangle, mensaje "Algo salió mal" y botón "Recargar página" (`window.location.reload()`). Envuelve toda la app en `App.tsx` como wrapper de `<Routes>`.
+
+#### `ThemeToggle.tsx`
+
+**Propósito**: botón de alternancia entre modo claro y oscuro. Estado inicial desde localStorage (`sca_theme`). Al cambiar, agrega/remueve clase `dark` en `document.documentElement` y persiste preferencia. Usa iconos `Moon`/`Sun` de lucide-react. Integrado en el header del `AdminLayout.tsx`.
+
 ### 5.3 Contextos y Estado Global
 
 #### `AuthContext.tsx`
@@ -442,16 +505,19 @@ Tabla CRUD completa: lista con búsqueda y filtro por rol, botón "Nuevo Usuario
 | `useAdmin` (stats) | `["admin", "stats"]` | `GET /api/admin/stats` | 30s | — |
 | `useAdmin` (expedientes) | `["admin", "expedientes", params]` | `GET /api/admin/expedientes` | 10s | `listarExpedientes({search, estatus, page})` |
 | `useAdmin` (detalle) | `["admin", "expediente", id]` | `GET /api/admin/expedientes/:id` | — | `aprobarDoc.mutate()`, `rechazarDoc.mutate()`, `emitirDictamen.mutate()` |
-| `useNotificaciones` | `["notificaciones"]` | `GET /api/notificaciones` | 15s, refetch 30s | `marcarTodas.mutate()`, `marcarUna.mutate()` |
+| `useNotificaciones` | `["notificaciones"]` | `GET /api/notificaciones` | 15s, refetch 30s | `marcarTodas.mutate()` |
+| `AsesorDashboard` (useQuery) | `["asesor", "estudiantes"]` | `GET /api/asesor/estudiantes` | 15s | `aprobarMutation.mutate()`, `rechazarMutation.mutate()` |
 
 **Justificación TanStack Query**: elegido sobre useEffect+useState porque provee cache automático, invalidación tras mutaciones, refetch en intervalos para notificaciones, y estados de loading/error integrados. Estaba instalado en el proyecto original (Lovable lo incluye), solo estaba sin usar.
 
 ### 5.5 Servicio API
 
-`src/services/api.ts` proporciona dos funciones principales:
+`src/services/api.ts` proporciona cuatro funciones HTTP con interceptor JWT automático:
 
 - `apiGet<T>(url)` — GET con header `Authorization: Bearer <token>` automático
 - `apiPost<T>(url, body)` — POST con header JWT automático
+- `apiPut<T>(url, body?)` — PUT con header JWT automático, body opcional
+- `apiDelete<T>(url)` — DELETE con header JWT automático
 - `getToken()`, `setToken()`, `removeToken()` — gestión de token en localStorage con key `sca_token`
 
 El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipado si `!response.ok`, permitiendo a los hooks y componentes manejar errores de forma estructurada.
@@ -466,6 +532,8 @@ El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipa
 |--------|------|------|-------------|
 | `POST` | `/api/auth/login` | No (rate-limited) | Login con numero_control + password. Retorna JWT + usuario. Implementa bloqueo tras 5 fallos. |
 | `GET` | `/api/auth/me` | JWT | Retorna payload del JWT actual (sub, numero_control, rol, nombre) |
+
+| `POST` | `/api/auth/reset-password` | No | Restablece contraseña con token enviado por email. Requiere `{token, password}`. |
 
 ### 6.2 Trámites (`/api/tramites`)
 
@@ -490,8 +558,23 @@ El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipa
 | `GET` | `/api/admin/usuarios` | JWT | administrativo | Lista usuarios con búsqueda, filtro rol, paginación |
 | `POST` | `/api/admin/usuarios` | JWT | administrativo | Crea usuario con bcrypt automático |
 | `PUT` | `/api/admin/usuarios/:id/toggle` | JWT | administrativo | Activa/desactiva usuario, resetea intentos fallidos |
+| `GET` | `/api/admin/solicitudes-arco` | JWT | administrativo | Lista todas las solicitudes ARCO para gestión admin |
+| `PUT` | `/api/admin/solicitudes-arco/:id` | JWT | administrativo | Resuelve/rechaza solicitud ARCO con respuesta |
+| `GET` | `/api/admin/bitacora` | JWT | administrativo | Lista bitácora de auditoría con paginación (`page`, `limit`) |
+| `GET` | `/api/admin/catalogos/:catalogo` | JWT | administrativo | Lista items de un catálogo (opciones/tipos-documento/normativa/directorio) |
+| `POST` | `/api/admin/catalogos/:catalogo` | JWT | administrativo | Crea item en un catálogo |
+| `PUT` | `/api/admin/catalogos/:catalogo/:id` | JWT | administrativo | Actualiza item en un catálogo |
+| `PUT` | `/api/admin/catalogos/:catalogo/:id/toggle` | JWT | administrativo | Activa/desactiva item en un catálogo (`activo = NOT activo`) |
 
-### 6.4 Notificaciones (`/api/notificaciones`)
+### 6.4 Asesor (`/api/asesor`)
+
+| Método | Ruta | Auth | Roles | Descripción |
+|--------|------|------|-------|-------------|
+| `GET` | `/api/asesor/estudiantes` | JWT | asesor | Lista estudiantes asignados al asesor con progreso y semáforo desde `vw_progreso_tramite` |
+| `PUT` | `/api/asesor/documentos/:id/aprobar` | JWT | asesor | Aprueba documento asignado (verifica pertenencia a trámite del asesor) |
+| `PUT` | `/api/asesor/documentos/:id/rechazar` | JWT | asesor | Rechaza documento asignado con motivo requerido |
+
+### 6.5 Notificaciones (`/api/notificaciones`)
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -499,7 +582,7 @@ El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipa
 | `PUT` | `/api/notificaciones/:id/leida` | JWT | Marca una notificación como leída |
 | `PUT` | `/api/notificaciones/leer-todas` | JWT | Marca todas las no leídas como leídas |
 
-### 6.5 Contenido (sin auth)
+### 6.6 Contenido (sin auth)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -507,7 +590,7 @@ El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipa
 | `GET` | `/api/normativa` | Lista reglamentos. Query `?modalidad_id=` filtra por opción de titulación |
 | `GET` | `/api/requisitos-fotografia` | Lista los 12 requisitos para fotografía tamaño miñón |
 
-### 6.6 Privacidad (`/api/privacidad`, `/api/solicitudes-arco`)
+### 6.7 Privacidad (`/api/privacidad`, `/api/solicitudes-arco`)
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -516,7 +599,7 @@ El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipa
 | `POST` | `/api/solicitudes-arco` | JWT | Crea solicitud ARCO (acceso/rectificación/cancelación/oposición) |
 | `GET` | `/api/solicitudes-arco` | JWT | Lista solicitudes ARCO del usuario autenticado |
 
-### 6.7 Sistema
+### 6.8 Sistema
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
@@ -709,12 +792,13 @@ La **Ley General de Protección de Datos Personales en Posesión de Sujetos Obli
 | `bcryptjs` | ^2.4.3 | Hashing de contraseñas |
 | `jsonwebtoken` | ^9.0.2 | Generación y verificación JWT |
 | `express-rate-limit` | ^7.4.0 | Rate limiting por IP |
-| `multer` | (latest) | Manejo de archivos multipart |
+| `multer` | ^2.1.1 | Manejo de archivos multipart |
 | `helmet` | ^7.1.0 | Cabeceras de seguridad HTTP |
 | `cors` | ^2.8.5 | Control de acceso cross-origin |
 | `dotenv` | ^16.4.5 | Variables de entorno |
-| `cookie-parser` | ^1.4.6 | Parseo de cookies |
-| `tsx` | ^4.19.0 | TypeScript execution (dev) |
+| `pdfkit` | ^0.19.1 | Generación de PDF (dictamen oficial de titulación) |
+| `nodemailer` | ^9.0.0 | Envío de emails transaccionales (infraestructura lista para SMTP) |
+| `adm-zip` | ^0.5.17 | Empaquetado de archivos ZIP para descarga de expedientes |
 
 ### 11.3 Desarrollo y Testing
 
@@ -827,7 +911,8 @@ titulaci-n-digital-tescha/
 │       │   │   ├── MysqlTramiteRepository.ts
 │       │   │   └── AdminRepository.ts
 │       │   └── services/
-│       │       └── NotificacionService.ts
+│       │       ├── NotificacionService.ts
+│       │       └── generarDictamenPDF.ts  # PDFKit: dictamen oficial en PDF
 │       ├── use-cases/
 │       │   ├── auth/login.ts
 │       │   └── tramites/
@@ -842,6 +927,8 @@ titulaci-n-digital-tescha/
 │           ├── auth.routes.ts
 │           ├── tramite.routes.ts
 │           ├── admin.routes.ts
+│           ├── asesor.routes.ts
+│           ├── catalogos.routes.ts
 │           ├── notificacion.routes.ts
 │           ├── directorio.routes.ts
 │           ├── normativa.routes.ts
@@ -859,7 +946,9 @@ titulaci-n-digital-tescha/
     │   ├── AdminSidebar.tsx
     │   ├── ProtectedRoute.tsx
     │   ├── PrivacyConsentModal.tsx
-    │   └── ui/                    # 49 componentes shadcn/ui
+    │   ├── ErrorBoundary.tsx
+    │   ├── ThemeToggle.tsx
+    │   └── ui/                    # 48 componentes shadcn/ui
     ├── contexts/
     │   └── AuthContext.tsx
     ├── hooks/
@@ -877,13 +966,19 @@ titulaci-n-digital-tescha/
     │   ├── Dashboard.tsx
     │   ├── Normativa.tsx
     │   ├── NotFound.tsx
-    │   └── admin/
-    │       ├── AdminLayout.tsx
-    │       ├── AdminDashboard.tsx
-    │       ├── AdminExpedientes.tsx
-    │       ├── AdminDocumentos.tsx
-    │       ├── AdminDictamenes.tsx
-    │       └── AdminUsuarios.tsx
+    │   ├── ResetPassword.tsx
+    │   ├── admin/
+    │   │   ├── AdminLayout.tsx
+    │   │   ├── AdminDashboard.tsx
+    │   │   ├── AdminExpedientes.tsx
+    │   │   ├── AdminDocumentos.tsx
+    │   │   ├── AdminDictamenes.tsx
+    │   │   ├── AdminUsuarios.tsx
+    │   │   ├── AdminARCO.tsx
+    │   │   ├── AdminBitacora.tsx
+    │   │   └── AdminCatalogos.tsx
+    │   └── asesor/
+    │       └── AsesorDashboard.tsx
     ├── services/
     │   └── api.ts
     └── test/

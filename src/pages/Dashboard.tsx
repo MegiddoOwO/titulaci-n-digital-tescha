@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   FileText, Bell, CheckCircle2, Clock, AlertCircle,
   Upload, LogOut, ClipboardList,
-  LayoutDashboard, Calendar, Star, Settings, Menu, X, ArrowRight, Gavel, Banknote, Contact, Loader2, Shield, UserCheck
+  LayoutDashboard, Calendar, Star, Menu, X, ArrowRight, Gavel, Banknote, Contact, Loader2, Shield, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getToken } from "@/services/api";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTramite } from "@/hooks/useTramite";
 import { useNotificaciones } from "@/hooks/useNotificaciones";
 import logo from "@/assets/tescha-logo.svg";
@@ -438,17 +439,17 @@ const Dashboard = () => {
             {/* Profile Avatar & Email (hidden on small screen) */}
             <div className="flex items-center gap-2">
               <div className="relative group">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&fit=crop&auto=format&q=80"
-                  alt="Profile"
-                  className="w-8 h-8 rounded-full object-cover border-2 border-[#efe1ca] cursor-pointer hover:border-[#BC955B] transition-all"
-                  title={userEmail}
-                />
+                <div className="w-8 h-8 rounded-full bg-[#56212f] flex items-center justify-center border-2 border-[#efe1ca] cursor-pointer hover:border-[#BC955B] transition-all">
+                  <span className="text-white text-xs font-bold">
+                    {usuario?.nombre?.[0] || "U"}
+                  </span>
+                </div>
                 <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               </div>
               <span className="text-xs font-semibold text-gray-600 hidden lg:block tracking-wide max-w-[120px] truncate">
                 {userEmail}
               </span>
+              <ThemeToggle />
             </div>
           </div>
         </header>
@@ -538,6 +539,35 @@ const Dashboard = () => {
                   </p>
                 </div>
 
+                {tramite?.fecha_limite && (
+                  <BracketCard className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-[#BC955B]" />
+                        <span className="text-xs font-bold text-[#56212f] uppercase tracking-wider">Fecha límite</span>
+                      </div>
+                      {(() => {
+                        const deadline = new Date(tramite.fecha_limite);
+                        const now = new Date();
+                        const diff = deadline.getTime() - now.getTime();
+                        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        const isExpired = days < 0;
+                        const isUrgent = days <= 30 && days >= 0;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${isExpired ? "text-rose-600" : isUrgent ? "text-amber-600" : "text-emerald-600"}`}>
+                              {isExpired ? "Vencida" : `${days} días`}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {deadline.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </BracketCard>
+                )}
+
                 {/* Metrics Cards (Total, Aprobados, Pendientes) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
 
@@ -566,6 +596,60 @@ const Dashboard = () => {
                   </BracketCard>
 
                 </div>
+
+                {/* Lo que sigue — Checklist dinámica */}
+                {tramite && (
+                  <BracketCard className="p-4">
+                    <h3 className="font-bold text-[#56212f] text-sm mb-3 flex items-center gap-2">
+                      <Star className="w-4 h-4 text-[#BC955B]" />
+                      Lo que sigue
+                    </h3>
+                    <div className="space-y-1.5">
+                      {tramite.documentos
+                        .filter(d => d.tipo_documento_obligatorio === 1)
+                        .map(doc => {
+                          if (doc.estatus === "rechazado") return (
+                            <div key={doc.tipo_documento_id} className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 rounded px-3 py-2">
+                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span><strong>{doc.tipo_documento_nombre}</strong> fue rechazado. {doc.motivo_rechazo ? `Motivo: ${doc.motivo_rechazo}` : "Debes corregirlo y volver a subirlo."}</span>
+                            </div>
+                          );
+                          if (doc.estatus === "pendiente") return (
+                            <div key={doc.tipo_documento_id} className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded px-3 py-2">
+                              <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span>Sube tu documento: <strong>{doc.tipo_documento_nombre}</strong></span>
+                            </div>
+                          );
+                          if (doc.estatus === "cargado" || doc.estatus === "en_revision") return (
+                            <div key={doc.tipo_documento_id} className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded px-3 py-2">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                              <span><strong>{doc.tipo_documento_nombre}</strong> está en revisión por el comité.</span>
+                            </div>
+                          );
+                          return null;
+                        })}
+                      {tramite.documentos.filter(d => d.tipo_documento_obligatorio === 1 && (d.estatus === "pendiente" || d.estatus === "rechazado")).length === 0 &&
+                        tramite.documentos.filter(d => d.tipo_documento_obligatorio === 1 && (d.estatus === "cargado" || d.estatus === "en_revision")).length > 0 && (
+                        <p className="text-xs text-emerald-700 bg-emerald-50 rounded px-3 py-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Todos tus documentos han sido enviados. Espera la revisión del comité.
+                        </p>
+                      )}
+                      {tramite.documentos.filter(d => d.tipo_documento_obligatorio === 1 && d.estatus !== "aprobado").length === 0 && !tramite.dictamen && (
+                        <p className="text-xs text-emerald-700 bg-emerald-50 rounded px-3 py-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          ¡Todos tus documentos están aprobados! Espera el dictamen final.
+                        </p>
+                      )}
+                      {tramite.dictamen && tramite.dictamen.resultado === "aprobado" && (
+                        <p className="text-xs text-emerald-700 bg-emerald-100 rounded px-3 py-2 flex items-center gap-2 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          ¡Felicidades! Tu trámite ha sido aprobado. Acude a ventanilla.
+                        </p>
+                      )}
+                    </div>
+                  </BracketCard>
+                )}
 
                 {/* Línea de tiempo del trámite */}
                 {historial.length > 0 && (
@@ -636,7 +720,9 @@ const Dashboard = () => {
                     </div>
                   </BracketCard>
 
-                  <BracketCard>
+                  <BracketCard
+                    onClick={() => setActiveTab("documents")}
+                    className="cursor-pointer group hover:border-[#BC955B]/50 hover:shadow-md transition-all">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-lg bg-[#efe1ca]/40 flex items-center justify-center text-[#56212f]">
@@ -700,7 +786,7 @@ const Dashboard = () => {
                       </div>
                     ) : (
                       (tramite?.documentos || []).map((doc) => {
-                        const puedeSubir = doc.estatus === "pendiente" && !doc.bloqueado;
+                        const puedeSubir = (doc.estatus === "pendiente" || doc.estatus === "rechazado") && !doc.bloqueado;
                         const puedeVer = doc.estatus !== "pendiente" && doc.id !== null;
 
                         return (
@@ -1035,6 +1121,20 @@ const Dashboard = () => {
                         </div>
                       )}
 
+                      <div className="mt-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs gap-1.5"
+                          onClick={() => {
+                            window.open(`/api/tramites/mi-dictamen/pdf?token=${getToken()}`, "_blank");
+                          }}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Ver Dictamen PDF
+                        </Button>
+                      </div>
+
                       {tramite.dictamen.resultado === "aprobado" && (
                         <div className="mt-4 bg-white rounded-lg p-3 border border-emerald-200 text-xs text-emerald-700">
                           <strong>Próximo paso:</strong> Acude a ventanilla de Control Escolar en horario 08:00–14:00 hrs para continuar con el trámite presencial de titulación.
@@ -1058,12 +1158,12 @@ const Dashboard = () => {
         {/* Footer */}
         <footer className="bg-[#56212f] text-white py-4 px-6 md:px-8 mt-auto flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left text-xs border-t border-[#8a2036]/20">
           <p className="text-white/60">
-            SCA-ISC &copy; 2024 TESCHA - Tecnológico de Estudios Superiores de Chalco.
+            SCA-ISC &copy; {new Date().getFullYear()} TESCHA - Tecnológico de Estudios Superiores de Chalco.
           </p>
           <div className="flex gap-4 text-white/60">
-            <a href="#" className="hover:text-[#efe1ca] transition-colors">Privacidad</a>
-            <a href="#" className="hover:text-[#efe1ca] transition-colors">Términos de Uso</a>
-            <a href="#" className="hover:text-[#efe1ca] transition-colors">Contacto</a>
+            <span className="text-xs">Privacidad</span>
+            <span className="text-xs">Términos de Uso</span>
+            <span className="text-xs">Contacto</span>
           </div>
         </footer>
 

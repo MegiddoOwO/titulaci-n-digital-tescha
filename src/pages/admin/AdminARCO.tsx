@@ -33,12 +33,12 @@ const AdminARCO = () => {
     try {
       const res = await fetch("/api/admin/solicitudes-arco", { headers: { Authorization: `Bearer ${getToken()}` } });
       setSolicitudes(await res.json());
-    } catch { /* */ } finally { setLoading(false); }
+    } catch { setSolicitudes([]); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchSolicitudes(); }, []);
 
-  const handleResolve = async (id: number, estado: "resuelta" | "rechazada") => {
+  const handleResolve = async (id: number, estado: "completada" | "rechazada") => {
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/solicitudes-arco/${id}`, {
@@ -97,7 +97,7 @@ const AdminARCO = () => {
                       <TableCell>
                         <Badge className={`text-[10px] ${
                           s.estado === "pendiente" ? "bg-amber-100 text-amber-700" :
-                          s.estado === "resuelta" ? "bg-emerald-100 text-emerald-700" :
+                          s.estado === "completada" ? "bg-emerald-100 text-emerald-700" :
                           s.estado === "rechazada" ? "bg-rose-100 text-rose-700" :
                           "bg-blue-100 text-blue-700"
                         }`}>
@@ -153,7 +153,7 @@ const AdminARCO = () => {
                   <Button
                     size="sm" variant="outline" className="flex-1 gap-1"
                     disabled={!selected || saving}
-                    onClick={() => handleResolve(selected.id, "resuelta")}
+                    onClick={() => handleResolve(selected.id, "completada")}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Resolver
                   </Button>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/tescha-logo.svg";
 import heroImage from "@/assets/banner-tescha.jpeg";
 
@@ -95,6 +96,9 @@ const Login = () => {
       {/* Oscurecedor/Filtro corporativo para la imagen de fondo */}
       <div className="absolute inset-0 bg-primary/90 backdrop-blur-sm z-0"></div>
 
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
       <div className="relative z-10 w-full flex">
         {/* Left - Branding */}
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden">
