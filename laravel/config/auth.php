@@ -112,6 +112,15 @@ return [
     |
     */
 
+    /*
+    | Failed-login lockout (parity with the legacy Express API).
+    */
+
+    'lockout' => [
+        'max_attempts' => (int) env('LOGIN_MAX_ATTEMPTS', 5),
+        'block_minutes' => (int) env('LOGIN_BLOCK_MINUTES', 15),
+    ],
+
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
 ];

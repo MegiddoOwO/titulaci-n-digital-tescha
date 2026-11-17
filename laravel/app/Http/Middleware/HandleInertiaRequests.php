@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Consentimiento;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -32,7 +33,15 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => fn () => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'numero_control' => $request->user()->numero_control,
+                    'nombre_completo' => $request->user()->nombre_completo,
+                    'rol' => $request->user()->rol,
+                ] : null,
+                'consentimiento' => fn () => $request->user()
+                    ? Consentimiento::where('usuario_id', $request->user()->id)->exists()
+                    : false,
             ],
         ];
     }

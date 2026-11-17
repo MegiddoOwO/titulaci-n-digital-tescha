@@ -68,6 +68,18 @@ class Usuario extends Authenticatable
         return '';
     }
 
+    /**
+     * Landing path for the user's role after login.
+     */
+    public function homePath(): string
+    {
+        return match ($this->rol) {
+            self::ROL_ASESOR => '/asesor',
+            self::ROL_ADMINISTRATIVO => '/admin',
+            default => '/dashboard',
+        };
+    }
+
     public function esEstudiante(): bool
     {
         return $this->rol === self::ROL_ESTUDIANTE;

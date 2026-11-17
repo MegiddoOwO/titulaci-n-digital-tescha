@@ -1,14 +1,15 @@
-export interface User {
+export interface AuthUser {
     id: number;
-    name: string;
-    email: string;
-    email_verified_at?: string;
+    numero_control: string;
+    nombre_completo: string;
+    rol: 'estudiante' | 'asesor' | 'administrativo';
 }
 
 export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
     auth: {
-        user: User;
+        user: AuthUser;
+        consentimiento: boolean;
     };
 };
