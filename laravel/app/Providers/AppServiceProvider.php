@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\DictamenPdfRenderer;
 use App\Models\Documento;
 use App\Models\Tramite;
 use App\Policies\DocumentoPolicy;
 use App\Policies\TramitePolicy;
+use App\Services\NotImplementedDictamenPdfRenderer;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -17,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(DictamenPdfRenderer::class, NotImplementedDictamenPdfRenderer::class);
     }
 
     /**

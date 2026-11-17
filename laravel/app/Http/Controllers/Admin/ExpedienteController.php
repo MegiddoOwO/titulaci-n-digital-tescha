@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Concerns\RespondsInertiaOrJson;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ListExpedientesRequest;
+use App\Http\Requests\Admin\UpdateExpedienteRequest;
+use App\Models\Tramite;
+use App\Services\Admin\ExpedienteService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class ExpedienteController extends Controller
+{
+    use RespondsInertiaOrJson;
+
+    public function __construct(private readonly ExpedienteService $expedientes) {}
+
+    public function index(ListExpedientesRequest $request): Response|JsonResponse
+    {
+        $result = $this->expedientes->list(
+            $request->query('search') ?: null,
+            $request->query('estatus') ?: null,
+            $request->page(),
+            $request->limit(),
+        );
+
+        if ($this->wantsPlainJson($request)) {
+            return response()->json($result);
+        }
+
+        return Inertia::render('Admin/Expedientes/Index', $result + [
+            'filters' => $request->only('search', 'estatus'),
+        ]);
+    }
+
+    public function show(Request $request, int $tramite): Response|JsonResponse
+    {
+        $detail = $this->expedientes->detail($this->activeOrFail($tramite));
+
+        if ($this->wantsPlainJson($request)) {
+            return response()->json($detail);
+        }
+
+        return Inertia::render('Admin/Expedientes/Show', ['tramite' => $detail]);
+    }
+
+    public function update(UpdateExpedienteRequest $request, int $tramite): JsonResponse|RedirectResponse
+    {
+        $this->expedientes->update($this->activeOrFail($tramite), $request->validated());
+
+        return $this->mutated($request, 'Trámite actualizado.');
+    }
+
+    public function toggle(Request $request, int $tramite): JsonResponse|RedirectResponse
+    {
+        $model = $this->expedientes->find($tramite, onlyActive: false) ?? abort(404, 'Trámite no encontrado.');
+        $activo = $this->expedientes->toggle($model);
+
+        return $this->mutated(
+            $request,
+            $activo ? 'Trámite reactivado.' : 'Trámite cancelado.',
+            ['activo' => $activo],
+        );
+    }
+
+    private function activeOrFail(int $id): Tramite
+    {
+        return $this->expedientes->find($id) ?? abort(404, 'Trámite no encontrado.');
+    }
+}
