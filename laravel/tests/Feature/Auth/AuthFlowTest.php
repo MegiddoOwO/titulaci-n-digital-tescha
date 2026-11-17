@@ -110,7 +110,7 @@ class AuthFlowTest extends TestCase
     public function test_guest_is_redirected_to_login(): void
     {
         $this->get('/dashboard')->assertRedirect('/login');
-        $this->get('/')->assertRedirect('/login');
+        // The landing page is public for guests (covered in InertiaPagesTest).
     }
 
     public function test_role_middleware_blocks_wrong_role(): void
@@ -149,7 +149,7 @@ class AuthFlowTest extends TestCase
 
     public function test_logout_ends_session(): void
     {
-        $this->actingAs($this->userWithRole('estudiante'))->post('/logout')->assertRedirect('/login');
+        $this->actingAs($this->userWithRole('estudiante'))->post('/logout')->assertRedirect('/');
         $this->assertGuest();
     }
 

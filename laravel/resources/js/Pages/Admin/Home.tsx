@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage } from '@inertiajs/react';
 
 export default function AdminHome() {
-    const { user } = usePage().props.auth;
+    const user = usePage().props.auth.user!;
 
     return (
         <AuthenticatedLayout

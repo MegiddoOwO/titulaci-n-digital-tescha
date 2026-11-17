@@ -10,16 +10,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
     public const MESSAGE = 'Si el número de control existe, recibirás un correo con instrucciones.';
 
-    public function create(): Response
+    /**
+     * Password recovery lives in a modal on the login page (as in the legacy UI).
+     */
+    public function create(): RedirectResponse
     {
-        return Inertia::render('Auth/ForgotPassword', ['status' => session('status')]);
+        return redirect()->route('login');
     }
 
     public function store(Request $request): RedirectResponse

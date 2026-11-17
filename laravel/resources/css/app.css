@@ -1,3 +1,94 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --colorprincipal: #8a2036;
+    --colorsecundario: #efe1ca;
+    --colorterciario: #BC955B;
+    --colorgiga: #56212f;
+    --letrablanca: #ffffff;
+    --sombra1: rgba(0, 0, 0, 0.15);
+    --sombra2: rgba(0, 0, 0, 0.2);
+
+    /* HSL equivalents for Shadcn UI components */
+    --background: 210 20% 98%;
+    --foreground: 344 45% 23%; /* colorgiga */
+
+    --card: 0 0% 100%;
+    --card-foreground: 344 45% 23%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 344 45% 23%;
+
+    --primary: 348 62% 33%; /* colorprincipal */
+    --primary-foreground: 0 0% 100%; /* letrablanca */
+
+    --secondary: 37 56% 86%; /* colorsecundario */
+    --secondary-foreground: 348 62% 33%;
+
+    --muted: 37 56% 86%;
+    --muted-foreground: 344 45% 23%;
+
+    --accent: 36 42% 55%; /* colorterciario */
+    --accent-foreground: 0 0% 100%; /* letrablanca */
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 37 56% 86%;
+    --input: 37 56% 86%;
+    --ring: 348 62% 33%;
+
+    --radius: 0.5rem;
+
+    --gold: 36 42% 55%; /* colorterciario */
+    --gold-light: 37 56% 86%; /* colorsecundario */
+    --navy: 348 62% 33%; /* colorprincipal */
+    --navy-light: 344 45% 23%; /* colorgiga */
+    --success: 152 60% 40%;
+    --warning: 38 92% 50%;
+    --info: 210 80% 55%;
+
+    --sidebar-background: 344 45% 23%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 348 62% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 348 62% 33%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 348 62% 33%;
+    --sidebar-ring: 36 42% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Rubik", sans-serif;
+    font-optical-sizing: auto;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Rubik", sans-serif;
+    font-optical-sizing: auto;
+  }
+}
+
+@layer utilities {
+  .hover-lift {
+    @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .hover-glow {
+    @apply transition-all duration-200 hover:shadow-lg;
+  }
+
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-shadow duration-200;
+  }
+}

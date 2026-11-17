@@ -23,12 +23,14 @@ use App\Http\Controllers\Public\RequisitoFotografiaController;
 use App\Http\Controllers\SolicitudArcoController;
 use App\Services\Admin\CatalogoService;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
+// Guests see the landing page; authenticated users go to their role home (as the legacy SPA did).
 Route::get('/', function () {
     return auth()->check()
         ? redirect(auth()->user()->homePath())
-        : redirect()->route('login');
-});
+        : Inertia::render('Landing');
+})->name('home');
 
 // Public read-only content (no session required, as in Express).
 Route::get('/normativa', [NormativaController::class, 'index'])->name('normativa.index');

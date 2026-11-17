@@ -22,6 +22,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Browser navigation to an unknown URL gets the (Inertia) 404 page, as the SPA did.
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $e, Request $request) {
+            if ($response->getStatusCode() === 404 && ! $request->expectsJson() && ! $request->is('api/*')) {
+                return \Inertia\Inertia::render('NotFound')->toResponse($request)->setStatusCode(404);
+            }
+
+            return $response;
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\LoginAttemptService;
+use App\Services\PublicContentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,11 +14,16 @@ use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
-    public function create(): Response
+    public function create(PublicContentService $content): Response
     {
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
             'bloqueado' => (bool) session('bloqueado', false),
+            // "How do I get access?" modal: only the offices that register users.
+            'contactos' => collect($content->directorio(null))
+                ->filter(fn ($c) => str_contains($c['departamento'], 'Control Escolar') || str_contains($c['departamento'], 'Jefatura'))
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -37,7 +43,8 @@ class AuthenticatedSessionController extends Controller
         Auth::login($result['user']);
         $request->session()->regenerate();
 
-        return redirect()->intended($result['user']->homePath());
+        return redirect()->intended($result['user']->homePath())
+            ->with('success', 'Has iniciado sesión correctamente.');
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -47,6 +54,6 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect('/');
     }
 }
