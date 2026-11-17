@@ -9,6 +9,8 @@ import { PrivacyConsentModal } from "@/components/PrivacyConsentModal";
 import type { PageProps } from "@/types";
 
 const SELF_HANDLED_ERRORS = ["Auth/", "Dashboard"];
+// Pages that raise their own success toast with a legacy title instead of the flash message.
+const SELF_HANDLED_FLASH = ["Asesor/"];
 
 /** Feeds `flash.success` and the first validation error of each visit into Sonner. */
 function FlashToaster() {
@@ -18,8 +20,8 @@ function FlashToaster() {
   // Depend on the object identity: each response carries a fresh `flash`, so repeated identical
   // messages still toast.
   useEffect(() => {
-    if (flash?.success) toast.success(flash.success);
-  }, [flash]);
+    if (flash?.success && !SELF_HANDLED_FLASH.some((c) => page.component.startsWith(c))) toast.success(flash.success);
+  }, [flash, page.component]);
 
   // Pages that raise their own destructive toast (title depends on the error) are skipped;
   // everything else surfaces the first validation message here.

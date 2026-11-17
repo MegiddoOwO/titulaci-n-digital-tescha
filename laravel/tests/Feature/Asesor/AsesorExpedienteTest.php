@@ -30,6 +30,15 @@ class AsesorExpedienteTest extends TestCase
         $this->actingAs($this->user('DOC-0001'))->getJson('/asesor/expedientes/4')->assertOk()->assertJsonPath('id', 4);
     }
 
+    public function test_detail_fetch_as_the_page_does_it_returns_json_not_a_page(): void
+    {
+        $this->actingAs($this->user('DOC-0001'))
+            ->withHeaders(['Accept' => 'application/json', 'X-Requested-With' => 'XMLHttpRequest'])
+            ->get('/asesor/expedientes/1')->assertOk()
+            ->assertJsonStructure(['estatus', 'progreso' => ['color_semaforo', 'porcentaje'],
+                'documentos' => [['id', 'tipo_documento_nombre', 'tipo_documento_obligatorio', 'motivo_rechazo', 'archivo_nombre', 'fecha_subida']]]);
+    }
+
     public function test_unassigned_asesor_is_forbidden(): void
     {
         $this->actingAs($this->user('DOC-0001'))->getJson('/asesor/expedientes/5')->assertForbidden();

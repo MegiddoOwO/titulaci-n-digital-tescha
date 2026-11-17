@@ -147,6 +147,38 @@ class AsesorFlowTest extends TestCase
             ->assertSessionHas('success', 'Documento aprobado.');
     }
 
+    public function test_inertia_reject_redirects_back_and_validates_reason(): void
+    {
+        $asesor = $this->user('DOC-0001');
+
+        $this->actingAs($asesor)->from('/asesor')->withHeader('X-Inertia', 'true')
+            ->put('/asesor/documentos/'.self::DOC_OWN_A.'/rechazar', ['motivo' => '  Ilegible  '])
+            ->assertRedirect('/asesor')
+            ->assertSessionHas('success', 'Documento rechazado.');
+        $this->assertSame('rechazado', Documento::find(self::DOC_OWN_A)->estatus);
+        $this->assertSame('Ilegible', Documento::find(self::DOC_OWN_A)->motivo_rechazo);
+
+        $this->actingAs($asesor)->from('/asesor')->withHeader('X-Inertia', 'true')
+            ->put('/asesor/documentos/'.self::DOC_OWN_B.'/rechazar', ['motivo' => ''])
+            ->assertRedirect('/asesor')
+            ->assertSessionHasErrors(['motivo' => 'El motivo de rechazo es requerido.']);
+        $this->assertSame('cargado', Documento::find(self::DOC_OWN_B)->estatus);
+    }
+
+    public function test_dashboard_props_are_typed_for_the_page(): void
+    {
+        $this->actingAs($this->user('DOC-0001'))->get('/asesor')->assertInertia(fn (Assert $page) => $page
+            ->component('Asesor/Home')
+            ->where('auth.user.rol', 'asesor')
+            ->has('estudiantes', 2, fn (Assert $e) => $e
+                ->whereType('tramite_id', 'integer')
+                ->whereType('porcentaje', 'integer|double')
+                ->whereType('estatus_tramite', 'string')
+                ->whereType('color_semaforo', 'string')
+                ->etc())
+        );
+    }
+
     public function test_role_isolation(): void
     {
         $student = $this->user('2021-0001');

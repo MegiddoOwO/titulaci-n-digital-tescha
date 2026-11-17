@@ -31,7 +31,7 @@ class AsesorReadService
                 COALESCE(v.porcentaje_avance, 0) AS porcentaje,
                 COALESCE(v.color_semaforo, 'ambar') AS color_semaforo")
             ->get()
-            ->map(fn ($r) => (array) $r + ['porcentaje' => (float) $r->porcentaje])
+            ->map(fn ($r) => array_merge((array) $r, ['porcentaje' => (float) $r->porcentaje]))
             ->all();
     }
 }
