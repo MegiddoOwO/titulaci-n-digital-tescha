@@ -10,10 +10,15 @@ use Illuminate\Auth\Access\Response;
 class DocumentoPolicy
 {
     /**
-     * Students may only open documents that belong to their own tramite.
+     * Students may only open documents that belong to their own tramite; administrative staff
+     * may open any document (Express allowed both roles).
      */
     public function view(Usuario $user, Documento $documento): Response
     {
+        if ($user->rol === Usuario::ROL_ADMINISTRATIVO) {
+            return Response::allow();
+        }
+
         $owns = $user->rol === Usuario::ROL_ESTUDIANTE
             && $documento->tramite()->value('usuario_id') === $user->id;
 

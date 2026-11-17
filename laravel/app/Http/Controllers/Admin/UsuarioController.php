@@ -12,6 +12,8 @@ use App\Services\Admin\UsuarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class UsuarioController extends Controller
 {
@@ -19,8 +21,13 @@ class UsuarioController extends Controller
 
     public function __construct(private readonly UsuarioService $usuarios) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|Response
     {
+        // Browser visits get the (placeholder) page; plain JSON clients keep the Express payload.
+        if (! $this->wantsPlainJson($request)) {
+            return Inertia::render('Admin/Usuarios');
+        }
+
         return response()->json($this->usuarios->list(
             $request->query('search') ?: null,
             $request->query('rol') ?: null,

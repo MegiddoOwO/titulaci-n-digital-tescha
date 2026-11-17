@@ -78,11 +78,15 @@ Route::middleware('auth')->group(function () {
         Route::put('/expedientes/{tramite}/toggle', [ExpedienteController::class, 'toggle'])
             ->whereNumber('tramite')->name('expedientes.toggle');
 
+        Route::get('/documentos', [AdminDocumentoReviewController::class, 'index'])->name('documentos.index');
+        Route::scopeBindings()->get('/tramites/{tramite}/documentos/{documento}', [DocumentoController::class, 'show'])
+            ->name('tramites.documentos.show');
         Route::put('/documentos/{documento}/aprobar', [AdminDocumentoReviewController::class, 'approve'])
             ->whereNumber('documento')->name('documentos.aprobar');
         Route::put('/documentos/{documento}/rechazar', [AdminDocumentoReviewController::class, 'reject'])
             ->whereNumber('documento')->name('documentos.rechazar');
 
+        Route::get('/dictamenes', [DictamenController::class, 'index'])->name('dictamenes.index');
         Route::post('/dictamenes', [DictamenController::class, 'store'])->name('dictamenes.store');
         Route::get('/dictamenes/{tramite}/pdf', [DictamenController::class, 'pdf'])
             ->whereNumber('tramite')->name('dictamenes.pdf');
@@ -105,6 +109,10 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('usuario')->name('usuarios.toggle');
         Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])
             ->whereNumber('usuario')->name('usuarios.destroy');
+
+        // Placeholder pages until the T7c-2 ports; usuarios and bitacora are served by their index actions.
+        Route::inertia('/catalogos', 'Admin/Catalogos')->name('catalogos.page');
+        Route::inertia('/arco', 'Admin/Arco')->name('arco.page');
 
         Route::get('/solicitudes-arco', [AdminSolicitudArcoController::class, 'index'])->name('arco.index');
         Route::put('/solicitudes-arco/{solicitud}', [AdminSolicitudArcoController::class, 'update'])
