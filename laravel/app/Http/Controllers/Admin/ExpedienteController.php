@@ -8,10 +8,13 @@ use App\Http\Requests\Admin\ListExpedientesRequest;
 use App\Http\Requests\Admin\UpdateExpedienteRequest;
 use App\Models\Tramite;
 use App\Services\Admin\ExpedienteService;
+use App\Services\Admin\ExpedienteExporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Inertia\Response;
 
 class ExpedienteController extends Controller
@@ -36,6 +39,16 @@ class ExpedienteController extends Controller
         return Inertia::render('Admin/Expedientes/Index', $result + [
             'filters' => $request->only('search', 'estatus'),
         ]);
+    }
+
+    public function export(Request $request, ExpedienteExporter $exporter): StreamedResponse
+    {
+        return $exporter->csv($request->query('search') ?: null, $request->query('estatus') ?: null);
+    }
+
+    public function download(int $tramite, ExpedienteExporter $exporter): BinaryFileResponse
+    {
+        return $exporter->zip($tramite);
     }
 
     public function show(Request $request, int $tramite): Response|JsonResponse

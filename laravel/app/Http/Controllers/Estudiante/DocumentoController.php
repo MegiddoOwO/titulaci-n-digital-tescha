@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Estudiante\UploadDocumentoRequest;
 use App\Models\Documento;
 use App\Models\Tramite;
+use App\Support\StoredUploadPath;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -47,7 +48,7 @@ class DocumentoController extends Controller
 
         abort_if(! $documento->archivo_url, 404, 'Documento no encontrado.');
 
-        $path = $this->resolvePath($documento->archivo_url);
+        $path = StoredUploadPath::resolve($documento->archivo_url);
         $disk = Storage::disk(UploadDocumento::DISK);
 
         abort_unless($path && $disk->exists($path), 404, 'Archivo no encontrado en el servidor.');
@@ -60,18 +61,5 @@ class DocumentoController extends Controller
             ['Content-Type' => self::CONTENT_TYPES[$extension] ?? 'application/octet-stream'],
             'inline',
         );
-    }
-
-    /**
-     * New uploads store `uploads/{tramite_id}/<file>`; legacy Express values are a bare file name
-     * that lived in server/uploads and is expected at `uploads/<file>` after the cutover copy.
-     */
-    private function resolvePath(string $stored): ?string
-    {
-        if (str_contains($stored, '..') || str_starts_with($stored, '/')) {
-            return null;
-        }
-
-        return str_contains($stored, '/') ? $stored : "uploads/{$stored}";
     }
 }

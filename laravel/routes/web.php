@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Asesor\ExpedienteController as AsesorExpedienteController;
 use App\Http\Controllers\Asesor\DashboardController as AsesorDashboardController;
 use App\Http\Controllers\Asesor\DocumentoReviewController as AsesorDocumentoReviewController;
+use App\Http\Controllers\Estudiante\DictamenController as EstudianteDictamenController;
 use App\Http\Controllers\Estudiante\DocumentoController;
 use App\Http\Controllers\Estudiante\TramiteController;
 use App\Http\Controllers\NotificacionController;
@@ -39,6 +40,8 @@ Route::get('/requisitos-fotografia', RequisitoFotografiaController::class)->name
 Route::middleware('auth')->group(function () {
     Route::middleware('role:estudiante')->group(function () {
         Route::get('/dashboard', [TramiteController::class, 'show'])->name('dashboard');
+        Route::get('/tramites/mi-dictamen/pdf', [EstudianteDictamenController::class, 'pdf'])
+            ->name('tramites.mi-dictamen.pdf');
 
         Route::scopeBindings()->group(function () {
             Route::post('/tramites/{tramite}/documentos', [DocumentoController::class, 'store'])
@@ -63,6 +66,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/stats', [AdminDashboardController::class, 'stats'])->name('stats');
 
         Route::get('/expedientes', [ExpedienteController::class, 'index'])->name('expedientes.index');
+        Route::get('/expedientes/export', [ExpedienteController::class, 'export'])->name('expedientes.export');
+        Route::get('/expedientes/{tramite}/descargar', [ExpedienteController::class, 'download'])
+            ->whereNumber('tramite')->name('expedientes.descargar');
         Route::get('/expedientes/{tramite}', [ExpedienteController::class, 'show'])
             ->whereNumber('tramite')->name('expedientes.show');
         Route::put('/expedientes/{tramite}', [ExpedienteController::class, 'update'])
@@ -76,6 +82,8 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('documento')->name('documentos.rechazar');
 
         Route::post('/dictamenes', [DictamenController::class, 'store'])->name('dictamenes.store');
+        Route::get('/dictamenes/{tramite}/pdf', [DictamenController::class, 'pdf'])
+            ->whereNumber('tramite')->name('dictamenes.pdf');
 
         Route::post('/asignaciones', [AsignacionController::class, 'store'])->name('asignaciones.store');
         Route::delete('/asignaciones/{asignacion}', [AsignacionController::class, 'destroy'])

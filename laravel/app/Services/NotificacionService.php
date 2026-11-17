@@ -2,25 +2,51 @@
 
 namespace App\Services;
 
+use App\Mail\NotificacionMail;
 use App\Models\Notificacion;
+use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Port of NotificacionService.create (server/src/infrastructure/services/NotificacionService.ts).
  *
- * T6 will add the e-mail delivery for `tipo` email|ambos; for now only the in-app row is stored.
+ * Stores the in-app row and, for `tipo` email|ambos, also e-mails the user. A mail failure is
+ * reported but never fails the caller (Express logs and swallows it).
  */
 class NotificacionService
 {
     public function create(int $usuarioId, string $titulo, string $mensaje, string $tipo = 'in_app', ?int $tramiteId = null): Notificacion
     {
-        return Notificacion::create([
+        $notificacion = Notificacion::create([
             'usuario_id' => $usuarioId,
             'tipo' => $tipo,
             'titulo' => $titulo,
             'mensaje' => $mensaje,
             'tramite_id' => $tramiteId,
         ]);
+
+        if (in_array($tipo, ['email', 'ambos'], true)) {
+            $this->sendEmail($usuarioId, $titulo, $mensaje);
+        }
+
+        return $notificacion;
+    }
+
+    private function sendEmail(int $usuarioId, string $titulo, string $mensaje): void
+    {
+        try {
+            $usuario = Usuario::find($usuarioId);
+
+            if (! $usuario) {
+                return;
+            }
+
+            Mail::to($usuario->email)->send(new NotificacionMail($usuario->nombre, $titulo, $mensaje));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

@@ -7,7 +7,7 @@ use App\Models\Documento;
 use App\Models\Tramite;
 use App\Policies\DocumentoPolicy;
 use App\Policies\TramitePolicy;
-use App\Services\NotImplementedDictamenPdfRenderer;
+use App\Services\DompdfDictamenPdfRenderer;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(DictamenPdfRenderer::class, NotImplementedDictamenPdfRenderer::class);
+        $this->app->bind(DictamenPdfRenderer::class, DompdfDictamenPdfRenderer::class);
     }
 
     /**

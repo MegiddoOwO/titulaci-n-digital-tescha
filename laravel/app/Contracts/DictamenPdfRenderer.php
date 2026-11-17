@@ -6,8 +6,7 @@ use App\Models\Dictamen;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Hook for the dictamen PDF (Express generarDictamenPDF). Implemented in T6;
- * until then the container binds a renderer that answers 501.
+ * Renders the dictamen PDF (Express generarDictamenPDF); bound to the Dompdf implementation.
  */
 interface DictamenPdfRenderer
 {
