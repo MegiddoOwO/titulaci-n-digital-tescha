@@ -8,9 +8,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PrivacyConsentModal } from "@/components/PrivacyConsentModal";
 import type { PageProps } from "@/types";
 
-const SELF_HANDLED_ERRORS = ["Auth/", "Dashboard"];
+const SELF_HANDLED_ERRORS = ["Auth/", "Dashboard", "Admin/Usuarios", "Admin/Catalogos", "Admin/Arco"];
 // Pages that raise their own success toast with a legacy title instead of the flash message.
-const SELF_HANDLED_FLASH = ["Asesor/", "Admin/Expedientes", "Admin/Documentos", "Admin/Dictamenes"];
+const SELF_HANDLED_FLASH = ["Asesor/", "Admin/Expedientes", "Admin/Documentos", "Admin/Dictamenes", "Admin/Usuarios", "Admin/Catalogos", "Admin/Arco"];
 
 /** Feeds `flash.success` and the first validation error of each visit into Sonner. */
 function FlashToaster() {

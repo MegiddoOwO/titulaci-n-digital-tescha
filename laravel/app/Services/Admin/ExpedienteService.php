@@ -106,6 +106,7 @@ class ExpedienteService
             ->values()
             ->map(fn ($a) => [
                 'id' => $a->id,
+                'usuario_id' => $a->usuario_id,
                 'rol_asignacion' => $a->rol_asignacion,
                 'nombre' => $a->docente->nombre,
                 'apellido_paterno' => $a->docente->apellido_paterno,

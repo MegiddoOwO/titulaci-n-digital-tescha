@@ -23,16 +23,21 @@ class UsuarioController extends Controller
 
     public function index(Request $request): JsonResponse|Response
     {
-        // Browser visits get the (placeholder) page; plain JSON clients keep the Express payload.
-        if (! $this->wantsPlainJson($request)) {
-            return Inertia::render('Admin/Usuarios');
+        $search = $request->string('search')->toString() ?: null;
+        $rol = $request->string('rol')->toString() ?: null;
+        $result = $this->usuarios->list($search, $rol, max(1, (int) $request->query('page') ?: 1));
+
+        // Plain JSON clients keep the Express payload; browser visits get the page with the same data.
+        if ($this->wantsPlainJson($request)) {
+            return response()->json($result);
         }
 
-        return response()->json($this->usuarios->list(
-            $request->query('search') ?: null,
-            $request->query('rol') ?: null,
-            max(1, (int) $request->query('page') ?: 1),
-        ));
+        // Advisor loads and options are props too, so they stay fresh after every mutation.
+        return Inertia::render('Admin/Usuarios', $result + [
+            'filters' => ['search' => $search ?? '', 'rol' => $rol ?? ''],
+            'docentes' => $this->usuarios->docentes(),
+            'opciones' => $this->usuarios->opcionesTitulacion(),
+        ]);
     }
 
     public function show(int $usuario): JsonResponse

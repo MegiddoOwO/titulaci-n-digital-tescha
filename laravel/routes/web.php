@@ -110,9 +110,9 @@ Route::middleware('auth')->group(function () {
         Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])
             ->whereNumber('usuario')->name('usuarios.destroy');
 
-        // Placeholder pages until the T7c-2 ports; usuarios and bitacora are served by their index actions.
-        Route::inertia('/catalogos', 'Admin/Catalogos')->name('catalogos.page');
-        Route::inertia('/arco', 'Admin/Arco')->name('arco.page');
+        // Pages; usuarios and bitacora render from their index actions (JSON for JSON clients).
+        Route::get('/catalogos', [CatalogoController::class, 'page'])->name('catalogos.page');
+        Route::get('/arco', [AdminSolicitudArcoController::class, 'page'])->name('arco.page');
 
         Route::get('/solicitudes-arco', [AdminSolicitudArcoController::class, 'index'])->name('arco.index');
         Route::put('/solicitudes-arco/{solicitud}', [AdminSolicitudArcoController::class, 'update'])

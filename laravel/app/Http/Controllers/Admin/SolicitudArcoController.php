@@ -9,12 +9,19 @@ use App\Models\SolicitudArco;
 use App\Services\SolicitudArcoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class SolicitudArcoController extends Controller
 {
     use RespondsInertiaOrJson;
 
     public function __construct(private readonly SolicitudArcoService $arco) {}
+
+    public function page(): Response
+    {
+        return Inertia::render('Admin/Arco', ['solicitudes' => $this->arco->all()]);
+    }
 
     public function index(): JsonResponse
     {
