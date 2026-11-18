@@ -19,11 +19,14 @@ class DictamenController extends Controller
 {
     use RespondsInertiaOrJson;
 
-    /** Emission page: expedientes that can still receive a dictamen (aprobado / en_revision). */
+    /** Emission page: expedientes without a dictamen yet (aprobado / en_revision). */
     public function index(ExpedienteService $expedientes): InertiaResponse
     {
+        $emitidos = Dictamen::pluck('tramite_id')->all();
+
         $candidatos = collect($expedientes->list(null, null, 1, 100)['expedientes'])
             ->whereIn('estatus', ['aprobado', 'en_revision'])
+            ->reject(fn ($e) => in_array($e['id'], $emitidos, true))
             ->values()
             ->all();
 

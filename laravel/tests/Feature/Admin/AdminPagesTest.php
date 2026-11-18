@@ -79,11 +79,12 @@ class AdminPagesTest extends TestCase
 
     public function test_dictamenes_page_only_offers_aprobado_and_en_revision_expedientes(): void
     {
-        // Seed: tramite 1 en_revision, 4 aprobado; 2/3 en_proceso and 5 rechazado are excluded.
+        // Seed: tramite 1 en_revision (no dictamen), 4 aprobado but already has a dictamen;
+        // 2/3 en_proceso and 5 rechazado are excluded.
         $this->actingAs($this->user('ADM-0001'))->get('/admin/dictamenes')->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Dictamenes')
-            ->has('candidatos', 2)
-            ->where('candidatos', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === [1, 4]));
+            ->has('candidatos', 1)
+            ->where('candidatos', fn ($rows) => collect($rows)->pluck('id')->values()->all() === [1]));
     }
 
     public function test_expedientes_page_carries_filters_and_pagination_props(): void

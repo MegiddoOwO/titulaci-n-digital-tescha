@@ -31,6 +31,11 @@ class EmitirDictamen
             $this->fail('Trámite no encontrado.');
         }
 
+        // A dictamen is final: re-emitting would silently overwrite the earlier resolution.
+        if (Dictamen::where('tramite_id', $tramiteId)->exists()) {
+            $this->fail('Este trámite ya tiene un dictamen emitido.');
+        }
+
         if ($resultado === 'aprobado') {
             // Faithful: only documents that already have a row are considered (never-uploaded
             // mandatory types do not block approval in Express).
@@ -48,15 +53,13 @@ class EmitirDictamen
         }
 
         return DB::transaction(function () use ($tramite, $tramiteId, $resultado, $observaciones, $admin) {
-            $dictamen = Dictamen::updateOrCreate(
-                ['tramite_id' => $tramiteId],
-                [
-                    'resultado' => $resultado,
-                    'observaciones' => $observaciones,
-                    'emitido_por' => $admin->id,
-                    'fecha_emision' => now(),
-                ],
-            );
+            $dictamen = Dictamen::create([
+                'tramite_id' => $tramiteId,
+                'resultado' => $resultado,
+                'observaciones' => $observaciones,
+                'emitido_por' => $admin->id,
+                'fecha_emision' => now(),
+            ]);
 
             $previous = $tramite->estatus;
             $nuevo = $resultado === 'aprobado' ? 'completado' : 'rechazado';

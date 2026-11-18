@@ -10,6 +10,7 @@ use App\Models\HistorialEstado;
 use App\Models\Tramite;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -287,19 +288,38 @@ class AdminFlowTest extends TestCase
         ]);
     }
 
-    public function test_dictamen_approved_on_fully_approved_tramite_updates_existing_record(): void
+    public function test_dictamen_cannot_be_re_emitted_and_leaves_no_side_effects(): void
     {
         $admin = $this->user();
-        $count = Dictamen::count();
 
-        // Tramite 4 is fully approved and already has a dictamen: it is updated, not duplicated.
-        $this->actingAs($admin)->postJson('/admin/dictamenes', ['tramite_id' => 4, 'resultado' => 'aprobado', 'observaciones' => 'Ok'])
+        // Tramite 4 is fully approved and already has a dictamen.
+        $before = Dictamen::where('tramite_id', 4)->firstOrFail()->getAttributes();
+        $tramiteBefore = Tramite::find(4)->getAttributes();
+        $counts = fn () => [Bitacora::count(), DB::table('notificaciones')->count(), DB::table('historial_estados')->count(), Dictamen::count()];
+        $countsBefore = $counts();
+
+        foreach (['aprobado', 'rechazado'] as $resultado) {
+            $this->actingAs($admin)->postJson('/admin/dictamenes', ['tramite_id' => 4, 'resultado' => $resultado, 'observaciones' => 'Otra vez'])
+                ->assertStatus(422)
+                ->assertJsonPath('message', 'Este trámite ya tiene un dictamen emitido.')
+                ->assertJsonPath('errors.tramite_id.0', 'Este trámite ya tiene un dictamen emitido.');
+        }
+
+        $this->assertSame($before, Dictamen::where('tramite_id', 4)->firstOrFail()->getAttributes());
+        $this->assertSame($tramiteBefore, Tramite::find(4)->getAttributes());
+        $this->assertSame($countsBefore, $counts());
+    }
+
+    public function test_dictamen_second_emission_after_first_is_blocked(): void
+    {
+        $admin = $this->user();
+
+        $this->actingAs($admin)->postJson('/admin/dictamenes', ['tramite_id' => 1, 'resultado' => 'rechazado', 'observaciones' => 'Primero'])
             ->assertOk();
+        $this->actingAs($admin)->postJson('/admin/dictamenes', ['tramite_id' => 1, 'resultado' => 'rechazado', 'observaciones' => 'Segundo'])
+            ->assertStatus(422)->assertJsonPath('message', 'Este trámite ya tiene un dictamen emitido.');
 
-        $this->assertSame($count, Dictamen::count());
-        $this->assertSame('completado', Tramite::find(4)->estatus);
-        $this->assertSame($admin->id, Dictamen::where('tramite_id', 4)->value('emitido_por'));
-        $this->assertDatabaseHas('notificaciones', ['titulo' => 'Trámite Aprobado', 'tramite_id' => 4]);
+        $this->assertSame('Primero', Dictamen::where('tramite_id', 1)->value('observaciones'));
     }
 
     public function test_dictamen_validation(): void
