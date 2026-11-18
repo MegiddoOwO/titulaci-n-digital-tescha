@@ -388,33 +388,35 @@ export default function AdminUsuarios({ usuarios, total, page, totalPages, filte
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             aria-label="Buscar usuarios"
-            placeholder="Buscar por número de control, nombre o email..."
+            placeholder="Matrícula, nombre o email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
             onKeyDown={(e) => e.key === "Enter" && visit({ search, rol: rolFilter, page: 1 })}
           />
         </div>
-        <Select
-          value={rolFilter}
-          onValueChange={(v) => {
-            setRolFilter(v);
-            visit({ search, rol: v, page: 1 });
-          }}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filtrar por rol">
-            <SelectValue placeholder="Todos los roles" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="estudiante">Estudiantes</SelectItem>
-            <SelectItem value="asesor">Asesores</SelectItem>
-            <SelectItem value="administrativo">Administrativos</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={() => visit({ search, rol: rolFilter, page: 1 })} disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" aria-label="Buscando" /> : "Buscar"}
-        </Button>
+        <div className="flex gap-2.5">
+          <Select
+            value={rolFilter}
+            onValueChange={(v) => {
+              setRolFilter(v);
+              visit({ search, rol: v, page: 1 });
+            }}
+          >
+            <SelectTrigger className="min-w-0 flex-1 sm:w-[180px] sm:flex-none" aria-label="Filtrar por rol">
+              <SelectValue placeholder="Todos los roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="estudiante">Estudiantes</SelectItem>
+              <SelectItem value="asesor">Asesores</SelectItem>
+              <SelectItem value="administrativo">Administrativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => visit({ search, rol: rolFilter, page: 1 })} disabled={loading}>
+            {loading ? <Loader2 className="animate-spin" aria-label="Buscando" /> : "Buscar"}
+          </Button>
+        </div>
       </div>
 
       <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-label="Lista de usuarios">

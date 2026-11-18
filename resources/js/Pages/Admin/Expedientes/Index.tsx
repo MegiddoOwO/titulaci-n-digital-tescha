@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -173,23 +174,15 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
             {hasFilters ? " con los filtros aplicados" : ""}
           </p>
         </div>
-        <div className="inline-flex rounded-md border bg-card p-0.5" role="tablist" aria-label="Estado del trámite">
-          {([[false, "Activos"], [true, "Cancelados"]] as const).map(([value, label]) => (
-            <button
-              key={label}
-              role="tab"
-              aria-selected={cancelled === value}
-              className={`rounded px-3.5 py-1.5 text-sm transition-colors ${
-                cancelled === value
-                  ? "bg-secondary font-semibold text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              onClick={() => onTab(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Estado del trámite"
+          value={cancelled ? "cancelados" : "activos"}
+          onChange={(v) => onTab(v === "cancelados")}
+          options={[
+            { value: "activos", label: "Activos" },
+            { value: "cancelados", label: "Cancelados" },
+          ]}
+        />
       </div>
 
       <div className="flex flex-col gap-2.5 sm:flex-row">

@@ -23,8 +23,67 @@ interface Props {
   totalPages: number;
 }
 
-const detalleText = (detalle: unknown) =>
-  typeof detalle === "string" ? detalle : JSON.stringify(detalle);
+/** DB table names as readable singular labels; unknown names are humanized. */
+const ENTIDAD: Record<string, string> = {
+  documentos: "Documento",
+  tramites: "Trámite",
+  usuarios: "Usuario",
+  dictamenes: "Dictamen",
+  solicitudes_arco: "Solicitud ARCO",
+  notificaciones: "Notificación",
+  asignaciones: "Asignación",
+};
+
+const entidadLabel = (entidad: string) => {
+  const known = ENTIDAD[entidad];
+  if (known) return known;
+  const text = entidad.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const MAX_DETALLE = 200;
+
+/** Decoded payload as key/value pairs, cut once the text reaches 200 characters (as before). */
+function detallePairs(detalle: unknown): { key: string | null; value: string }[] {
+  let data: unknown = detalle;
+  if (typeof detalle === "string") {
+    try {
+      data = JSON.parse(detalle);
+    } catch {
+      return [{ key: null, value: detalle.substring(0, MAX_DETALLE) }];
+    }
+  }
+  const entries: [string | null, unknown][] =
+    data !== null && typeof data === "object" && !Array.isArray(data)
+      ? Object.entries(data as Record<string, unknown>)
+      : [[null, data]];
+  const pairs: { key: string | null; value: string }[] = [];
+  let used = 0;
+  for (const [key, raw] of entries) {
+    if (used >= MAX_DETALLE) break;
+    const value = typeof raw === "string" ? raw : JSON.stringify(raw);
+    const room = MAX_DETALLE - used;
+    const cut = value.length > room - (key?.length ?? 0) - 2 ? value.substring(0, Math.max(room - (key?.length ?? 0) - 2, 1)) : value;
+    pairs.push({ key, value: cut });
+    used += (key?.length ?? 0) + 2 + cut.length;
+  }
+  return pairs;
+}
+
+/** Words never split mid-token (a date or matrícula stays whole); only very long tokens may break. */
+function Valor({ text }: { text: string }) {
+  return (
+    <span className="font-mono">
+      {text.split(" ").map((token, i) => (
+        <span key={i} className={token.length > 36 ? "[overflow-wrap:anywhere]" : "whitespace-nowrap"}>
+          {i > 0 ? " " : ""}
+          {token}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 
 export default function AdminBitacora({ rows, total, page, totalPages }: Props) {
   const [loading, setLoading] = useState(false);
@@ -68,16 +127,21 @@ export default function AdminBitacora({ rows, total, page, totalPages }: Props) 
                   <p className="text-sm font-semibold">
                     {entry.accion}
                     <span className="tnum ml-2 text-xs font-normal text-muted-foreground">
-                      {entry.entidad}
+                      {entidadLabel(entry.entidad)}
                       {entry.entidad_id ? ` #${entry.entidad_id}` : ""}
                     </span>
                   </p>
                   <p className="tnum text-xs text-muted-foreground">{new Date(entry.fecha).toLocaleString("es-MX")}</p>
                 </div>
                 {entry.detalle != null && (
-                  <p className="mt-1 break-words rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
-                    {detalleText(entry.detalle).substring(0, 200)}
-                  </p>
+                  <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                    {detallePairs(entry.detalle).map((p, i) => (
+                      <div key={i} className="min-w-0">
+                        {p.key !== null && <dt className="inline text-muted-foreground">{p.key}: </dt>}
+                        <dd className="inline"><Valor text={p.value} /></dd>
+                      </div>
+                    ))}
+                  </dl>
                 )}
                 <p className="tnum mt-1 text-xs text-muted-foreground">
                   {entry.usuario_nombre || "Sistema"}

@@ -1,10 +1,20 @@
 import { LampBadge, type LampState } from "@/components/ui/lamp";
 
 /**
+ * Lamp semantics per kind (single definition; DESIGN.md records this rule):
+ * - verde: nothing is owed (approved, completed, or no pending items).
+ * - ambar: someone has work to do or is waiting (received, in review, in process, pending admin action).
+ * - rojo: a rejection or refusal needs attention.
+ * - off (unlit): the admin has nothing to act on yet (a document not uploaded) or the item is
+ *   closed out of the flow (cancelled, inactive).
+ * So "Pendiente" is unlit for a documento (the student owes the upload) and amber for an ARCO request
+ * (the admin owes the answer). "Activo" accounts carry no lamp at all, so a lit lamp never decorates
+ * a normal row.
+ *
  * The one status vocabulary for every role. A state is always a lamp on a dark housing plus its
  * text label; color is never the only signal. "off" is an unlit lamp (not started, cancelled).
  */
-type Tone = LampState | "off";
+type Tone = LampState | "off" | "none";
 
 const TRAMITE: Record<string, { tone: Tone; label: string }> = {
   en_proceso: { tone: "ambar", label: "En proceso" },
@@ -33,7 +43,7 @@ const ARCO: Record<string, { tone: Tone; label: string }> = {
 
 /** Accounts and catalog records: active is lit green, inactive is an unlit lamp. */
 const CUENTA: Record<string, { tone: Tone; label: string }> = {
-  activo: { tone: "verde", label: "Activo" },
+  activo: { tone: "none", label: "Activo" },
   inactivo: { tone: "off", label: "Inactivo" },
 };
 
@@ -66,7 +76,11 @@ export function StatusBadge({ kind, status, semaforo, className }: StatusBadgePr
   const entry = KINDS[kind][status] ?? { tone: "off" as Tone, label: humanize(status) };
   const lit: LampState | null =
     kind === "tramite" && (semaforo === "verde" || semaforo === "ambar" || semaforo === "rojo") ? semaforo : null;
-  const lamp: Tone = lit && entry.tone !== "off" ? lit : entry.tone;
+  const lamp = lit && entry.tone !== "off" ? lit : (entry.tone as LampState | "off");
+
+  if (entry.tone === "none") {
+    return <span className={`text-xs font-semibold text-muted-foreground ${className ?? ""}`}>{entry.label}</span>;
+  }
 
   return (
     <span className="inline-flex items-center">

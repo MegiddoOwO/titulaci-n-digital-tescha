@@ -1,6 +1,7 @@
 import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { LampHousing, LAMP_LABEL, toLampState } from "@/components/ui/lamp";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { ExpedienteDetalle } from "@/types/admin";
 
@@ -34,23 +35,27 @@ export function ExpedienteDocumentos({
 
   if (!detalle) return null;
 
+  const lampa = toLampState(detalle.progreso.color_semaforo);
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <StatusBadge kind="tramite" status={detalle.estatus} semaforo={detalle.progreso.color_semaforo} />
-        <div className="flex min-w-[140px] flex-1 items-center gap-2">
-          <Progress
-            value={detalle.progreso.porcentaje}
-            className="h-1.5 flex-1"
-            aria-label="Avance del expediente"
-          />
-          <span className="tnum text-xs font-semibold text-muted-foreground">
-            {detalle.progreso.porcentaje}%
-          </span>
+      <div className="flex items-center gap-4 rounded-lg border bg-muted/40 p-3">
+        <LampHousing state={lampa} />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <StatusBadge kind="tramite" status={detalle.estatus} semaforo={detalle.progreso.color_semaforo} />
+            <span className="text-xs font-semibold text-muted-foreground">Semáforo: {LAMP_LABEL[lampa]}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div className="flex min-w-[140px] flex-1 items-center gap-2">
+              <Progress value={detalle.progreso.porcentaje} className="h-1.5 flex-1" aria-label="Avance del expediente" />
+              <span className="tnum text-xs font-semibold text-muted-foreground">{detalle.progreso.porcentaje}%</span>
+            </div>
+            <span className="tnum text-xs text-muted-foreground">
+              {detalle.progreso.aprobados} de {detalle.progreso.total} aprobados
+            </span>
+          </div>
         </div>
-        <span className="tnum text-xs text-muted-foreground">
-          {detalle.progreso.aprobados} de {detalle.progreso.total} aprobados
-        </span>
       </div>
 
       {detalle.documentos.length === 0 ? (
@@ -91,10 +96,11 @@ export function ExpedienteDocumentos({
                     <p className="mt-0.5 text-xs font-semibold text-state-red">Motivo: {doc.motivo_rechazo}</p>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
-                  <div className="mr-auto sm:mr-1 sm:w-[104px] sm:shrink-0 sm:[&>span]:w-full">
+                <div className={`flex gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end ${reviewable ? "flex-col" : "items-center justify-between"}`}>
+                  <div className="sm:mr-1 sm:w-[104px] sm:shrink-0 sm:[&>span]:w-full">
                     <StatusBadge kind="documento" status={doc.estatus} />
                   </div>
+                  <div className="flex items-center gap-2">
                   {reviewable && (doc.estatus === "cargado" || doc.estatus === "en_revision") && (
                     <Button
                       size="sm"
@@ -130,10 +136,11 @@ export function ExpedienteDocumentos({
                         aria-label={`Ver ${doc.tipo_documento_nombre} (se abre en una pestaña nueva)`}
                       >
                         <ExternalLink aria-hidden="true" />
-                        <span className="hidden sm:inline">Ver</span>
+                        Ver
                       </a>
                     </Button>
                   )}
+                  </div>
                 </div>
               </li>
             );

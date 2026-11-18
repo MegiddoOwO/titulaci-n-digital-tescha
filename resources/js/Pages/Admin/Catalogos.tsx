@@ -4,6 +4,7 @@ import { Loader2, Plus, Pencil, Power, PowerOff, BookOpen, Building2, FileCheck,
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -150,24 +151,13 @@ export default function AdminCatalogos({ tab: tabKey, items }: { tab: string; it
         <p className="text-sm text-muted-foreground">Administra los catálogos del sistema</p>
       </div>
 
-      <nav className="grid grid-cols-2 gap-1 rounded-md border bg-card p-0.5 sm:flex sm:w-fit sm:flex-wrap" aria-label="Catálogo">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            aria-current={tab.key === t.key ? "page" : undefined}
-            onClick={() => changeTab(t.key)}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              tab.key === t.key
-                ? "bg-secondary font-semibold text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <t.icon className="h-4 w-4" aria-hidden="true" />
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <SegmentedControl
+        label="Catálogo"
+        value={tab.key}
+        onChange={changeTab}
+        className="grid grid-cols-2 sm:flex sm:w-fit sm:flex-wrap"
+        options={TABS.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
+      />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-base font-extrabold">

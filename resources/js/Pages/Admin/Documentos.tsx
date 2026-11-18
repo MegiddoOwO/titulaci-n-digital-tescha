@@ -92,11 +92,11 @@ export default function AdminDocumentos({
                     onClick={() => setSelectedId(exp.id)}
                     aria-pressed={selectedId === exp.id}
                     className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/60 ${
-                      selectedId === exp.id ? "bg-muted shadow-[inset_2px_0_0_hsl(var(--foreground))]" : ""
+                      selectedId === exp.id ? "bg-muted" : ""
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">{exp.nombre_completo}</span>
+                      <span className={`block truncate text-sm ${selectedId === exp.id ? "font-extrabold" : "font-semibold"}`}>{exp.nombre_completo}</span>
                       <span className="tnum block truncate text-xs text-muted-foreground">
                         {exp.numero_control} · {exp.opcion_titulacion}
                       </span>
