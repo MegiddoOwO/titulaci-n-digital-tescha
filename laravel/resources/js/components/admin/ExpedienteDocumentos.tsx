@@ -64,14 +64,16 @@ export function ExpedienteDocumentos({
               <>
                 {doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
                   <>
-                    <Button
-                      size="sm"
-                      className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => onApprove(doc.id!)}
-                      disabled={pending}
-                    >
-                      Aprobar
-                    </Button>
+                    {(doc.estatus === "cargado" || doc.estatus === "en_revision") && (
+                      <Button
+                        size="sm"
+                        className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => onApprove(doc.id!)}
+                        disabled={pending}
+                      >
+                        Aprobar
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"

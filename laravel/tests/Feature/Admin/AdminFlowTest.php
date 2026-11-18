@@ -153,6 +153,26 @@ class AdminFlowTest extends TestCase
             ->assertNotFound()->assertJson(['message' => 'Documento no encontrado.']);
     }
 
+    public function test_admin_cannot_approve_a_never_uploaded_document(): void
+    {
+        $admin = $this->user();
+        Documento::whereKey(31)->update(['estatus' => 'pendiente']);
+        $counts = [Bitacora::count(), HistorialEstado::count(), \App\Models\Notificacion::count()];
+
+        $this->actingAs($admin)->putJson('/admin/documentos/31/aprobar')
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Solo se pueden aprobar documentos que ya fueron subidos.')
+            ->assertJsonPath('errors.documento.0', 'Solo se pueden aprobar documentos que ya fueron subidos.');
+
+        $this->assertSame('pendiente', Documento::find(31)->estatus);
+        $this->assertSame($counts, [Bitacora::count(), HistorialEstado::count(), \App\Models\Notificacion::count()]);
+
+        // en_revision is still approvable.
+        Documento::whereKey(31)->update(['estatus' => 'en_revision']);
+        $this->actingAs($admin)->putJson('/admin/documentos/31/aprobar')->assertOk();
+        $this->assertSame('aprobado', Documento::find(31)->estatus);
+    }
+
     public function test_approving_last_pending_document_approves_the_tramite(): void
     {
         $admin = $this->user();

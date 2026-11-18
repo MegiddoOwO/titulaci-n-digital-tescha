@@ -137,6 +137,25 @@ class AsesorFlowTest extends TestCase
             ->assertNotFound()->assertJson(['message' => 'Documento no encontrado.']);
     }
 
+    public function test_asesor_cannot_approve_a_never_uploaded_document(): void
+    {
+        $asesor = $this->user('DOC-0001');
+        Documento::whereKey(self::DOC_OWN_A)->update(['estatus' => 'pendiente']);
+        $counts = [Bitacora::count(), HistorialEstado::count(), Notificacion::count()];
+
+        $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/aprobar')
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Solo se pueden aprobar documentos que ya fueron subidos.')
+            ->assertJsonPath('errors.documento.0', 'Solo se pueden aprobar documentos que ya fueron subidos.');
+
+        $this->assertSame('pendiente', Documento::find(self::DOC_OWN_A)->estatus);
+        $this->assertSame($counts, [Bitacora::count(), HistorialEstado::count(), Notificacion::count()]);
+
+        Documento::whereKey(self::DOC_OWN_A)->update(['estatus' => 'en_revision']);
+        $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/aprobar')->assertOk();
+        $this->assertSame('aprobado', Documento::find(self::DOC_OWN_A)->estatus);
+    }
+
     public function test_inertia_request_redirects_back_with_flash(): void
     {
         $this->actingAs($this->user('DOC-0001'))

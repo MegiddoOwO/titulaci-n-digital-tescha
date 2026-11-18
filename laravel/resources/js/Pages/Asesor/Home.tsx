@@ -247,14 +247,16 @@ export default function AsesorHome({ estudiantes }: PageProps<{ estudiantes: Est
                       </Badge>
                       {doc.id && doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
                         <>
-                          <Button
-                            size="sm"
-                            className="h-6 text-[9px] bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => review(doc.id!, "aprobar", "Documento aprobado")}
-                            disabled={pending}
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                          </Button>
+                          {(doc.estatus === "cargado" || doc.estatus === "en_revision") && (
+                            <Button
+                              size="sm"
+                              className="h-6 text-[9px] bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => review(doc.id!, "aprobar", "Documento aprobado")}
+                              disabled={pending}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="destructive"

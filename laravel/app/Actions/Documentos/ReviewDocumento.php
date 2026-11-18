@@ -9,6 +9,7 @@ use App\Models\Usuario;
 use App\Services\BitacoraService;
 use App\Services\NotificacionService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Single implementation of AdminRepository.aprobarDocumento / rechazarDocumento, shared by the
@@ -24,6 +25,13 @@ class ReviewDocumento
     public function approve(Documento $documento, Usuario $reviewer): Documento
     {
         return DB::transaction(function () use ($documento, $reviewer) {
+            // Business rule: only documents that were actually uploaded can be approved.
+            if (! in_array($documento->estatus, ['cargado', 'en_revision'], true)) {
+                throw ValidationException::withMessages([
+                    'documento' => 'Solo se pueden aprobar documentos que ya fueron subidos.',
+                ]);
+            }
+
             $previous = $documento->estatus;
             $tipo = $documento->tipoDocumento()->value('nombre');
 
