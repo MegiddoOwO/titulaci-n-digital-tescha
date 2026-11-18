@@ -45,6 +45,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
   const [editTitulo, setEditTitulo] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [pending, setPending] = useState(false);
+  const [zipLoading, setZipLoading] = useState(false);
 
   const { toast } = useToast();
   const { detalle, loading, refetch } = useExpedienteDetalle(selectedId);
@@ -105,6 +106,33 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         void refetch();
       },
     });
+  };
+
+  // Fetch first so a 404 ("no files on disk") shows a toast instead of navigating to an error page.
+  const handleDownloadZip = async (tramiteId: number) => {
+    setZipLoading(true);
+    try {
+      const response = await fetch(`/admin/expedientes/${tramiteId}/descargar`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/zip", "X-Requested-With": "XMLHttpRequest" },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || "No hay documentos para descargar.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `expediente_.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({ title: "No se pudo descargar", description: (err as Error).message, className: "bg-destructive text-destructive-foreground" });
+    } finally {
+      setZipLoading(false);
+    }
   };
 
   const handleToggleTramite = (tramiteId: number) => {
@@ -242,7 +270,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         </div>
       )}
 
-      <Dialog open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
+      <Dialog open={!!selectedId && editTramiteId === null} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-lg">
@@ -273,12 +301,14 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                   {togglingId === detalle?.id ? "..." : "Cancelar trámite"}
                 </button>
                 {detalle && (
-                  <a
-                    href={`/admin/expedientes/${detalle.id}/descargar`}
-                    className="text-[10px] px-2 py-0.5 rounded border text-navy hover:bg-navy/10 flex items-center gap-1"
+                  <button
+                    className="text-[10px] px-2 py-0.5 rounded border text-navy hover:bg-navy/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={zipLoading || !detalle.documentos.some((d) => d.archivo_url)}
+                    title={detalle.documentos.some((d) => d.archivo_url) ? undefined : "No hay documentos para descargar."}
+                    onClick={() => void handleDownloadZip(detalle.id)}
                   >
-                    Descargar ZIP
-                  </a>
+                    {zipLoading ? "Preparando..." : "Descargar ZIP"}
+                  </button>
                 )}
                 {detalle?.dictamen && (
                   <a
@@ -303,39 +333,38 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         </DialogContent>
       </Dialog>
 
-      {editTramiteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Editar trámite #{editTramiteId}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-xs">Opción de Titulación</label>
-                <Select value={editOpcionId} onValueChange={setEditOpcionId}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sin cambios" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin cambios</SelectItem>
-                    {optitulacion.map((o) => (
-                      <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs">Título del proyecto</label>
-                <Input value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} placeholder="Sin cambios" className="h-9" />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setEditTramiteId(null)}>Cancelar</Button>
-                <Button size="sm" disabled={editSaving} onClick={handleUpdateTramite}>
-                  {editSaving ? "Guardando..." : "Guardar"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <Dialog open={editTramiteId !== null} onOpenChange={(open) => { if (!open) setEditTramiteId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-base">Editar trámite #{editTramiteId}</DialogTitle>
+            <DialogDescription className="sr-only">Modificar la opción de titulación o el título del proyecto.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs">Opción de Titulación</label>
+              <Select value={editOpcionId} onValueChange={setEditOpcionId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sin cambios" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin cambios</SelectItem>
+                  {optitulacion.map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs">Título del proyecto</label>
+              <Input value={editTitulo} onChange={(e) => setEditTitulo(e.target.value)} placeholder="Sin cambios" className="h-9" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditTramiteId(null)}>Cancelar</Button>
+              <Button size="sm" disabled={editSaving} onClick={handleUpdateTramite}>
+                {editSaving ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {rechazarDocId !== null && (
         <RechazoModal

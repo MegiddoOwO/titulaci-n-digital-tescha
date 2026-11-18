@@ -67,8 +67,12 @@ class UsuarioService
     /**
      * Activate / deactivate. Also clears the lockout counters, like Express.
      */
-    public function toggle(Usuario $usuario): int
+    public function toggle(Usuario $usuario, ?Usuario $actor = null): int
     {
+        if ($actor !== null && $usuario->is($actor) && $usuario->activo) {
+            throw ValidationException::withMessages(['usuario' => 'No puede desactivarse a sí mismo.']);
+        }
+
         $nuevo = $usuario->activo ? 0 : 1;
         $usuario->forceFill(['activo' => $nuevo, 'intentos_fallidos' => 0, 'bloqueado_hasta' => null])->save();
 

@@ -31,6 +31,19 @@ return Application::configure(basePath: dirname(__DIR__))
             return $response;
         });
 
+        // A POST body above post_max_size is rejected by Laravel before validation runs.
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, Request $request) {
+            $message = \App\Support\ServerUploadLimit::message(
+                \App\Support\ServerUploadLimit::toBytes(ini_get('post_max_size')),
+            );
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $message, 'errors' => ['archivo' => [$message]]], 422);
+            }
+
+            return back()->withErrors(['archivo' => $message]);
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

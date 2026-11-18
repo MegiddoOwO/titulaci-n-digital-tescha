@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local demo runner: user-space MariaDB + Express API + Vite frontend.
-# Usage: scripts/demo.sh up|down|status|reset-db
+# Usage: scripts/demo.sh up|down|status|reset-db|up-laravel|down-laravel
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,6 +47,16 @@ stop_app() {
   rm -f "$RUN/$1.pid"
 }
 
+start_laravel() { # Laravel app on :8001 with upload limits above the 2M default
+  if alive laravel; then echo "laravel: already running"; return; fi
+  (cd "$ROOT/laravel" && npm run build >"$RUN/laravel-build.log" 2>&1) \
+    || { echo "laravel: npm run build failed, see $RUN/laravel-build.log"; exit 1; }
+  (cd "$ROOT/laravel" && nohup php -d upload_max_filesize=25M -d post_max_size=30M \
+    -S 127.0.0.1:8001 -t public vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php \
+    >"$RUN/laravel.log" 2>&1 & echo $! >"$RUN/laravel.pid")
+  echo "laravel: started on http://127.0.0.1:8001 (log: $RUN/laravel.log)"
+}
+
 case "${1:-}" in
   up)
     start_db
@@ -62,6 +72,13 @@ case "${1:-}" in
     stop_app api
     db -e "shutdown" 2>/dev/null && echo "db: stopped" || true
     ;;
+  up-laravel)
+    start_laravel
+    ;;
+  down-laravel)
+    if alive laravel; then kill "$(<"$RUN/laravel.pid")" 2>/dev/null || true; echo "laravel: stopped"; fi
+    rm -f "$RUN/laravel.pid"
+    ;;
   status)
     db -e "select 1" >/dev/null 2>&1 && echo "db: up" || echo "db: down"
     curl -fs localhost:3000/api/health >/dev/null && echo "api: up" || echo "api: down"
@@ -72,5 +89,5 @@ case "${1:-}" in
     db -e "drop database if exists sca_tescha"
     load_schema
     ;;
-  *) echo "Usage: $0 up|down|status|reset-db"; exit 1 ;;
+  *) echo "Usage: $0 up|down|status|reset-db|up-laravel|down-laravel"; exit 1 ;;
 esac

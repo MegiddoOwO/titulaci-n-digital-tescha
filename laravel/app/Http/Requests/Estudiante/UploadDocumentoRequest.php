@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Estudiante;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Support\ServerUploadLimit;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Support\Facades\Gate;
 
 class UploadDocumentoRequest extends FormRequest
@@ -26,6 +28,19 @@ class UploadDocumentoRequest extends FormRequest
             'archivo' => ['required', 'file', 'max:20480'],
             'tipo_documento_id' => ['required', 'integer'],
         ];
+    }
+
+    /** Replace the generic "no file" errors when PHP itself rejected the upload for size. */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $message = ServerUploadLimit::violation($this);
+
+            if ($message !== null) {
+                $validator->errors()->forget('archivo');
+                $validator->errors()->add('archivo', $message);
+            }
+        });
     }
 
     public function messages(): array

@@ -61,7 +61,7 @@ class UsuarioController extends Controller
 
     public function toggle(Request $request, int $usuario): JsonResponse|RedirectResponse
     {
-        $activo = $this->usuarios->toggle($this->findOrFail($usuario));
+        $activo = $this->usuarios->toggle($this->findOrFail($usuario), $request->user());
 
         return $this->mutated($request, $activo ? 'Usuario activado.' : 'Usuario desactivado.', ['activo' => $activo]);
     }
