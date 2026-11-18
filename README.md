@@ -1,88 +1,90 @@
 # Sistema de Titulación Digital - TESCHA
 
-Plataforma web para la gestión y seguimiento del proceso de titulación de los alumnos del Tecnológico de Estudios Superiores de Chalco (TESCHA). Permite tanto a estudiantes como a administradores gestionar expedientes, validar documentación y emitir dictámenes de manera digital y eficiente.
+Plataforma web para la gestión y seguimiento del proceso de titulación de los alumnos del Tecnológico de Estudios Superiores de Chalco (TESCHA). Permite a estudiantes, asesores y administrativos gestionar expedientes, validar documentación y emitir dictámenes de manera digital.
 
-## 🚀 Tecnologías Utilizadas
+## Tecnologías
 
-- **Core:** React (v18) + TypeScript
-- **Herramienta de Construcción:** Vite
-- **Estilos:** Tailwind CSS + Shadcn UI (componentes de UI accesibles y modernos)
-- **Rutas:** React Router DOM (v6)
-- **Gestión de Estado y Consultas:** React Query (TanStack Query v5)
-- **Iconografía:** Lucide React
+- **Backend:** Laravel 13 (PHP 8.3 o superior), Eloquent, MariaDB/MySQL.
+- **Frontend:** React 18 + TypeScript servido con Inertia.js, Tailwind CSS 3 y shadcn/ui, compilado con Vite.
+- **PDF:** barryvdh/laravel-dompdf (dictámenes).
+- **Autenticación:** sesión de Laravel, con el número de control como identificador.
 
-## 📋 Características Principales
+## Roles
 
-### Portal de Estudiantes
-- **Landing Page:** Información general del proceso de titulación y acceso a la normativa vigente.
-- **Inicio de Sesión:** Acceso seguro para alumnos.
-- **Dashboard del Alumno:** Visualización del progreso del trámite, subida de documentos y estado del expediente en tiempo real.
+| Rol | Qué hace |
+|---|---|
+| Estudiante | Ve su trámite, sube documentos, consulta el historial y el dictamen, crea solicitudes ARCO. |
+| Asesor | Revisa (aprueba o rechaza) los documentos de los estudiantes que tiene asignados. |
+| Administrativo | Gestiona expedientes, documentos, dictámenes, usuarios, asignaciones, catálogos, solicitudes ARCO y bitácora. |
 
-### Panel de Administración
-- **Dashboard de Administrador:** Resumen estadístico del estado de los trámites globales.
-- **Gestión de Expedientes:** Revisión detallada del avance de cada alumno.
-- **Gestión de Documentos:** Validación y aprobación/rechazo de los archivos subidos.
-- **Dictámenes:** Generación y gestión de los dictámenes correspondientes.
-- **Configuración:** Ajustes del sistema y parámetros de titulación.
+## Requisitos
 
----
+- PHP 8.3+ con las extensiones `pdo_mysql`, `mbstring`, `xml`, `dom`, `zip`, `curl`, `fileinfo`, `openssl`, `tokenizer`, `ctype`, `bcmath`.
+- Composer 2, Node.js 22 y npm.
+- MariaDB o MySQL.
 
-## 🛠️ Instalación y Configuración Local
-
-Sigue estos pasos para ejecutar el proyecto en tu entorno local:
-
-### 1. Prerrequisitos
-Asegúrate de tener instalado:
-- **Node.js** (versión 18 o superior recomendada)
-- **npm** (incluido con Node.js)
-
-### 2. Instalar Dependencias
-Instala los paquetes necesarios ejecutando el siguiente comando en la raíz del proyecto:
+## Instalación
 
 ```bash
-npm install
+composer install
+npm ci --ignore-scripts
+cp .env.example .env
+php artisan key:generate
 ```
 
-> [!NOTE]
-> El proyecto está configurado con un archivo `.npmrc` que redirige la caché de npm a una carpeta local (`.npm-cache`). Esto evita errores comunes de permisos de acceso de administrador (`EACCES: permission denied`) al realizar la instalación en diferentes computadoras o cuentas de usuario.
+Edita `.env` y configura la base de datos (la migración base es DDL de MariaDB/MySQL, no funciona con SQLite):
 
-### 3. Iniciar el Servidor de Desarrollo
-Una vez instaladas las dependencias, inicia el entorno de desarrollo local con:
+```
+DB_CONNECTION=mariadb
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=sca_tescha
+DB_USERNAME=...
+DB_PASSWORD=...
+SESSION_DRIVER=file
+CACHE_STORE=file
+```
+
+Crea la base de datos vacía y luego:
 
 ```bash
-npm run dev
+php artisan migrate --seed   # esquema + datos de demostración
+npm run build
+php artisan serve
 ```
 
-El servidor local se abrirá típicamente en `http://localhost:5173`.
+Cuentas de demostración (contraseña `Demo1234!`): estudiante `2021-0001`, asesor `DOC-0001`, administrativo `ADM-0001`.
 
----
+Si ya tienes una base `sca_tescha` creada con el esquema anterior, `php artisan migrate` la adopta sin modificar sus tablas.
 
-## 📁 Estructura del Proyecto
+### Demo local sin configuración
 
-El código fuente principal se encuentra en la carpeta `/src`:
+`scripts/demo.sh` levanta una instancia propia de MariaDB (sin root, datos en `~/.local/share/sca-mariadb`) y sirve Laravel en `http://127.0.0.1:8001`:
 
-- `/components`: Componentes visuales reutilizables de UI y Shadcn.
-- `/hooks`: Hooks personalizados de React.
-- `/lib`: Configuración de utilidades (como `utils.ts` para clases de Tailwind).
-- `/pages`: Las páginas y vistas principales de la aplicación:
-  - `Landing.tsx` y `Normativa.tsx`: Vistas públicas informativas.
-  - `Login.tsx`: Portal de acceso.
-  - `Dashboard.tsx`: Panel principal del estudiante.
-  - `/admin`: Panel administrativo (expedientes, documentos, dictámenes, etc.).
+```bash
+scripts/demo.sh up        # base de datos + app
+scripts/demo.sh status
+scripts/demo.sh down
+scripts/demo.sh reset-db --yes   # borra y recrea la base de demostración
+scripts/demo.sh test-db          # prepara la base de pruebas
+```
 
----
+## Pruebas
 
-## 🔧 Otros Comandos Útiles
+Las pruebas corren solo contra la base `sca_tescha_test` (hay una protección que aborta si la base conectada tiene otro nombre) y usan `DatabaseTransactions`; nunca `RefreshDatabase`.
 
-- **Compilar para Producción:** Genera los archivos listos para producción en la carpeta `/dist`:
-  ```bash
-  npm run build
-  ```
-- **Ejecutar Pruebas:** Corre la suite de pruebas unitarias con Vitest:
-  ```bash
-  npm run test
-  ```
-- **Analizar Código (Lint):** Verifica problemas de estilo o sintaxis con ESLint:
-  ```bash
-  npm run lint
-  ```
+```bash
+scripts/demo.sh test-db   # crea y siembra sca_tescha_test (una vez)
+composer test             # o: php artisan test
+```
+
+## Antes de producción
+
+- `APP_DEBUG=false` y un `APP_KEY` propio.
+- HTTPS, SMTP real (`MAIL_*`) y contraseñas distintas a las de demostración.
+- Respaldos de la base de datos **y** de `storage/app/private` (documentos subidos).
+- Límites de subida de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento.
+
+## Historial
+
+La versión anterior (React + Express) se conserva en la rama `legacy-express` y en el tag `pre-laravel-cleanup`.
