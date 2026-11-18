@@ -34,4 +34,56 @@ class AsesorReadService
             ->map(fn ($r) => array_merge((array) $r, ['porcentaje' => (float) $r->porcentaje]))
             ->all();
     }
+
+    /**
+     * Additive dashboard data (Inertia only): documents waiting for review and rejected documents
+     * per assigned tramite, using the same assignment scope as `estudiantes()`.
+     *
+     * @param  array<int, array<string, mixed>>  $estudiantes  result of `estudiantes()`
+     * @return array<int, array{tramite_id: int, por_revisar: int, rechazados: int}>
+     */
+    public function revision(array $estudiantes): array
+    {
+        $ids = array_column($estudiantes, 'tramite_id');
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = DB::table('documentos')
+            ->whereIn('tramite_id', $ids)
+            ->groupBy('tramite_id')
+            ->selectRaw("tramite_id,
+                SUM(estatus IN ('cargado', 'en_revision')) AS por_revisar,
+                SUM(estatus = 'rechazado') AS rechazados")
+            ->get()
+            ->keyBy('tramite_id');
+
+        return array_map(fn (int $id) => [
+            'tramite_id' => $id,
+            'por_revisar' => (int) ($rows[$id]->por_revisar ?? 0),
+            'rechazados' => (int) ($rows[$id]->rechazados ?? 0),
+        ], $ids);
+    }
+
+    /**
+     * Load of the asesor against their limit: `vw_carga_docente` (what the admin assignment guard
+     * uses) with the user's own `carga_maxima` as fallback when the view has no row for them.
+     *
+     * @return array{actual: int, maxima: int|null}
+     */
+    public function carga(int $asesorId, int $fallbackActual): array
+    {
+        $row = DB::table('vw_carga_docente')->where('docente_id', $asesorId)->first();
+
+        if ($row) {
+            return [
+                'actual' => (int) $row->carga_actual,
+                'maxima' => $row->carga_maxima !== null ? (int) $row->carga_maxima : null,
+            ];
+        }
+
+        $maxima = DB::table('usuarios')->where('id', $asesorId)->value('carga_maxima');
+
+        return ['actual' => $fallbackActual, 'maxima' => $maxima !== null ? (int) $maxima : null];
+    }
 }

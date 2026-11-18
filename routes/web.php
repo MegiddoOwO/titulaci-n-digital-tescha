@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\SolicitudArcoController as AdminSolicitudArcoCont
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Asesor\ExpedienteController as AsesorExpedienteController;
 use App\Http\Controllers\Asesor\DashboardController as AsesorDashboardController;
+use App\Http\Controllers\Asesor\DocumentoController as AsesorDocumentoController;
 use App\Http\Controllers\Asesor\DocumentoReviewController as AsesorDocumentoReviewController;
 use App\Http\Controllers\Estudiante\DictamenController as EstudianteDictamenController;
 use App\Http\Controllers\Estudiante\DocumentoController;
@@ -57,6 +58,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', AsesorDashboardController::class)->name('home');
         Route::get('/expedientes/{tramite}', [AsesorExpedienteController::class, 'show'])
             ->whereNumber('tramite')->name('expedientes.show');
+        Route::scopeBindings()->get('/tramites/{tramite}/documentos/{documento}', [AsesorDocumentoController::class, 'show'])
+            ->whereNumber(['tramite', 'documento'])->name('tramites.documentos.show');
         Route::put('/documentos/{documento}/aprobar', [AsesorDocumentoReviewController::class, 'approve'])
             ->whereNumber('documento')->name('documentos.aprobar');
         Route::put('/documentos/{documento}/rechazar', [AsesorDocumentoReviewController::class, 'reject'])

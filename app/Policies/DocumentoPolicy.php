@@ -46,4 +46,20 @@ class DocumentoPolicy
             ? Response::allow()
             : Response::deny('No estás asignado a este trámite.');
     }
+
+    /**
+     * An asesor may open the file of a document only while assigned to its tramite (any
+     * assignment role), the same rule as `review`.
+     */
+    public function viewAsAsesor(Usuario $user, Documento $documento): Response
+    {
+        $assigned = $user->rol === Usuario::ROL_ASESOR
+            && Asignacion::where('tramite_id', $documento->tramite_id)
+                ->where('usuario_id', $user->id)
+                ->exists();
+
+        return $assigned
+            ? Response::allow()
+            : Response::deny('No estás asignado a este trámite.');
+    }
 }

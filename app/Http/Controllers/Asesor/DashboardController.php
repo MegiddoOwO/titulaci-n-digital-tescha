@@ -22,6 +22,10 @@ class DashboardController extends Controller
             return response()->json(['estudiantes' => $estudiantes]);
         }
 
-        return Inertia::render('Asesor/Home', ['estudiantes' => $estudiantes]);
+        return Inertia::render('Asesor/Home', [
+            'estudiantes' => $estudiantes,
+            'revision' => $read->revision($estudiantes),
+            'carga' => $read->carga($request->user()->id, count($estudiantes)),
+        ]);
     }
 }

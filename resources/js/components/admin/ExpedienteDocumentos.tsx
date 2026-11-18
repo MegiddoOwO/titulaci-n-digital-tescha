@@ -14,6 +14,7 @@ export function ExpedienteDocumentos({
   showFormat = false,
   onApprove,
   onReject,
+  documentoHref = (tramiteId, docId) => `/admin/tramites/${tramiteId}/documentos/${docId}`,
 }: {
   detalle: ExpedienteDetalle | null;
   loading: boolean;
@@ -24,6 +25,8 @@ export function ExpedienteDocumentos({
   showFormat?: boolean;
   onApprove: (docId: number) => void;
   onReject: (docId: number) => void;
+  /** Where "Ver" opens the file; each role has its own route (admin by default). */
+  documentoHref?: (tramiteId: number, docId: number) => string;
 }) {
   if (loading) {
     return (
@@ -130,7 +133,7 @@ export function ExpedienteDocumentos({
                   {doc.id && (
                     <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2.5 text-xs" asChild>
                       <a
-                        href={`/admin/tramites/${detalle.id}/documentos/${doc.id}`}
+                        href={documentoHref(detalle.id, doc.id)}
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`Ver ${doc.tipo_documento_nombre} (se abre en una pestaña nueva)`}

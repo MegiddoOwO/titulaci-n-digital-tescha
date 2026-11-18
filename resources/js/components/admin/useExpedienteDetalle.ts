@@ -7,7 +7,7 @@ import type { ExpedienteDetalle } from "@/types/admin";
  * On-demand expediente detail (read-only JSON fetch, like the asesor page): an Inertia visit per
  * selection would replace the page props and URL, which the legacy master/detail never did.
  */
-export function useExpedienteDetalle(id: number | null) {
+export function useExpedienteDetalle(id: number | null, basePath = "/admin/expedientes") {
   const [detalle, setDetalle] = useState<ExpedienteDetalle | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -15,14 +15,14 @@ export function useExpedienteDetalle(id: number | null) {
     if (!id) return;
     if (!background) setLoading(true);
     try {
-      setDetalle(await jsonRequest<ExpedienteDetalle>(`/admin/expedientes/${id}`));
+      setDetalle(await jsonRequest<ExpedienteDetalle>(`${basePath}/${id}`));
     } catch {
       // A background refetch can fail (e.g. just-cancelled tramite): keep the last known data.
       if (!background) setDetalle(null);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, basePath]);
 
   useEffect(() => {
     setDetalle(null);
@@ -38,6 +38,7 @@ export function reviewDocumento(
   action: "aprobar" | "rechazar",
   data: Record<string, string>,
   handlers: { onStart: () => void; onFinish: () => void; onSuccess: () => void },
+  basePath = "/admin/documentos",
 ) {
-  router.put(`/admin/documentos/${docId}/${action}`, data, { preserveScroll: true, preserveState: true, ...handlers });
+  router.put(`${basePath}/${docId}/${action}`, data, { preserveScroll: true, preserveState: true, ...handlers });
 }

@@ -1,13 +1,21 @@
-import { useState } from "react";
-import { Head, router, usePage } from "@inertiajs/react";
-import { GraduationCap, Loader2, User, FileText, CheckCircle2, Ban } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState } from "react";
+import { Head } from "@inertiajs/react";
+import { ChevronRight, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CountModule, StatusModule } from "@/components/ui/status-module";
+import { toLampState, type LampCounts } from "@/components/ui/lamp";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { jsonRequest } from "@/lib/http";
+import { asesorLayout } from "@/components/asesor/AsesorLayout";
+import { LoadMeter } from "@/components/asesor/LoadMeter";
+import { RechazoModal } from "@/components/admin/RechazoModal";
+import { ExpedienteDocumentos } from "@/components/admin/ExpedienteDocumentos";
+import { reviewDocumento, useExpedienteDetalle } from "@/components/admin/useExpedienteDetalle";
 import type { PageProps } from "@/types";
 
 interface EstudianteAsignado {
@@ -21,291 +29,276 @@ interface EstudianteAsignado {
   color_semaforo: string;
 }
 
-interface DocumentoDetalle {
-  id: number | null;
-  tipo_documento_id: number;
-  tipo_documento_nombre: string;
-  estatus: string;
-  tipo_documento_obligatorio: number;
-  motivo_rechazo: string | null;
-  archivo_nombre: string | null;
-  fecha_subida: string | null;
+interface Revision {
+  tramite_id: number;
+  por_revisar: number;
+  rechazados: number;
 }
 
-interface ExpedienteDetalle {
-  estatus: string;
-  progreso: { color_semaforo: string; porcentaje: number };
-  documentos: DocumentoDetalle[];
-}
-
-const semaforoColor: Record<string, string> = {
-  verde: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  ambar: "bg-amber-100 text-amber-800 border-amber-200",
-  rojo: "bg-rose-100 text-rose-800 border-rose-200",
+type Props = {
+  estudiantes: EstudianteAsignado[];
+  revision: Revision[];
+  carga: { actual: number; maxima: number | null };
 };
 
-export default function AsesorHome({ estudiantes }: PageProps<{ estudiantes: EstudianteAsignado[] }>) {
-  const usuario = usePage<PageProps>().props.auth.user;
+type Filtro = "todos" | "pendientes" | "rechazos";
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+// The detail is a read-only JSON fetch (as the admin expedientes list does): an Inertia visit per
+// selection would replace the page props and URL, and the list needs to stay where it is.
+const EXPEDIENTE_BASE = "/asesor/expedientes";
+const REVIEW_BASE = "/asesor/documentos";
+
+export default function AsesorHome({ estudiantes, revision, carga }: PageProps<Props>) {
   const { toast } = useToast();
-  const [selectedTramite, setSelectedTramite] = useState<number | null>(null);
-  const [detalle, setDetalle] = useState<ExpedienteDetalle | null>(null);
-  const [detalleLoading, setDetalleLoading] = useState(false);
-  const [motivoRechazo, setMotivoRechazo] = useState("");
+  const [search, setSearch] = useState("");
+  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [rechazarDocId, setRechazarDocId] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
+  const { detalle, loading, refetch } = useExpedienteDetalle(selectedId, EXPEDIENTE_BASE);
 
-  // The detail is a read-only, on-demand JSON fetch: an Inertia visit would replace the page
-  // props and URL on every selection, which the legacy master/detail layout never did.
-  const loadDetalle = async (tramiteId: number, showSpinner = true) => {
-    if (showSpinner) setDetalleLoading(true);
-    try {
-      setDetalle(await jsonRequest<ExpedienteDetalle>(`/asesor/expedientes/${tramiteId}`));
-    } catch {
-      setDetalle(null);
-    } finally {
-      setDetalleLoading(false);
-    }
+  const revisionPorTramite = useMemo(() => new Map(revision.map((r) => [r.tramite_id, r])), [revision]);
+  const filas = useMemo(
+    () =>
+      estudiantes.map((e) => ({
+        ...e,
+        porRevisar: revisionPorTramite.get(e.tramite_id)?.por_revisar ?? 0,
+        rechazados: revisionPorTramite.get(e.tramite_id)?.rechazados ?? 0,
+      })),
+    [estudiantes, revisionPorTramite],
+  );
+
+  const documentosPorRevisar = filas.reduce((sum, f) => sum + f.porRevisar, 0);
+  const conRechazos = filas.filter((f) => f.rechazados > 0).length;
+  const lamps = filas.reduce<LampCounts>(
+    (acc, f) => ({ ...acc, [toLampState(f.color_semaforo)]: acc[toLampState(f.color_semaforo)] + 1 }),
+    { rojo: 0, ambar: 0, verde: 0 },
+  );
+
+  const term = search.trim().toLowerCase();
+  const visibles = filas.filter(
+    (f) =>
+      (term === "" || f.nombre_completo.toLowerCase().includes(term) || f.numero_control.toLowerCase().includes(term)) &&
+      (filtro === "todos" || (filtro === "pendientes" ? f.porRevisar > 0 : f.rechazados > 0)),
+  );
+  // The single filled action: the first student that has documents waiting for review.
+  const primeroPendienteId = visibles.find((f) => f.porRevisar > 0)?.tramite_id;
+  const seleccionado = filas.find((f) => f.tramite_id === selectedId);
+
+  const open = (id: number) => {
+    setSelectedId(id);
+    setDetailOpen(true);
   };
 
-  const selectTramite = (tramiteId: number) => {
-    setSelectedTramite(tramiteId);
-    void loadDetalle(tramiteId);
-  };
-
-  // Mutations go through Inertia: the redirect back re-sends `estudiantes` (progress/semaforo),
-  // and the open detail is refetched afterwards.
-  const review = (docId: number, action: "aprobar" | "rechazar", title: string, data: Record<string, string> = {}) => {
-    router.put(`/asesor/documentos/${docId}/${action}`, data, {
-      preserveScroll: true,
-      preserveState: true,
-      onStart: () => setPending(true),
-      onFinish: () => setPending(false),
-      onSuccess: () => {
-        toast({ title });
-        if (action === "rechazar") {
-          setRechazarDocId(null);
-          setMotivoRechazo("");
-        }
-        if (selectedTramite) void loadDetalle(selectedTramite, false);
+  // Mutations go through Inertia: the redirect back re-sends the props (progress, counts), and the
+  // open detail is refetched afterwards.
+  const review = (docId: number, action: "aprobar" | "rechazar", data: Record<string, string> = {}) =>
+    reviewDocumento(
+      docId,
+      action,
+      data,
+      {
+        onStart: () => setPending(true),
+        onFinish: () => setPending(false),
+        onSuccess: () => {
+          toast({ title: action === "aprobar" ? "Documento aprobado" : "Documento rechazado" });
+          if (action === "rechazar") {
+            setRechazarDocId(null);
+            setDetailOpen(true);
+          }
+          void refetch();
+        },
       },
-    });
-  };
+      REVIEW_BASE,
+    );
 
   return (
-    <div className="p-6 space-y-6 min-h-screen bg-gradient-to-br from-[#faf6f0] to-[#efe1ca]/20">
-      <Head title="Panel del Asesor" />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Panel del Asesor</h1>
-          <p className="text-muted-foreground font-body text-sm">
-            Bienvenido, {usuario?.nombre || "Docente"}
-          </p>
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-3.5 px-4 py-6 sm:px-8">
+      <Head title="Mis estudiantes" />
+
+      <div>
+        <h1 className="text-2xl font-extrabold">Mis estudiantes</h1>
+        <p className="tnum mt-0.5 text-sm text-muted-foreground">
+          {plural(estudiantes.length, "estudiante asignado", "estudiantes asignados")} ·{" "}
+          {plural(documentosPorRevisar, "documento por revisar", "documentos por revisar")}
+        </p>
+      </div>
+
+      <section aria-label="Resumen de tu carga y revisiones" className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <LoadMeter actual={carga.actual} maxima={carga.maxima} />
+          <StatusModule
+            name="Estudiantes asignados"
+            total={estudiantes.length}
+            counts={lamps}
+            unit={{ one: "estudiante", many: "estudiantes" }}
+          />
+          <CountModule
+            name="Documentos por revisar"
+            total={documentosPorRevisar}
+            state={documentosPorRevisar > 0 ? "ambar" : "verde"}
+            caption={documentosPorRevisar > 0 ? "Recibidos o en revisión, esperan tu decisión." : "No hay documentos esperando tu decisión."}
+            unit={{ one: "documento", many: "documentos" }}
+          />
+          <CountModule
+            name="Trámites con rechazos"
+            total={conRechazos}
+            state={conRechazos > 0 ? "rojo" : "verde"}
+            caption={conRechazos > 0 ? "Tienen documentos rechazados que el estudiante debe corregir." : "Ningún trámite tiene documentos rechazados."}
+            unit={{ one: "trámite", many: "trámites" }}
+          />
         </div>
-        <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-lg border shadow-sm">
-          <GraduationCap className="w-5 h-5 text-navy" />
-          <div>
-            <p className="text-xs font-medium">{usuario?.email}</p>
-            <p className="text-[10px] text-muted-foreground">{usuario?.numero_control}</p>
+        <p className="text-xs text-muted-foreground">
+          Semáforo de cada trámite según sus documentos: rojo si alguno está rechazado; ámbar si alguno está pendiente,
+          cargado o en revisión; verde cuando todos están aprobados.
+        </p>
+      </section>
+
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            aria-label="Buscar estudiante"
+            placeholder="Buscar por nombre o matrícula..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <SegmentedControl
+          label="Filtrar estudiantes"
+          value={filtro}
+          onChange={setFiltro}
+          options={[
+            { value: "todos", label: "Todos" },
+            { value: "pendientes", label: "Con pendientes de revisión" },
+            { value: "rechazos", label: "Con rechazos" },
+          ]}
+          className="flex-wrap [&>button]:px-2.5 sm:[&>button]:px-3"
+        />
+      </div>
+
+      <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-label="Estudiantes asignados">
+        {visibles.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+            <Users className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-semibold">
+              {estudiantes.length === 0 ? "No tienes estudiantes asignados." : "Ningún estudiante coincide con tu búsqueda."}
+            </p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {estudiantes.length === 0
+                ? "Cuando control escolar te asigne un trámite de titulación, el estudiante aparecerá en esta lista y podrás revisar sus documentos."
+                : "Prueba con otro nombre o matrícula, o cambia el filtro a Todos."}
+            </p>
           </div>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">
-              Estudiantes asignados ({estudiantes.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {estudiantes.length === 0 ? (
-              <div className="text-center py-12">
-                <User className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  No tienes estudiantes asignados actualmente.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {estudiantes.map((est) => (
-                  <div
-                    key={est.tramite_id}
-                    onClick={() => selectTramite(est.tramite_id)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors hover:bg-muted/30 ${
-                      selectedTramite === est.tramite_id
-                        ? "border-navy bg-navy/5"
-                        : "border-border bg-white hover:border-navy/30"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center">
-                          <User className="w-4 h-4 text-navy" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold">{est.nombre_completo}</p>
-                          <p className="text-[11px] text-muted-foreground">{est.numero_control}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          className={`text-[10px] ${
-                            est.rol_asignacion === "asesor" ? "bg-navy/10 text-navy" : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {est.rol_asignacion}
-                        </Badge>
-                        <Badge className={`text-[10px] transition-colors ${semaforoColor[est.color_semaforo] || "bg-gray-100"}`}>
-                          {est.estatus_tramite.replace(/_/g, " ")}
-                        </Badge>
-                      </div>
-                    </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>Estudiante</TableHead>
+                <TableHead className="hidden lg:table-cell">Opción de titulación</TableHead>
+                <TableHead className="hidden w-44 md:table-cell">Avance</TableHead>
+                <TableHead className="hidden md:table-cell">Por revisar</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-12 md:w-44"><span className="sr-only">Acción</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibles.map((f) => (
+                <TableRow key={f.tramite_id} className="cursor-pointer" onClick={() => open(f.tramite_id)}>
+                  <TableCell className="py-2.5">
+                    <p className="text-sm font-semibold leading-snug">{f.nombre_completo}</p>
+                    <p className="tnum text-xs text-muted-foreground">
+                      {f.numero_control}
+                      <span className="lg:hidden"> · {f.opcion_titulacion}</span>
+                    </p>
+                    {f.porRevisar > 0 && (
+                      <p className="tnum mt-0.5 text-xs font-semibold text-state-amber md:hidden">{f.porRevisar} por revisar</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden py-2.5 text-sm text-muted-foreground lg:table-cell">{f.opcion_titulacion}</TableCell>
+                  <TableCell className="hidden py-2.5 md:table-cell">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground min-w-[100px]">{est.opcion_titulacion}</span>
-                      <Progress value={est.porcentaje} className="h-1.5 flex-1" />
-                      <span className="text-[11px] text-muted-foreground w-8 text-right">{est.porcentaje}%</span>
+                      <Progress value={f.porcentaje} className="h-1.5 flex-1" aria-label={`Avance de ${f.nombre_completo}`} />
+                      <span className="tnum w-9 text-right text-xs text-muted-foreground">{Math.round(f.porcentaje)}%</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </TableCell>
+                  <TableCell className="hidden py-2.5 md:table-cell">
+                    {f.porRevisar > 0 ? (
+                      <span className="tnum text-sm font-semibold">
+                        {f.porRevisar} <span className="text-xs font-normal text-muted-foreground">por revisar</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Al día</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2.5">
+                    <StatusBadge kind="tramite" status={f.estatus_tramite} semaforo={f.color_semaforo} />
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right">
+                    <Button
+                      variant={f.tramite_id === primeroPendienteId ? "default" : "outline"}
+                      size="sm"
+                      className="hidden h-8 text-xs md:inline-flex"
+                      aria-label={`Abrir expediente de ${f.nombre_completo}`}
+                      onClick={(e) => { e.stopPropagation(); open(f.tramite_id); }}
+                    >
+                      Abrir expediente
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 md:hidden"
+                      aria-label={`Abrir expediente de ${f.nombre_completo}`}
+                      onClick={(e) => { e.stopPropagation(); open(f.tramite_id); }}
+                    >
+                      <ChevronRight aria-hidden="true" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
 
-        <Card className="lg:col-span-1 border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">
-              {selectedTramite ? "Detalle del expediente" : "Selecciona un estudiante"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!selectedTramite ? (
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Selecciona un estudiante para ver el detalle de su expediente.
-                </p>
-              </div>
-            ) : detalleLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin" />
-              </div>
-            ) : detalle ? (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                <div className="flex items-center gap-2 mb-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      detalle.progreso?.color_semaforo === "verde"
-                        ? "bg-emerald-500"
-                        : detalle.progreso?.color_semaforo === "rojo"
-                        ? "bg-rose-500"
-                        : "bg-amber-500"
-                    }`}
-                  />
-                  <span className="text-xs font-medium">{detalle.estatus?.replace(/_/g, " ")}</span>
-                  <span className="text-xs text-muted-foreground">— {detalle.progreso?.porcentaje}%</span>
-                </div>
-                {detalle.documentos?.map((doc) => (
-                  <div
-                    key={doc.tipo_documento_id}
-                    className={`p-2 rounded border text-xs flex items-center justify-between gap-2 ${
-                      doc.estatus === "aprobado"
-                        ? "bg-emerald-50 border-emerald-200"
-                        : doc.estatus === "rechazado"
-                        ? "bg-rose-50 border-rose-200"
-                        : doc.estatus === "pendiente"
-                        ? "bg-gray-50"
-                        : "bg-blue-50 border-blue-100"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium">{doc.tipo_documento_nombre}</span>
-                      {doc.tipo_documento_obligatorio === 1 && <span className="text-rose-500 ml-0.5">*</span>}
-                      {doc.archivo_nombre && (
-                        <span className="text-[10px] text-muted-foreground block mt-0.5">
-                          {doc.archivo_nombre}
-                          {doc.fecha_subida ? ` · ${new Date(doc.fecha_subida).toLocaleDateString("es-MX")}` : ""}
-                        </span>
-                      )}
-                      {doc.estatus === "rechazado" && doc.motivo_rechazo && (
-                        <span className="text-rose-600 block text-[10px] mt-0.5">{doc.motivo_rechazo}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Badge
-                        className={`text-[9px] ${
-                          doc.estatus === "aprobado"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : doc.estatus === "rechazado"
-                            ? "bg-rose-100 text-rose-700"
-                            : doc.estatus === "cargado"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {doc.estatus}
-                      </Badge>
-                      {doc.id && doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
-                        <>
-                          {(doc.estatus === "cargado" || doc.estatus === "en_revision") && (
-                            <Button
-                              size="sm"
-                              className="h-6 text-[9px] bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => review(doc.id!, "aprobar", "Documento aprobado")}
-                              disabled={pending}
-                            >
-                              <CheckCircle2 className="w-3 h-3" />
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-6 text-[9px]"
-                            onClick={() => setRechazarDocId(doc.id!)}
-                          >
-                            <Ban className="w-3 h-3" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
+      <Dialog open={detailOpen} onOpenChange={(o) => { if (!o) setDetailOpen(false); }}>
+        <DialogContent className="max-h-[88vh] w-[calc(100%-1.5rem)] max-w-2xl grid-cols-[minmax(0,1fr)] overflow-y-auto">
+          <DialogHeader className="text-left">
+            <DialogTitle className="pr-6 text-lg">{seleccionado?.nombre_completo ?? "Expediente"}</DialogTitle>
+            <DialogDescription>
+              <span className="tnum">{seleccionado?.numero_control}</span>
+              {seleccionado ? ` · ${seleccionado.opcion_titulacion}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <ExpedienteDocumentos
+            detalle={detalle}
+            loading={loading}
+            pending={pending}
+            onApprove={(id) => review(id, "aprobar")}
+            onReject={(id) => { setDetailOpen(false); setRechazarDocId(id); }}
+            documentoHref={(tramiteId, docId) => `/asesor/tramites/${tramiteId}/documentos/${docId}`}
+          />
+          {!loading && !detalle && (
+            <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              No se pudo cargar el expediente. Cierra esta ventana y vuelve a abrirlo.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {rechazarDocId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Motivo del rechazo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Describe por qué se rechaza este documento..."
-                value={motivoRechazo}
-                onChange={(e) => setMotivoRechazo(e.target.value)}
-                rows={3}
-              />
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setRechazarDocId(null); setMotivoRechazo(""); }}>
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={!motivoRechazo.trim() || pending}
-                  onClick={() => review(rechazarDocId, "rechazar", "Documento rechazado", { motivo: motivoRechazo.trim() })}
-                >
-                  {pending ? "Rechazando..." : "Confirmar rechazo"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <RechazoModal
+          pending={pending}
+          onCancel={() => { setRechazarDocId(null); setDetailOpen(true); }}
+          onConfirm={(motivo) => review(rechazarDocId, "rechazar", { motivo })}
+        />
       )}
     </div>
   );
 }
+
+AsesorHome.layout = asesorLayout;
