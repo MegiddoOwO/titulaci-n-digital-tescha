@@ -2,1018 +2,866 @@
 
 ## Sistema de Control y Administración de Titulación ISC
 
-**Tecnológico de Estudios Superiores de Chalco (TESCHA)**  
+**Tecnológico de Estudios Superiores de Chalco (TESCHA)**
 **División de Ingeniería en Sistemas Computacionales**
+
+Estado documentado: aplicación Laravel 13 + Inertia (React / TypeScript), rama `feat/laravel-migration`.
 
 ---
 
 ## Índice
 
-1. [Visión General](#1-visión-general)
-2. [Arquitectura del Sistema](#2-arquitectura-del-sistema)
-3. [Base de Datos](#3-base-de-datos)
-4. [Backend — API REST](#4-backend--api-rest)
-5. [Frontend — SPA React](#5-frontend--spa-react)
-6. [Catálogo Completo de APIs](#6-catálogo-completo-de-apis)
-7. [Flujos de Negocio](#7-flujos-de-negocio)
-8. [Sistema de Seguridad](#8-sistema-de-seguridad)
-9. [Privacidad y Cumplimiento LGPDPPSO](#9-privacidad-y-cumplimiento-lgpdppso)
-10. [Pruebas](#10-pruebas)
-11. [Dependencias y Stack Tecnológico](#11-dependencias-y-stack-tecnológico)
-12. [Configuración y Despliegue](#12-configuración-y-despliegue)
-13. [Estructura de Archivos](#13-estructura-de-archivos)
+1. [Visión general](#1-visión-general)
+2. [Arquitectura](#2-arquitectura)
+3. [Base de datos](#3-base-de-datos)
+4. [Backend](#4-backend)
+5. [Frontend](#5-frontend)
+6. [Catálogo de rutas](#6-catálogo-de-rutas)
+7. [Flujos de negocio](#7-flujos-de-negocio)
+8. [Pruebas](#8-pruebas)
+9. [Operación y despliegue local](#9-operación-y-despliegue-local)
+10. [Decisiones de diseño y comportamientos heredados](#10-decisiones-de-diseño-y-comportamientos-heredados)
+11. [Historial / migración desde Express](#11-historial--migración-desde-express)
 
 ---
 
-## 1. Visión General
+## 1. Visión general
 
-### 1.1 Propósito del Sistema
+### 1.1 Propósito
 
-El SCA-ISC es una plataforma web integral que digitaliza el proceso de titulación para egresados de Ingeniería en Sistemas Computacionales del TESCHA. El sistema orquesta la interacción entre tres actores: **estudiantes** (cargan documentación y dan seguimiento), **asesores/docentes** (revisan proyectos y emiten liberaciones), y **administrativos** (validan documentos, emiten dictámenes y gestionan usuarios).
+El SCA-ISC es una plataforma web que digitaliza el proceso de titulación de los egresados de Ingeniería en Sistemas Computacionales del TESCHA. Coordina a tres actores: **estudiantes** (cargan documentos y dan seguimiento), **asesores** (revisan los documentos de sus estudiantes asignados) y **administrativos** (validan expedientes, emiten dictámenes y gestionan usuarios y catálogos).
 
 ### 1.2 Problema que resuelve
 
-El proceso tradicional requiere hasta 7 visitas presenciales del egresado, con expedientes físicos propensos a errores, fotos rechazadas por incumplir normativas, pagos mal direccionados, y comunicación asíncrona que genera incertidumbre. El SCA-ISC reduce esto a 2 visitas presenciales concentrando en la plataforma: carga documental con validación automática, semáforo de estatus en tiempo real, notificaciones transaccionales y guías interactivas.
+El trámite tradicional exige varias visitas presenciales, expedientes físicos propensos a errores, fotografías rechazadas por incumplir la normativa y comunicación asíncrona que genera incertidumbre. El sistema concentra en una sola plataforma la carga documental con validación automática, un semáforo de estatus, notificaciones y la normativa vigente, de modo que las visitas presenciales se reduzcan al mínimo.
 
-### 1.3 Alcance funcional
+### 1.3 Roles
+
+| Rol (`usuarios.rol`) | Página de inicio | Qué hace |
+|---|---|---|
+| `estudiante` | `/dashboard` | Ve su trámite, sube documentos, consulta el historial y su dictamen (con PDF), crea solicitudes ARCO. |
+| `asesor` | `/asesor` | Ve los estudiantes en los que tiene alguna asignación y revisa (aprueba o rechaza) sus documentos. |
+| `administrativo` | `/admin` | Gestiona expedientes, documentos, dictámenes, usuarios, asignaciones, catálogos, solicitudes ARCO y consulta la bitácora. |
+
+La ruta de inicio por rol la decide `Usuario::homePath()`.
+
+### 1.4 Alcance funcional
 
 | Módulo | Funcionalidades |
-|--------|----------------|
-| **Autenticación** | Login con número de control, JWT, RBAC (3 roles), bloqueo por intentos fallidos |
-| **Expediente Digital** | Carga de documentos por categoría, validación de formato/tamaño/PDF corrupto, prerrequisitos secuenciales |
-| **Semáforo y Trazabilidad** | Barra de progreso, semáforo rojo/ámbar/verde, línea de tiempo con historial de cambios |
-| **Panel Administrativo** | Dashboard con métricas, revisión de documentos, aprobación/rechazo con justificación, emisión de dictámenes |
-| **Notificaciones** | Campana in-app con badge de no leídas, registro de emails (infraestructura lista para SMTP) |
-| **Contenido Informativo** | Normativa dinámica con filtro por modalidad, directorio institucional con búsqueda, guía de fotografía, wizard de pago |
-| **Privacidad** | Consentimiento LGPDPPSO en primer login, formulario de derechos ARCO, panel admin ARCO, bitácora de auditoría |
-| **Gestión de Usuarios** | CRUD de usuarios por admin, activación/desactivación, asignación de asesores y sinodales |
-| **Catálogos** | CRUD genérico de opciones de titulación, tipos de documento, normativa y directorio desde panel admin |
-| **Panel Asesor** | Vista de estudiantes asignados, revisión y aprobación/rechazo de documentos por asesor |
-| **Reset Password** | Restablecimiento de contraseña vía token por URL (`/reset-password?token=...`) |
-| **Dictamen PDF** | Generación de dictamen en PDF con PDFKit, colores institucionales, firma y observaciones |
-| **Theme Toggle** | Alternancia dark/light mode con persistencia en localStorage |
-| **Error Boundary** | Componente de clase que captura errores de renderizado con pantalla de fallback |
+|---|---|
+| Autenticación | Sesión de Laravel, acceso con número de control, bloqueo por intentos fallidos, recuperación de contraseña con token. |
+| Expediente digital | Carga por tipo de documento con validación de formato, tamaño, PDF íntegro y prerrequisitos. |
+| Semáforo y trazabilidad | Porcentaje de avance, semáforo rojo/ámbar/verde (vista SQL) y línea de tiempo (`historial_estados`). |
+| Panel administrativo | Métricas, listado y detalle de expedientes (con cancelación/reactivación), revisión de documentos, dictámenes con PDF, exportación CSV y descarga ZIP. |
+| Panel del asesor | Lista de estudiantes asignados y revisión de documentos. |
+| Notificaciones | Campana in-app con conteo de no leídas y copia por correo para los tipos `email` y `ambos`. |
+| Contenido informativo | Normativa filtrable por modalidad, directorio institucional, requisitos de fotografía. Lectura pública. |
+| Privacidad | Aviso de privacidad con consentimiento registrado, solicitudes ARCO y su atención por administración. |
+| Gestión de usuarios | Alta, edición, activación/desactivación y baja; asignación de asesor, sinodal o revisor; control de carga docente. |
+| Catálogos | CRUD de opciones de titulación, tipos de documento, normativa y directorio. |
+| Auditoría | Bitácora paginada de revisiones de documentos y dictámenes. |
+| Interfaz | Modo claro/oscuro, `ErrorBoundary` global, notificaciones tipo toast. |
 
 ---
 
-## 2. Arquitectura del Sistema
+## 2. Arquitectura
 
-### 2.1 Modelo Cliente-Servidor Desacoplado
+### 2.1 Monolito Laravel + Inertia
+
+La aplicación es un único proyecto Laravel (raíz del repositorio). Laravel responde cada petición web; las pantallas son componentes React que Inertia monta con las *props* que entrega el controlador. No hay una API separada ni un SPA que consuma `/api`.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Navegador (Cliente)                                         │
-│  http://localhost:8080                                       │
-│                                                              │
-│  ┌────────────────────┐        ┌───────────────────────────┐ │
-│  │  Vite Dev Server    │        │  React 18 SPA             │ │
-│  │  Puerto 8080        │───────▶│  - React Router           │ │
-│  │  Proxy /api → :3000 │        │  - TanStack Query         │ │
-│  └────────────────────┘        │  - shadcn/ui + Tailwind   │ │
-│                                 │  - AuthContext (JWT)       │ │
-│                                 └───────────┬───────────────┘ │
-└─────────────────────────────────────────────┼─────────────────┘
-                                              │ HTTP (fetch)
-                                              ▼
-┌──────────────────────────────────────────────────────────────┐
-│  Backend API REST                                            │
-│  http://localhost:3000                                       │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────────┐│
-│  │  Express.js + TypeScript                                  ││
-│  │  Clean Architecture (Domain/UseCases/Infrastructure)      ││
-│  │                                                           ││
-│  │  Middleware: helmet, cors, authenticate, authorize,       ││
-│  │              rateLimiter, multer                          ││
-│  │                                                           ││
-│  │  Rutas: /api/auth, /api/tramites, /api/admin,            ││
-│  │         /api/notificaciones, /api/directorio,            ││
-│  │         /api/normativa, /api/privacidad, /api/arco       ││
-│  └──────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────┘
-                                              │
-                                              ▼
-┌──────────────────────────────────────────────────────────────┐
-│  Base de Datos MariaDB 10.11                                 │
-│  sca_tescha (utf8mb4, InnoDB)                                │
-│                                                              │
-│  14 tablas + 2 vistas + 150+ registros seed                  │
-└──────────────────────────────────────────────────────────────┘
+ Navegador
+    |  1ª visita: GET /admin/expedientes  (HTML con <div data-page="...">)
+    |  siguientes: XHR con cabecera X-Inertia (respuesta JSON con component + props)
+    v
+ routes/web.php, routes/auth.php
+    v
+ Middleware: web (sesión, CSRF) -> auth -> role:<rol> -> HandleInertiaRequests
+    v
+ Controller  --->  FormRequest (validación)
+    |         --->  Gate/Policy (autorización por recurso)
+    |         --->  Action (escritura transaccional)  /  Service (lectura y utilidades)
+    v                         v
+ Inertia::render('Pagina', props)      Eloquent / Query Builder -> MariaDB
+    o  JSON plano  o  redirect()->back()->with('success', ...)
 ```
 
-### 2.2 Justificación Arquitectónica
+### 2.2 Ciclo de una petición
 
-**Frontend: Single Page Application (SPA) con React 18** — elegida por su capacidad de crear interfaces interactivas sin recarga de página, esencial para un dashboard con actualización en tiempo real de estatus de trámites. React Router permite navegación sin recarga y protección de rutas condicional.
+1. `bootstrap/app.php` registra las rutas web, el endpoint de salud `/up` y el alias de middleware `role`.
+2. Las rutas protegidas pasan por `auth` (sin sesión: redirección a `/login`, o 401 si el cliente espera JSON) y por `role:...` (`EnsureRole`): con rol no permitido, 403.
+3. `HandleInertiaRequests` comparte en cada respuesta `auth.user`, `auth.consentimiento` y `flash.success`.
+4. El controlador valida con un `FormRequest`, autoriza con una Policy cuando el recurso tiene dueño y delega la escritura en una Action o en un Service.
+5. La respuesta depende del cliente (ver 2.5): página Inertia, JSON o redirección con mensaje flash.
+6. Un 404 de navegador renderiza la página Inertia `NotFound`; una petición que espera JSON recibe JSON.
 
-**Backend: API REST con Express.js y Clean Architecture** — la separación en capas (dominio → casos de uso → controladores → infraestructura) garantiza que la lógica de negocio (validaciones de documentos, reglas de prerrequisitos, emisión de dictámenes) sea independiente del framework HTTP o del motor de base de datos. Esto permite migrar componentes sin reescribir el núcleo.
+### 2.3 Justificación
 
-**Base de Datos: MariaDB relacional** — el documento de requisitos especifica MySQL/MariaDB. Las relaciones entre entidades (usuario → trámite → documentos → asignaciones → dictamen) son naturalmente relacionales y requieren integridad referencial con foreign keys.
+- **Un solo despliegue y una sola sesión.** Se elimina la gestión de tokens en el cliente, CORS y el proxy de desarrollo.
+- **Validación y autorización en el servidor.** Cada regla de negocio vive en una Action o Policy comprobable por pruebas de funcionalidad.
+- **Base de datos relacional.** Las relaciones usuario, trámite, documentos, asignaciones y dictamen exigen integridad referencial; parte de la lógica (semáforo, carga docente) vive en vistas SQL.
+- **Inertia.** Conserva la experiencia de navegación sin recarga sin mantener una capa REST paralela.
 
-**Proxy Vite** — en desarrollo, el frontend en puerto 8080 proxifica `/api/*` al backend en puerto 3000, eliminando problemas de CORS sin configuración adicional.
+### 2.4 Mapa de directorios
+
+```
+app/
+  Actions/{Admin,Documentos,Tramites}   Casos de uso de escritura (una clase, un método execute/approve/reject)
+  Services/ (+ Admin/)                  Lectura, utilidades y servicios transversales
+  Policies/                             TramitePolicy, DocumentoPolicy
+  Http/
+    Controllers/{Admin,Asesor,Estudiante,Auth,Public}  + NotificacionController, PrivacidadController, SolicitudArcoController
+    Controllers/Concerns/RespondsInertiaOrJson.php
+    Middleware/                         EnsureRole, HandleInertiaRequests
+    Requests/{Admin,Arco,Auth,Estudiante,Review}       FormRequests
+  Models/                               17 modelos Eloquent (15 tablas + 2 vistas)
+  Mail/                                 NotificacionMail, ResetPasswordMail
+  Support/                              ServerUploadLimit, StoredUploadPath
+  Contracts/                            DictamenPdfRenderer
+  Console/Commands/                     ScaTestDb (sca:test-db)
+bootstrap/app.php                       Middleware, excepciones, salud
+config/                                 auth (bloqueo), hashing, session, filesystems, mail, database, ...
+database/{migrations,seeders}           Migración base y seeders de demostración
+resources/
+  js/                                   Aplicación React (ver 2.6 y sección 5)
+  css/app.css                           Tokens de tema (variables CSS) y Tailwind
+  views/{app,mail,pdf}.blade.php        Plantilla raíz de Inertia, correos y PDF del dictamen
+routes/{web,auth,console}.php
+scripts/demo.sh                         Entorno de demostración local
+tests/{Feature,Unit}                    Pruebas (sección 8)
+```
+
+### 2.5 Inertia frente a JSON: `RespondsInertiaOrJson`
+
+Los endpoints nacieron como JSON y ahora alimentan también las páginas. El *trait* `RespondsInertiaOrJson` (`app/Http/Controllers/Concerns`) resuelve la dualidad con una regla:
+
+- `wantsPlainJson($request)` es verdadero si el cliente acepta JSON y **no** envía `X-Inertia`.
+- `mutated($request, $mensaje, $extra)` responde `{"message": ...} + $extra` a un cliente JSON plano y `back()->with('success', $mensaje)` a una visita Inertia.
+
+Resultado por tipo de endpoint:
+
+| Tipo | Navegador (Inertia) | Cliente JSON plano |
+|---|---|---|
+| Páginas con datos (p. ej. `/admin/expedientes`, `/admin/usuarios`, `/admin/bitacora`, `/asesor`) | Página Inertia con props | Mismo payload en JSON |
+| Mutaciones (`PUT`, `POST`, `DELETE`) | Redirección atrás con `flash.success` | `{"message": ...}` |
+| Solo JSON (notificaciones, directorio, consentimiento, ARCO propio, catálogos `GET`, `admin/stats`, `admin/docentes`, `asesor/expedientes/{id}`) | Se consumen con `lib/http.ts` | JSON |
+| Archivos (PDF, CSV, ZIP, documento subido) | Respuesta binaria | Respuesta binaria |
+
+Errores de validación: en visitas Inertia llegan como *error bag* de la página; en JSON, como 422 con la clave `message` y `errors`.
+
+### 2.6 Estructura de `resources/js`
+
+```
+resources/js/
+  app.tsx                    createInertiaApp: resuelve Pages/**, ThemeProvider (next-themes), layout AppShell por defecto
+  Pages/                     Una pantalla por archivo (sección 5.1)
+  components/
+    AppShell.tsx             Toaster, flash, modal de privacidad, ErrorBoundary
+    ErrorBoundary.tsx, PrivacyConsentModal.tsx, ThemeToggle.tsx
+    admin/                   AdminLayout, RechazoModal, ExpedienteDocumentos, useExpedienteDetalle, adminToasts, documentoBadge
+    ui/                      48 archivos de shadcn/ui (generados)
+  hooks/                     useNotificaciones, use-toast, use-mobile
+  lib/                       http.ts (fetch JSON), utils.ts
+  types/                     Tipos de props (tramite, admin, PageProps)
+  assets/                    Logotipos y banner
+```
+
+El alias `@` apunta a `resources/js`.
 
 ---
 
-## 3. Base de Datos
+## 3. Base de datos
 
-### 3.1 Esquema Completo
+### 3.1 Esquema
 
-El esquema `sca_tescha` contiene 14 tablas organizadas en 4 categorías:
+El esquema `sca_tescha` (MariaDB/MySQL) lo crea la migración `database/migrations/2026_01_01_000000_create_sca_baseline_schema.php` con DDL nativo: **15 tablas y 2 vistas**. No funciona con SQLite.
 
-#### Catálogos (tablas de referencia)
-
-| Tabla | Propósito | Campos clave |
-|-------|-----------|-------------|
-| `opciones_titulacion` | Modalidades de titulación disponibles | `id`, `nombre` (Tesis, Residencias, Excelencia, EGEL, Posgrado), `activo` |
-| `tipos_documento` | Catálogo de documentos requeridos con prerrequisitos | `id`, `nombre`, `opcion_titulacion_id` (NULL=todas), `prerrequisito_id` (FK a sí mismo), `formato_permitido`, `tamaño_max_mb`, `orden` |
-| `normativa` | Reglamentos y lineamientos institucionales | `id`, `titulo`, `contenido`, `categoria`, `modalidad_id` (filtro por opción) |
-| `directorio` | Contactos institucionales | `id`, `nombre`, `cargo`, `departamento`, `email`, `extension` |
-
-#### Entidades Principales
+#### Catálogos
 
 | Tabla | Propósito | Campos clave |
-|-------|-----------|-------------|
-| `usuarios` | Todos los actores del sistema | `id`, `numero_control` (único), `email`, `password_hash` (bcrypt 12 rondas), `rol` (ENUM: estudiante/asesor/administrativo), `intentos_fallidos`, `bloqueado_hasta`, `grado_academico`, `carga_maxima` |
-| `tramites` | Expediente de titulación por estudiante | `id`, `usuario_id` (FK→estudiante), `opcion_titulacion_id`, `estatus` (ENUM: en_proceso/en_revision/aprobado/rechazado/completado), `titulo_proyecto` |
-| `documentos` | Archivos subidos por el estudiante | `id`, `tramite_id`, `tipo_documento_id`, `archivo_url`, `archivo_nombre`, `archivo_tamaño`, `estatus` (ENUM: pendiente/cargado/en_revision/aprobado/rechazado), `motivo_rechazo`, `revisado_por` |
-| `asignaciones` | Docentes asignados a trámites | `id`, `tramite_id`, `usuario_id` (FK→docente), `rol_asignacion` (ENUM: asesor/sinodal/revisor), `activo`. UNIQUE(tramite_id, usuario_id, rol_asignacion) |
-| `dictamenes` | Resultado oficial del trámite | `id`, `tramite_id` (UNIQUE), `resultado` (ENUM: aprobado/rechazado), `observaciones`, `emitido_por` (FK→admin) |
+|---|---|---|
+| `opciones_titulacion` | Modalidades de titulación | `nombre` (único), `fecha_limite`, `activo` |
+| `tipos_documento` | Documentos requeridos | `opcion_titulacion_id` (NULL = todas), `obligatorio`, `prerrequisito_id` (autorreferencia), `formato_permitido`, `tamaño_max_mb`, `orden`, `activo` |
+| `normativa` | Lineamientos institucionales | `titulo`, `contenido`, `categoria`, `modalidad_id`, `orden`, `activo` |
+| `directorio` | Contactos | `nombre`, `cargo`, `departamento`, `email`, `telefono`, `extension`, `orden`, `activo` |
+| `requisitos_fotografia` | Requisitos de la fotografía | `descripcion`, `orden`, `activo` |
 
-#### Trazabilidad y Auditoría
-
-| Tabla | Propósito | Campos clave |
-|-------|-----------|-------------|
-| `historial_estados` | Línea de tiempo de cambios | `id`, `tramite_id`, `documento_id` (nullable), `estado_anterior`, `estado_nuevo`, `comentario`, `usuario_id` |
-| `bitacora` | Registro de seguridad y auditoría | `id`, `usuario_id`, `accion`, `entidad`, `entidad_id`, `detalle` (JSON), `ip_origen` |
-
-#### Comunicación y Privacidad
+#### Entidades principales
 
 | Tabla | Propósito | Campos clave |
-|-------|-----------|-------------|
-| `notificaciones` | Alertas in-app y registro de emails | `id`, `usuario_id`, `tipo` (ENUM: in_app/email/ambos), `titulo`, `mensaje`, `leida`, `tramite_id` |
-| `consentimientos` | Registro de aceptación de aviso de privacidad | `id`, `usuario_id`, `version_aviso`, `ip_origen`, `fecha_consentimiento` |
-| `solicitudes_arco` | Derechos ARCO del titular de datos | `id`, `usuario_id`, `tipo` (ENUM), `estado`, `detalle_solicitud`, `respuesta` |
-| `requisitos_fotografia` | Lista de 12 requisitos para fotos | `id`, `descripcion`, `orden` |
+|---|---|---|
+| `usuarios` | Todos los actores | `numero_control` (único), `email` (único), `password_hash`, `rol` (`estudiante`/`asesor`/`administrativo`), `activo`, `intentos_fallidos`, `bloqueado_hasta`, `grado_academico`, `carga_maxima` (5 por defecto), `programa_academico`, `reset_token`, `reset_expira` |
+| `tramites` | Expediente de un estudiante | `usuario_id`, `opcion_titulacion_id`, `estatus` (`en_proceso`/`en_revision`/`aprobado`/`rechazado`/`completado`), `titulo_proyecto`, `fecha_inicio`, `fecha_fin`, `activo` |
+| `documentos` | Archivo por tipo y trámite | `archivo_url`, `archivo_nombre`, `archivo_tamaño`, `estatus` (`pendiente`/`cargado`/`en_revision`/`aprobado`/`rechazado`), `revisado_por`, `motivo_rechazo`; único (`tramite_id`, `tipo_documento_id`) |
+| `asignaciones` | Docentes asignados a un trámite | `rol_asignacion` (`asesor`/`sinodal`/`revisor`), `activo`; único (`tramite_id`, `usuario_id`, `rol_asignacion`) |
+| `dictamenes` | Resultado oficial | `tramite_id` **único**, `resultado` (`aprobado`/`rechazado`), `observaciones`, `emitido_por`, `fecha_emision` |
 
-### 3.2 Vistas (Views)
+#### Trazabilidad y auditoría
+
+| Tabla | Propósito | Campos clave |
+|---|---|---|
+| `historial_estados` | Línea de tiempo | `tramite_id`, `documento_id` (nullable), `estado_anterior`, `estado_nuevo`, `comentario`, `usuario_id` |
+| `bitacora` | Auditoría | `usuario_id`, `accion`, `entidad`, `entidad_id`, `detalle` (JSON), `ip_origen`, `user_agent`, `fecha` |
+
+#### Comunicación y privacidad
+
+| Tabla | Propósito | Campos clave |
+|---|---|---|
+| `notificaciones` | Alertas in-app y copia por correo | `usuario_id`, `tipo` (`in_app`/`email`/`ambos`), `titulo`, `mensaje`, `leida`, `tramite_id` |
+| `consentimientos` | Aceptación del aviso de privacidad | `usuario_id`, `version_aviso`, `ip_origen`, `user_agent`, `fecha_consentimiento` |
+| `solicitudes_arco` | Derechos ARCO | `tipo` (`acceso`/`rectificacion`/`cancelacion`/`oposicion`), `estado` (`pendiente`/`en_proceso`/`completada`/`rechazada`), `detalle_solicitud`, `respuesta`, `atendido_por`, `fecha_resolucion` |
+
+### 3.2 Vistas
 
 | Vista | Propósito | Columnas |
-|-------|-----------|----------|
-| `vw_carga_docente` | Carga actual vs máxima de cada docente | `docente_id`, `carga_maxima`, `carga_actual` |
-| `vw_progreso_tramite` | Progreso, semáforo y porcentaje por trámite | `tramite_id`, `total_documentos`, `docs_aprobados/rechazados/cargados/en_revision/pendientes`, `color_semaforo`, `porcentaje_avance` |
+|---|---|---|
+| `vw_carga_docente` | Carga de cada asesor activo | `docente_id`, `numero_control`, `nombre_completo`, `carga_maxima`, `carga_actual` (asignaciones activas, sea cual sea su rol) |
+| `vw_progreso_tramite` | Progreso y semáforo por trámite | `tramite_id`, `usuario_id`, `estatus_tramite`, `total_documentos`, `docs_aprobados/rechazados/cargados/en_revision/pendientes`, `color_semaforo`, `porcentaje_avance` (con un decimal) |
 
-### 3.3 Relaciones Clave
+Regla del semáforo en la vista: **rojo** si hay algún documento rechazado; **ámbar** si hay documentos pendientes, cargados o en revisión; **verde** si todos los documentos existentes están aprobados. Los modelos `VwCargaDocente` y `VwProgresoTramite` leen las vistas.
+
+### 3.3 Relaciones clave
 
 ```
-usuarios (estudiante) ──1:N──▶ tramites ──1:N──▶ documentos ──N:1──▶ tipos_documento
-                                        │
-                                        ├──1:N──▶ asignaciones ──N:1──▶ usuarios (docente)
-                                        │
-                                        └──1:1──▶ dictamenes ──N:1──▶ usuarios (admin)
+usuarios (estudiante) --1:N--> tramites --1:N--> documentos --N:1--> tipos_documento
+                                  |
+                                  +--1:N--> asignaciones --N:1--> usuarios (docente)
+                                  +--1:N--> historial_estados
+                                  +--1:1--> dictamenes --N:1--> usuarios (admin)
+                                  +--1:1--> vw_progreso_tramite (solo lectura)
 ```
 
-### 3.3 Justificación del Diseño
+Las claves foráneas definen el comportamiento de borrado: eliminar un usuario elimina en cascada sus trámites, documentos, asignaciones, notificaciones, consentimientos y solicitudes ARCO; `dictamenes.emitido_por` y `tramites.opcion_titulacion_id` son `RESTRICT`; `revisado_por`, `atendido_por` y `usuario_id` de bitácora/historial pasan a `NULL`.
 
-**Separación usuario-docente en misma tabla**: el documento especifica 3 roles (estudiante, asesor, administrativo). Usar una sola tabla `usuarios` con ENUM `rol` simplifica el login y RBAC. Los campos específicos de docente (`grado_academico`, `carga_maxima`) son NULL para otros roles.
+### 3.4 Justificación del diseño
 
-**Prerrequisitos en `tipos_documento`**: la self-reference `prerrequisito_id` permite modelar el requisito P-17: "No se puede subir Solicitud de Titulación sin tener Certificado aprobado". La validación ocurre en el backend antes de aceptar el upload.
+- **Una tabla `usuarios` con `rol`.** Simplifica el login y la autorización; los campos de docente (`grado_academico`, `carga_maxima`) son nulos en otros roles.
+- **Prerrequisitos en `tipos_documento`.** La autorreferencia `prerrequisito_id` modela la regla de carga secuencial (por ejemplo, la solicitud exige el certificado aprobado). El servidor la valida antes de aceptar un archivo.
+- **Bitácora con JSON.** `detalle` guarda metadatos variables (tipo de documento, motivo de rechazo, resultado del dictamen) sin tablas auxiliares.
+- **Vistas en lugar de lógica duplicada.** El semáforo y la carga docente se calculan una vez en SQL y los consume cualquier pantalla.
 
-**Bitácora con JSON**: el campo `detalle` usa tipo JSON de MariaDB para almacenar metadatos variables de cada acción (tipo de documento aprobado, motivo de rechazo, resultado de dictamen) sin necesidad de una tabla de metadatos separada.
+### 3.5 Migración adoptable
 
-**Vistas en vez de lógica duplicada**: `vw_progreso_tramite` calcula el semáforo en SQL para que cualquier consumidor (API, reportes, dashboard) obtenga el mismo resultado sin duplicar la lógica de conteo.
+La migración base está pensada para adoptar bases existentes: `up()` no hace nada si la tabla `usuarios` ya existe, de modo que `php artisan migrate` sobre una base `sca_tescha` previa solo registra la migración sin tocar sus tablas. `down()` se niega a ejecutarse salvo que la base termine en `_test`.
+
+### 3.6 Seeders y datos de demostración
+
+`php artisan migrate --seed` ejecuta `DatabaseSeeder`, que llama en orden a `CatalogoSeeder`, `UsuarioSeeder`, `TramiteSeeder` y `TrazabilidadSeeder` (todos con `insertOrIgnore`).
+
+| Seeder | Contenido |
+|---|---|
+| `CatalogoSeeder` | 5 opciones de titulación, 11 tipos de documento, 6 normas, 6 contactos, 12 requisitos de fotografía |
+| `UsuarioSeeder` | 13 usuarios: 5 estudiantes (`2021-0001` a `2021-0005`), 6 asesores (`DOC-0001` a `DOC-0006`), 2 administrativos (`ADM-0001`, `ADM-0002`) |
+| `TramiteSeeder` | 5 trámites en distintos estados, 34 documentos y 9 asignaciones |
+| `TrazabilidadSeeder` | 11 registros de historial, 7 notificaciones y 8 de bitácora |
+
+La contraseña de todos los usuarios de demostración es `Demo1234!` (hashes `$2b$12$...`). Deben reemplazarse antes de producción.
+
+### 3.7 Regla de la base de pruebas
+
+Las pruebas solo pueden correr contra `sca_tescha_test`. `tests/TestCase.php` aborta con `RuntimeException` si la base conectada tiene otro nombre, y `sca:test-db` (`ScaTestDb`) solo ejecuta `migrate:fresh --seed` sobre bases cuyo nombre termina en `_test`. Ver sección 8.
 
 ---
 
-## 4. Backend — API REST
+## 4. Backend
 
-### 4.1 Estructura Clean Architecture
+### 4.1 Autenticación
 
-```
-server/src/
-├── config/              # Variables de entorno y conexión BD
-│   ├── env.ts           # Carga y tipa .env
-│   └── database.ts      # Pool de conexiones mysql2
-├── domain/entities/     # Interfaces puras (sin dependencias)
-│   ├── Usuario.ts       # Usuario, RolUsuario, JwtPayload
-│   ├── Tramite.ts       # Tramite, TramiteConDocumentos, Asignacion, DictamenInfo
-│   ├── Documento.ts     # DocumentoInfo, HistorialEntry
-│   └── Admin.ts         # ExpedienteListItem, AdminDashboardStats
-├── infrastructure/      # Adaptadores a servicios externos
-│   ├── database/
-│   │   ├── MysqlUsuarioRepository.ts
-│   │   ├── MysqlTramiteRepository.ts
-│   │   └── AdminRepository.ts
-│   └── services/
-│       └── NotificacionService.ts  # + BitacoraService
-├── use-cases/           # Lógica de negocio pura
-│   ├── auth/login.ts
-│   └── tramites/
-│       ├── obtenerMiTramite.ts
-│       └── subirDocumento.ts
-├── controllers/         # (integrados en routes/)
-├── middleware/           # Capa transversal HTTP
-│   ├── authenticate.ts  # Verificación JWT
-│   ├── authorize.ts     # Control de acceso RBAC
-│   ├── rateLimiter.ts   # Anti brute-force en login
-│   └── upload.ts        # Multer para archivos
-├── routes/              # Definición de endpoints
-│   ├── auth.routes.ts
-│   ├── tramite.routes.ts
-│   ├── admin.routes.ts
-│   ├── notificacion.routes.ts
-│   ├── directorio.routes.ts
-│   ├── normativa.routes.ts
-│   ├── contenido.routes.ts
-│   ├── privacidad.routes.ts
-│   ├── arco.routes.ts
-│   ├── asesor.routes.ts
-│   └── catalogos.routes.ts
-├── app.ts               # Configuración Express
-└── index.ts             # Entrypoint
-```
+- **Sesión de Laravel** con un único *guard* `web` y el proveedor Eloquent `App\Models\Usuario`. No existen JWT ni tokens de API.
+- **Identificador de acceso: `numero_control`**, no el correo. `LoginRequest` exige `numero_control` y `password`.
+- **Hash de contraseña**: `Hash::make` (bcrypt, 12 rondas por defecto; `BCRYPT_ROUNDS`). Los hashes heredados de Node tienen el prefijo `$2b$`; la verificación estricta de algoritmo de Laravel (`bcrypt.verify`) está desactivada por defecto (`HASH_VERIFY=false`) para que `password_verify()` los acepte.
+- **Sin "recordarme"**: la tabla no tiene `remember_token`; `Usuario` anula los métodos correspondientes.
+- **Inicio de sesión** (`AuthenticatedSessionController@store` + `LoginAttemptService`): rechaza usuarios inexistentes o inactivos con el mismo mensaje genérico; regenera la sesión al entrar y redirige al destino previsto o a `homePath()`.
+- **Bloqueo por intentos fallidos**: tras 5 intentos fallidos (`LOGIN_MAX_ATTEMPTS`) la cuenta se bloquea 15 minutos (`LOGIN_BLOCK_MINUTES`) mediante `usuarios.intentos_fallidos` y `bloqueado_hasta`, usando el reloj de la base (`NOW()`). Un bloqueo vencido se limpia en el siguiente intento; un acceso correcto reinicia el contador. Los mensajes informan los intentos restantes.
+- **Límite por IP**: `throttle:30,15` en `POST /login` como capa adicional; el bloqueo por cuenta es el mecanismo principal.
+- **Cierre de sesión**: `POST /logout` invalida la sesión y regenera el token CSRF.
 
-### 4.2 Justificación de Clean Architecture
+#### Recuperación de contraseña
 
-El documento de requisitos (página 14, Arquitectura de Backend) especifica explícitamente "Arquitectura Limpia con capas concéntricas". Esto garantiza que:
+1. `POST /forgot-password` (`throttle:10,1`) recibe el número de control. Si existe un usuario activo, genera un token aleatorio de 32 bytes (hex), **guarda solo su SHA-256** en `reset_token`, fija `reset_expira` a una hora y envía `ResetPasswordMail` con el enlace `/reset-password/{token}`.
+2. La respuesta es la misma exista o no la cuenta ("Si el número de control existe, recibirás un correo...").
+3. `POST /reset-password` busca por el hash del token, vigencia y usuario activo; exige contraseña de al menos 8 caracteres con confirmación; guarda el nuevo hash, borra el token y reinicia el bloqueo.
+4. `GET /forgot-password` redirige al login: la recuperación vive en un modal de la página de acceso.
 
-- **Dominio**: las reglas de negocio (ej. "no se puede emitir dictamen sin todos los documentos aprobados") viven en entidades y casos de uso, sin depender de Express, MySQL ni ningún framework
-- **Casos de Uso**: orquestan el flujo (validar credenciales → generar JWT → registrar bitácora)
-- **Controladores/Rutas**: solo traducen HTTP a llamadas de casos de uso
-- **Infraestructura**: los repositorios implementan las consultas SQL concretas y pueden ser reemplazados (ej. cambiar a PostgreSQL) sin tocar la lógica de negocio
+### 4.2 Autorización
 
-### 4.3 Middleware en Detalle
+- **Middleware `role:`** (`EnsureRole`): acepta uno o varios roles (`role:asesor,administrativo`). Las rutas agrupadas por área lo declaran una sola vez.
+- **Policies** (registradas en `AppServiceProvider`):
 
-#### `authenticate.ts`
-Extrae el token JWT del header `Authorization: Bearer <token>`, lo verifica con `jsonwebtoken`, y adjunta el payload decodificado a `req.user`. Retorna 401 si el token falta, expiró o es inválido.
+| Policy | Método | Regla |
+|---|---|---|
+| `TramitePolicy` | `view`, `uploadDocument` | El estudiante solo accede a su propio trámite |
+| `TramitePolicy` | `viewAsAsesor` | El asesor solo ve trámites en los que tiene una asignación (de cualquier rol de asignación) |
+| `DocumentoPolicy` | `view` | El administrativo ve cualquier documento; el estudiante solo los de su trámite |
+| `DocumentoPolicy` | `review` | El administrativo revisa cualquier documento; el asesor solo los de trámites donde está asignado |
 
-#### `authorize.ts`
-Recibe una lista de roles permitidos. Compara `req.user.rol` contra la lista. Retorna 403 con mensaje descriptivo si el rol no coincide. Uso típico: `authorize("administrativo")` en rutas del panel admin.
+- Los controladores invocan `Gate::authorize(...)`; un recurso ajeno responde 403 o 404 según el caso (el trámite inexistente o inactivo es 404).
 
-#### `rateLimiter.ts`
-Usa `express-rate-limit` para limitar las peticiones al endpoint de login a 30 por ventana de 15 minutos por IP. Es una capa complementaria al bloqueo por usuario (que maneja el caso de uso `login.ts` con `intentos_fallidos` en BD).
+### 4.3 Privacidad y consentimiento
 
-#### `upload.ts`
-Configura Multer con `memoryStorage` para recibir archivos en memoria. Límite: 10 MB. La validación de formato y PDF corrupto se hace en el caso de uso `subirDocumento.ts`, no en el middleware, siguiendo el principio de que la lógica de negocio pertenece a los casos de uso.
+- `HandleInertiaRequests` comparte `auth.consentimiento` (verdadero si el usuario tiene al menos un registro en `consentimientos`).
+- Mientras sea falso, `PrivacyConsentModal` cubre la pantalla con el aviso de privacidad; al aceptar, `POST /privacidad/consentimiento` crea el registro con `version_aviso = '1.0'`, IP y *user agent*, y se recarga solo la prop `auth`.
+- `GET /privacidad/consentimiento` devuelve `{consentido, version, fecha}`.
+- La versión no se compara al decidir si se muestra el modal: un único registro basta. Cambiar `VERSION_AVISO` no vuelve a pedir consentimiento por sí solo.
+- Las **solicitudes ARCO** (`/solicitudes-arco`) están disponibles para cualquier rol autenticado; la interfaz de creación existe en el panel del estudiante. La atención por administración se describe en 7.5.
 
-### 4.4 Casos de Uso Principales
+### 4.4 Validación (FormRequests)
 
-#### `login.ts` — Autenticación
+| FormRequest | Uso |
+|---|---|
+| `Auth\LoginRequest` | `numero_control` y `password` requeridos |
+| `Estudiante\UploadDocumentoRequest` | Autoriza (`Gate uploadDocument`, trámite activo), `archivo` requerido hasta 20 MB y `tipo_documento_id`; sustituye el mensaje por el de `ServerUploadLimit` si PHP rechazó el archivo |
+| `Review\RejectDocumentoRequest` | `motivo` requerido |
+| `Admin\StoreUsuarioRequest` / `UpdateUsuarioRequest` | Alta y edición de usuarios, unicidad de `numero_control` y `email` |
+| `Admin\UpdateExpedienteRequest` | `opcion_titulacion_id` y `titulo_proyecto` |
+| `Admin\ListExpedientesRequest` | `search`, `estatus`, `activo` (0/1), paginación (límite 1 a 100, 20 por defecto) |
+| `Admin\StoreAsignacionRequest` / `ReplaceAsesorRequest` | Asignaciones; `usuario_id` debe estar presente en el reemplazo (`null` quita al asesor) |
+| `Admin\StoreDictamenRequest` | `tramite_id`, `resultado` (`aprobado`/`rechazado`), `observaciones` |
+| `Admin\CatalogoRequest` | Reglas según el catálogo de la ruta |
+| `Admin\ResolveSolicitudArcoRequest` | `estado` (`en_proceso`/`completada`/`rechazada`) y `respuesta` |
+| `Arco\StoreSolicitudArcoRequest` | `tipo` válido y `detalle` opcional |
 
-```
-Flujo:
-1. Buscar usuario por numero_control en BD
-2. Si no existe → error "Número de control o contraseña incorrectos"
-3. Si existe y está bloqueado (bloqueado_hasta > NOW()) → error de bloqueo
-4. bcrypt.compare(password, usuario.password_hash)
-5. Si no coincide → incrementar intentos_fallidos
-   - Si llega a 5 → bloquear por 15 minutos
-6. Si coincide → resetear intentos, generar JWT con:
-   - sub: usuario.id
-   - numero_control
-   - rol
-   - nombre
-   - exp: 24h
-7. Retornar token + datos del usuario
-```
+Los mensajes de validación están en español y conservan los textos del sistema anterior.
 
-#### `subirDocumento.ts` — Carga de archivos
+### 4.5 Actions (escritura)
 
-```
-Flujo:
-1. Verificar que el trámite pertenezca al usuario autenticado
-2. Obtener info del tipo_documento (formato_permitido, tamaño_max_mb)
-3. Verificar prerrequisito: si el tipo tiene prerequisito_id,
-   verificar que ese documento exista y esté "aprobado"
-4. Validar MIME type contra formatos permitidos
-5. Validar tamaño contra tamaño_max_mb
-6. Validar header %PDF si es application/pdf (anti-corrupción)
-7. Guardar archivo en server/uploads/{timestamp}_{nombre}
-8. UPSERT en tabla documentos (INSERT o UPDATE si ya existía)
-9. INSERT en historial_estados
-10. Retornar documento_id
-```
+| Action | Responsabilidad |
+|---|---|
+| `Tramites\UploadDocumento` | Valida tipo activo y aplicable, prerrequisito aprobado, formato por contenido (MIME real), tamaño por tipo y cabecera `%PDF`; bloquea reemplazo de documentos aprobados o en revisión; guarda el archivo, actualiza o crea el documento (`cargado`) y registra historial, todo en transacción (borra el archivo si la transacción falla). |
+| `Documentos\ReviewDocumento` | `approve` y `reject` compartidos por asesor y administrativo: cambia el estatus, registra historial, crea notificación `ambos`, escribe bitácora y recalcula el estatus del trámite. |
+| `Admin\EmitirDictamen` | Valida trámite activo, un solo dictamen por trámite y documentos obligatorios aprobados; crea el dictamen, actualiza el trámite (`completado` o `rechazado`, `fecha_fin`), notifica, audita y registra historial. |
+| `Admin\CreateUsuario` | Crea el usuario; si es estudiante, abre su trámite con un documento `pendiente` por cada tipo aplicable y asigna al asesor indicado si tiene cupo. |
+| `Admin\CreateAsignacion` | Crea la asignación (idempotente) aplicando la regla de carga máxima del docente. |
+| `Admin\ReplaceAsesorAsignacion` | Sustituye (o retira) al asesor de un trámite en una transacción; no toca sinodales ni revisores. |
 
-#### `emitirDictamen` (en AdminRepository)
+### 4.6 Services (lectura y utilidades)
 
-```
-Flujo:
-1. Verificar que el trámite exista y esté activo
-2. UPSERT en dictamenes (INSERT o UPDATE si ya existía)
-3. Actualizar tramite.estatus:
-   - "aprobado" → "completado"
-   - "rechazado" → "rechazado"
-4. INSERT notificación para el estudiante (tipo='ambos')
-5. INSERT en historial_estados
-6. INSERT en bitacora (auditoría)
-```
+| Service | Responsabilidad |
+|---|---|
+| `TramiteReadService` | Trámite activo del estudiante, detalle con documentos, bloqueos por prerrequisito, asignaciones, dictamen y progreso; historial |
+| `AsesorReadService` | Estudiantes asignados a un asesor con avance y semáforo |
+| `Admin\ExpedienteService` | Listado paginado (con `activo`), detalle, actualización, cancelar/reactivar |
+| `Admin\ExpedienteExporter` | Exportación CSV y descarga ZIP del expediente |
+| `Admin\UsuarioService` | Listado, detalle, activar/desactivar, edición, baja, docentes y opciones |
+| `Admin\CatalogoService` | CRUD genérico de los cuatro catálogos |
+| `Admin\AdminStatsService` | Métricas del panel general |
+| `BitacoraService` | Registro y paginación de la bitácora |
+| `NotificacionService` | Crear (con correo opcional), listar, marcar leída |
+| `SolicitudArcoService` | Crear, listar y resolver solicitudes ARCO |
+| `PublicContentService` | Normativa, directorio y requisitos de fotografía |
+| `LoginAttemptService` | Verificación de credenciales con bloqueo |
+| `DompdfDictamenPdfRenderer` | Implementación del contrato `DictamenPdfRenderer` |
 
-### 4.5 Servicios
+### 4.7 Archivos y almacenamiento
 
-#### `NotificacionService`
-Centraliza la creación de notificaciones. Método `create()`:
-- Inserta en tabla `notificaciones`
-- Si `tipo='email'` o `'ambos'`, llama a `sendEmail()` (actualmente imprime en consola, listo para conectar nodemailer con SMTP institucional)
+- Los documentos se guardan en el disco privado `local` (`storage/app/private`), **nunca en `public/`**. Solo se sirven por controlador, con autorización.
+- Convención de ruta: `uploads/{tramite_id}/<epoch_ms>_<nombre_sanitizado>`; el nombre se limpia con `[^a-zA-Z0-9._-]` a `_`. `documentos.archivo_url` guarda esa ruta relativa y `archivo_nombre` el nombre original.
+- `StoredUploadPath::resolve()` rechaza rutas con `..` o absolutas, y trata un nombre sin `/` como `uploads/<nombre>` (compatibilidad con valores heredados).
+- **Visualización**: `GET /tramites/{tramite}/documentos/{documento}` (estudiante) y `GET /admin/tramites/{tramite}/documentos/{documento}` (administrativo) usan el mismo controlador; responden en línea con `Content-Type` según la extensión (`pdf`, `jpg`, `jpeg`, `png`, `webp`) y `scopeBindings` garantiza que el documento pertenezca al trámite. Un asesor no tiene ruta para abrir archivos.
+- **Límites de subida**: tope fijo de 20 MB en `UploadDocumentoRequest`, límite por tipo en `tipos_documento.tamaño_max_mb` (10 MB por defecto) y los límites de PHP.
+- **`ServerUploadLimit`**: PHP descarta silenciosamente un archivo que excede `upload_max_filesize` o `post_max_size`, lo cual aparecería como "no se recibió ningún archivo". La clase detecta ambos casos (`UPLOAD_ERR_INI_SIZE`/`FORM_SIZE` y `Content-Length` mayor a `post_max_size` sin archivo) y devuelve un mensaje con el límite real del servidor. `bootstrap/app.php` aplica lo mismo a `PostTooLargeException` (422 con `errors.archivo`).
 
-#### `BitacoraService`
-Registra acciones administrativas para auditoría. Cada acción de aprobar/rechazar/emitir dictamen genera una entrada con: usuario, acción, entidad afectada, ID, detalles en JSON, IP.
+### 4.8 PDF del dictamen
 
-#### `generarDictamenPDF.ts` (PDFKit)
-Genera un dictamen oficial de titulación en PDF tamaño Carta con colores institucionales TESCHA:
-- **Cabecera**: rectángulo guinda `#8A2036` con nombre TESCHA y división ISC en dorado `#BC955B`
-- **Campos**: Alumno, Número de Control, Opción de Titulación, Fecha de Emisión — con líneas divisorias
-- **Resultado**: recuadro con fondo verde (#ECFDF5) o rojo (#FFF1F2) según aprobado/rechazado
-- **Observaciones**: 5 líneas guía con texto real sobrepuesto (si existe)
-- **Firma**: línea para firma del administrativo
-- **Footer**: texto institucional SCA-TESCHA
-- Se envía como stream HTTP con `Content-Type: application/pdf` y `Content-Disposition: inline`
+- Contrato `App\Contracts\DictamenPdfRenderer::render(Dictamen): Response`, enlazado en `AppServiceProvider` a `DompdfDictamenPdfRenderer` (paquete `barryvdh/laravel-dompdf`).
+- La vista `resources/views/pdf/dictamen.blade.php` dibuja el documento en tamaño carta con posiciones absolutas y colores institucionales; muestra alumno, número de control, opción de titulación, fecha de emisión, resultado y observaciones.
+- Se entrega como `dictamen_<numero_control>.pdf`. Rutas: `GET /tramites/mi-dictamen/pdf` (último dictamen del estudiante; 404 si no hay) y `GET /admin/dictamenes/{tramite}/pdf`.
 
-#### `catalogos.routes.ts` (CRUD Genérico Parametrizado)
-Implementa un patrón de CRUD genérico mediante la función `crudRoutes(path, table, extraCols?)` que registra automáticamente 4 endpoints REST por cada catálogo:
-- `GET /api/admin/catalogos/{path}` — SELECT * FROM table ORDER BY nombre
-- `POST` — INSERT con validación de nombre requerido
-- `PUT /:id` — UPDATE dinámico con columnas extras opcionales (ej. `fecha_limite` en opciones_titulacion)
-- `PUT /:id/toggle` — `UPDATE table SET activo = NOT activo`
-Se aplica a 4 catálogos: `opciones` (opciones_titulacion + fecha_limite), `tipos-documento` (tipos_documento), `normativa` (normativa), `directorio` (directorio).
+### 4.9 Correo y notificaciones
+
+- `NotificacionService::create()` inserta siempre la fila in-app y, si `tipo` es `email` o `ambos`, envía `NotificacionMail` (asunto = título). Un fallo de correo se reporta con `report()` pero **no interrumpe** la operación.
+- La campana (`useNotificaciones`) consulta `GET /notificaciones` cada 30 segundos; el listado devuelve las últimas 50 notificaciones del usuario y `noLeidas`.
+- `ResetPasswordMail` envía el enlace de recuperación. Con `MAIL_MAILER=log` (valor por defecto) los correos se escriben en el log; en producción debe configurarse SMTP.
+
+### 4.10 Exportación CSV y ZIP
+
+- `GET /admin/expedientes/export`: CSV UTF-8 con BOM (`expedientes.csv`), filtros `search` y `estatus`, hasta 10 000 filas; columnas Matrícula, Estudiante, Opción Titulación, Avance, Estado, Docs Aprobados, Docs Rechazados, Última Actualización. Solo incluye expedientes activos.
+- `GET /admin/expedientes/{tramite}/descargar`: ZIP `expediente_{id}.zip` con los archivos existentes del trámite; omite archivos faltantes en disco y antepone el id del documento si dos nombres chocan. Sin documentos con archivo, responde 404.
+
+### 4.11 Límites de tasa
+
+| Ruta | Límite |
+|---|---|
+| `POST /login` | `throttle:30,15` (30 por 15 minutos) |
+| `POST /forgot-password` | `throttle:10,1` (10 por minuto) |
+
+No hay otros límites de tasa. La protección CSRF de `web` aplica a todas las mutaciones.
+
+### 4.12 Otras utilidades
+
+- Mail y vistas: `resources/views/mail/{notificacion,reset-password}.blade.php`.
+- `Support\StoredUploadPath` y `Support\ServerUploadLimit` están descritos en 4.7.
+- `bootstrap/app.php` conserva comprobaciones heredadas de `api/*` para formatear errores como JSON; la aplicación actual no define rutas `api`.
 
 ---
 
-## 5. Frontend — SPA React
+## 5. Frontend
 
-### 5.1 Estructura de Componentes
+### 5.1 Páginas Inertia por rol
+
+| Página (`resources/js/Pages`) | Rol | Descripción |
+|---|---|---|
+| `Landing` | Público | Presentación del sistema; un usuario autenticado es redirigido a su inicio |
+| `Auth/Login` | Invitado | Acceso con número de control; modal de recuperación de contraseña y de contacto de las oficinas que dan de alta usuarios |
+| `Auth/ResetPassword` | Invitado | Nueva contraseña con el token del correo |
+| `Normativa` | Público | Normativa con filtro por modalidad (`modalidad_id`) |
+| `NotFound` | Todos | Página 404 |
+| `Dashboard` | Estudiante | Pestañas Resumen, Documentos, Requisitos, Asesores y Dictamen; semáforo y progreso, carga de archivos, historial diferido (`Inertia::defer`), campana de notificaciones, directorio, guía de pago y especificaciones de fotografía, solicitud ARCO, descarga del dictamen |
+| `Asesor/Home` | Asesor | Estudiantes asignados, detalle del expediente en lectura (JSON) y aprobar/rechazar documentos |
+| `Admin/Home` | Administrativo | Métricas (`admin/stats`) y distribución por estatus |
+| `Admin/Expedientes/Index` | Administrativo | Listado con búsqueda, filtro por estatus, alternancia de cancelados (`?activo=0`), edición, cancelar/reactivar, exportar CSV y descargar ZIP |
+| `Admin/Expedientes/Show` | Administrativo | Detalle del expediente |
+| `Admin/Documentos` | Administrativo | Cola de revisión: primeros 20 expedientes (con búsqueda); los documentos del seleccionado se cargan bajo demanda |
+| `Admin/Dictamenes` | Administrativo | Candidatos (`aprobado`/`en_revision` sin dictamen) y emisión |
+| `Admin/Usuarios` | Administrativo | Listado paginado (20), alta, edición, activar/desactivar, baja y asignación de asesor |
+| `Admin/Catalogos` | Administrativo | Pestañas de los cuatro catálogos (pestaña activa en `?tab=`) |
+| `Admin/Arco` | Administrativo | Solicitudes ARCO y su resolución |
+| `Admin/Bitacora` | Administrativo | Bitácora paginada |
+
+### 5.2 Shell y layouts
+
+- `app.tsx` asigna por defecto el layout `AppShell` a toda página. `AppShell` aporta `TooltipProvider`, los dos *toasters* (`Toaster` y Sonner), `ErrorBoundary`, el alimentador de mensajes `FlashToaster` y `PrivacyConsentModal`.
+- `components/admin/AdminLayout` es la barra lateral del área administrativa (Panel General, Expedientes, Documentos, Dictámenes, Usuarios, Catálogos, ARCO, Bitácora) y el cierre de sesión.
+- Cada página declara su título con `<Head>`; `app.tsx` añade el sufijo "Sistema de Titulación ISC".
+
+### 5.3 Toasts y mensajes
+
+`FlashToaster` convierte `flash.success` y el primer error de validación de cada visita en toasts de Sonner. Las páginas que muestran su propio toast con título específico se excluyen mediante dos listas en `AppShell.tsx`:
+
+- `SELF_HANDLED_FLASH` (Asesor, Expedientes, Documentos, Dictámenes, Usuarios, Catálogos, ARCO): evita duplicar el toast de éxito.
+- `SELF_HANDLED_ERRORS` (Auth, Dashboard, Usuarios, Catálogos, ARCO): evita duplicar el de error.
+
+`components/admin/adminToasts.ts` ofrece los helpers de las páginas administrativas.
+
+### 5.4 `lib/http.ts`
+
+`jsonRequest(url, método, cuerpo)` es un `fetch` mínimo de mismo origen para los endpoints que solo devuelven JSON (notificaciones, consentimiento, directorio, ARCO propio, detalles bajo demanda). Envía `Accept: application/json`, la cookie de sesión y, en métodos distintos de `GET`, la cabecera `X-XSRF-TOKEN` leída de la cookie `XSRF-TOKEN`. Ante una respuesta no exitosa lanza `Error` con `message` (o `error`). Las mutaciones de páginas usan `router` y `useForm` de Inertia.
+
+### 5.5 Tema y estilos
+
+- shadcn/ui (Radix) generado en `components/ui`: se compone, no se edita.
+- Tailwind CSS 3.4 con tokens HSL en variables CSS (`resources/css/app.css`; color primario guinda, acento dorado). La tipografía es Rubik (Google Fonts, cargada en `app.blade.php`).
+- Modo claro/oscuro con `next-themes` (`attribute="class"`, `storageKey="sca_theme"`, tema inicial claro) y el botón `ThemeToggle`.
+
+### 5.6 Herramientas de compilación
+
+- **Vite 8** con `laravel-vite-plugin` y `@vitejs/plugin-react`; entrada `resources/js/app.tsx`.
+- **TypeScript 5** en modo `strict`; `npm run build` ejecuta `tsc && vite build`.
+- Inertia React 2 / `inertia-laravel` 2 y Ziggy (`@routes` en la plantilla; el tipo global `route` está declarado, pero el código actual usa URLs directas).
+- Dependencias de interfaz: Radix UI, `react-hook-form`, `zod`, `lucide-react`, `sonner`, `recharts`, `date-fns`.
+
+---
+
+## 6. Catálogo de rutas
+
+Fuente: `php artisan route:list --except-vendor --json`, que reporta **63 rutas de aplicación**; todas se documentan abajo (7 + 6 + 4 + 4 + 35 + 7). Todas viven en el grupo `web` (sesión y CSRF). "Auth" significa usuario autenticado; "Invitado" significa usuario sin sesión.
+
+Leyenda de respuesta: **I** = página Inertia (o JSON si el cliente pide JSON sin `X-Inertia`); **J** = solo JSON; **M** = mutación (redirección con flash o `{message}` en JSON); **F** = archivo.
+
+### 6.1 Autenticación (7)
+
+| Método | URI | Acceso | Respuesta | Propósito |
+|---|---|---|---|---|
+| GET | `/login` | Invitado | I | Página de acceso |
+| POST | `/login` | Invitado, `throttle:30,15` | M | Inicia sesión (errores en `numero_control`; bandera `bloqueado`) |
+| POST | `/logout` | Auth | M | Cierra la sesión |
+| GET | `/forgot-password` | Invitado | Redirección | Vuelve al login (modal de recuperación) |
+| POST | `/forgot-password` | Invitado, `throttle:10,1` | M | Solicita el correo de recuperación |
+| GET | `/reset-password/{token}` | Invitado | I | Formulario de nueva contraseña |
+| POST | `/reset-password` | Invitado | M | Restablece la contraseña |
+
+### 6.2 Público (6)
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/` | I | Landing; autenticado redirige a su inicio |
+| GET | `/normativa` | I / J | Normativa activa; `?modalidad_id=` filtra (incluye las generales) |
+| GET | `/normativa/{id}` | J | Detalle de una norma |
+| GET | `/directorio` | J | Contactos activos; `?search=` |
+| GET | `/directorio/{id}` | J | Detalle de un contacto |
+| GET | `/requisitos-fotografia` | J | Requisitos de la fotografía |
+
+Los parámetros `{id}` son numéricos.
+
+### 6.3 Estudiante (4) — `role:estudiante`
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/dashboard` | I | Trámite activo, documentos, asignaciones, dictamen y progreso; `historial` diferido. Sin trámite: página con `error` (404 en JSON) |
+| GET | `/tramites/mi-dictamen/pdf` | F | PDF del último dictamen propio |
+| POST | `/tramites/{tramite}/documentos` | M | Sube un documento (`archivo`, `tipo_documento_id`); en JSON devuelve `documento_id` |
+| GET | `/tramites/{tramite}/documentos/{documento}` | F | Abre el archivo propio en línea |
+
+### 6.4 Asesor (4) — `role:asesor`
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/asesor` | I / J | Estudiantes asignados (`estudiantes`) |
+| GET | `/asesor/expedientes/{tramite}` | J | Detalle de lectura, solo si está asignado (`viewAsAsesor`) |
+| PUT | `/asesor/documentos/{documento}/aprobar` | M | Aprueba un documento (`DocumentoPolicy::review`) |
+| PUT | `/asesor/documentos/{documento}/rechazar` | M | Rechaza con `motivo` |
+
+### 6.5 Administrativo (35) — `role:administrativo`, prefijo `/admin`
+
+**Panel**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin` | I / J | Panel general con métricas |
+| GET | `/admin/stats` | J | Métricas (siempre JSON) |
+
+**Expedientes (7)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/expedientes` | I / J | Listado: `search`, `estatus`, `activo` (`0` = cancelados), `page`, `limit` |
+| GET | `/admin/expedientes/export` | F | CSV de expedientes activos |
+| GET | `/admin/expedientes/{tramite}` | I / J | Detalle; incluye trámites cancelados |
+| PUT | `/admin/expedientes/{tramite}` | M | Edita `opcion_titulacion_id` y `titulo_proyecto` (solo trámites activos) |
+| PUT | `/admin/expedientes/{tramite}/toggle` | M | Cancela o reactiva (`activo` en JSON) |
+| GET | `/admin/expedientes/{tramite}/descargar` | F | ZIP del expediente |
+| GET | `/admin/tramites/{tramite}/documentos/{documento}` | F | Abre el archivo de un documento |
+
+**Documentos (3)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/documentos` | I | Cola de revisión (`?search=`) |
+| PUT | `/admin/documentos/{documento}/aprobar` | M | Aprueba (JSON incluye `tramite_id`) |
+| PUT | `/admin/documentos/{documento}/rechazar` | M | Rechaza con `motivo` |
+
+**Dictámenes (3)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/dictamenes` | I | Candidatos a dictamen |
+| POST | `/admin/dictamenes` | M | Emite el dictamen |
+| GET | `/admin/dictamenes/{tramite}/pdf` | F | PDF del dictamen |
+
+**Asignaciones (3)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| POST | `/admin/asignaciones` | M | Crea una asignación (`tramite_id`, `usuario_id`, `rol_asignacion`) |
+| PUT | `/admin/tramites/{tramite}/asesor` | M | Reemplaza o retira (`usuario_id: null`) al asesor |
+| DELETE | `/admin/asignaciones/{asignacion}` | M | Elimina una asignación (responde éxito aunque no exista) |
+
+**Usuarios y listas de apoyo (8)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/usuarios` | I / J | Listado paginado (`search`, `rol`, `page`) con docentes y opciones como props |
+| POST | `/admin/usuarios` | M | Alta (`id` en JSON) |
+| GET | `/admin/usuarios/{usuario}` | J | Detalle (sin hash ni token) |
+| PUT | `/admin/usuarios/{usuario}` | M | Edición |
+| PUT | `/admin/usuarios/{usuario}/toggle` | M | Activa o desactiva y limpia el bloqueo |
+| DELETE | `/admin/usuarios/{usuario}` | M | Baja |
+| GET | `/admin/docentes` | J | Vista `vw_carga_docente` |
+| GET | `/admin/opciones-titulacion` | J | Opciones activas (`id`, `nombre`) |
+
+**Catálogos (5)** — `{catalogo}` ∈ `opciones`, `tipos-documento`, `normativa`, `directorio`
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/catalogos` | I | Página con pestañas (`?tab=`) |
+| GET | `/admin/catalogos/{catalogo}` | J | Registros del catálogo |
+| POST | `/admin/catalogos/{catalogo}` | M | Crea (`id` en JSON) |
+| PUT | `/admin/catalogos/{catalogo}/{id}` | M | Actualiza |
+| PUT | `/admin/catalogos/{catalogo}/{id}/toggle` | M | Alterna `activo` |
+
+**ARCO y bitácora (4)**
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/admin/arco` | I | Página de solicitudes ARCO |
+| GET | `/admin/solicitudes-arco` | J | Lista de solicitudes |
+| PUT | `/admin/solicitudes-arco/{solicitud}` | M | Resuelve (`estado`, `respuesta`) |
+| GET | `/admin/bitacora` | I / J | Bitácora paginada (`page`, `limit` hasta 50, 20 por defecto) |
+
+Recuento del área: 2 + 7 + 3 + 3 + 3 + 8 + 5 + 4 = 35.
+
+### 6.6 Notificaciones (3) — Auth
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/notificaciones` | J | Últimas 50 del usuario y `noLeidas`; `?no_leidas=true` |
+| PUT | `/notificaciones/leer-todas` | M | Marca todas como leídas |
+| PUT | `/notificaciones/{notificacion}/leida` | M | Marca una; ajena es una operación sin efecto |
+
+### 6.7 Privacidad y ARCO (4) — Auth, cualquier rol
+
+| Método | URI | Respuesta | Propósito |
+|---|---|---|---|
+| GET | `/privacidad/consentimiento` | J | Estado del consentimiento |
+| POST | `/privacidad/consentimiento` | J | Registra el consentimiento |
+| GET | `/solicitudes-arco` | J | Solicitudes ARCO propias |
+| POST | `/solicitudes-arco` | M | Crea una solicitud (`tipo`, `detalle`) |
+
+Total del catálogo: 7 + 6 + 4 + 4 + 35 + 3 + 4 = 63.
+
+### 6.8 Códigos de error habituales
+
+| Código | Causa |
+|---|---|
+| 401 | Petición JSON sin sesión (un navegador sin sesión es redirigido a `/login`) |
+| 403 | Rol no permitido o Policy denegada |
+| 404 | Recurso inexistente; página `NotFound` en navegador |
+| 419 | Token CSRF ausente o vencido |
+| 422 | Validación o regla de negocio; en JSON llega con las claves `message` y `errors` |
+
+---
+
+## 7. Flujos de negocio
+
+### 7.1 Flujo completo de titulación
 
 ```
-src/
-├── App.tsx                    # Raíz: providers + rutas
-├── main.tsx                   # Entrypoint React DOM
-├── index.css                  # Tailwind + variables CSS + Rubik font
-├── pages/
-│   ├── Index.tsx              # Landing page wrapper
-│   ├── Landing.tsx            # Hero, features, timeline
-│   ├── Login.tsx              # Formulario login + modal registro
-│   ├── Dashboard.tsx          # Panel estudiante (~1100 líneas)
-│   ├── Normativa.tsx          # Reglamentos dinámicos
-│   ├── NotFound.tsx           # Página 404
-│   ├── ResetPassword.tsx        # Restablecer contraseña vía token
-│   └── admin/
-│       ├── AdminLayout.tsx    # Sidebar + Outlet + ThemeToggle
-│       ├── AdminDashboard.tsx # Métricas y gráficos
-│       ├── AdminExpedientes.tsx # Tabla + búsqueda + detalle
-│       ├── AdminDocumentos.tsx  # Revisión con aprobar/rechazar
-│       ├── AdminDictamenes.tsx  # Emisión de dictámenes
-│       ├── AdminUsuarios.tsx    # CRUD de usuarios
-│       ├── AdminARCO.tsx        # Gestión administrativa solicitudes ARCO
-│       ├── AdminBitacora.tsx    # Visualización bitácora de auditoría
-│       └── AdminCatalogos.tsx   # CRUD de catálogos (opciones, tipos doc, normativa, directorio)
-│   └── asesor/
-│       └── AsesorDashboard.tsx  # Panel de asesor con estudiantes asignados
-├── components/
-│   ├── NavLink.tsx            # NavLink con activeClassName
-│   ├── AdminSidebar.tsx       # Sidebar admin colapsable
-│   ├── ProtectedRoute.tsx     # Guard de autenticación + RBAC
-│   ├── PrivacyConsentModal.tsx # Modal LGPDPPSO primer login
-│   ├── ErrorBoundary.tsx      # Captura errores renderizado (Class Component)
-│   └── ThemeToggle.tsx        # Dark/light mode con localStorage
-├── contexts/
-│   └── AuthContext.tsx        # Estado global de autenticación
-├── hooks/
-│   ├── useTramite.ts          # TanStack Query: trámite + upload + historial
-│   ├── useAdmin.ts            # TanStack Query: admin stats, expedientes, dictámenes
-│   ├── useNotificaciones.ts   # TanStack Query: notificaciones + polling 30s
-│   ├── use-toast.ts           # Hook de toasts (shadcn/ui sonner wrapper)
-│   └── use-mobile.tsx         # Detección viewport < 768px
-├── services/
-│   └── api.ts                 # Cliente HTTP con JWT interceptor
-├── lib/
-│   └── utils.ts               # cn() helper (clsx + tailwind-merge)
-└── test/
-    ├── setup.ts               # jsdom + jest-dom + matchMedia mock
-    ├── example.test.ts        # Test trivial
-    ├── api.test.ts            # Tests de gestión de token
-    └── ProtectedRoute.test.tsx # Tests de protección de rutas
+1. ALTA
+   Un administrativo crea al estudiante en /admin/usuarios (CreateUsuario).
+   Se abre su trámite (opción indicada o la opción 1), un documento "pendiente" por cada
+   tipo aplicable y, si el asesor elegido tiene cupo, la asignación de asesor.
+        |
+2. PRIMER ACCESO
+   Login con número de control. Modal de aviso de privacidad: el usuario debe aceptar.
+   Se guarda el consentimiento con versión, IP y user agent.
+        |
+3. CARGA DOCUMENTAL (estudiante)
+   Para cada tipo de documento visible, el servidor valida:
+     - tipo activo y aplicable a la opción del trámite
+     - prerrequisito aprobado (carga secuencial)
+     - formato permitido por el contenido real del archivo (PDF/JPEG/PNG)
+     - tamaño máximo del tipo y tope de 20 MB
+     - cabecera %PDF para los PDF
+     - el documento actual no está aprobado ni en revisión
+   El documento queda "cargado", se limpia el motivo de rechazo y se agrega historial.
+        |
+4. REVISIÓN (asesor o administrativo)
+   Aprobar: solo documentos "cargado" o "en_revision". Rechazar: con motivo obligatorio.
+   Cada revisión crea historial, notificación (in-app + correo), bitácora y recalcula
+   el estatus del trámite. El estudiante corrige y vuelve a subir los rechazados.
+        |
+5. DICTAMEN (administrativo)
+   Un solo dictamen por trámite. Para "aprobado" se exigen aprobados los documentos
+   obligatorios existentes. El trámite pasa a "completado" (aprobado) o "rechazado";
+   el estudiante es notificado y descarga el PDF.
 ```
 
-### 5.2 Páginas en Detalle
+Recalculo del estatus del trámite tras cada revisión (considera solo documentos obligatorios): todos aprobados da `aprobado`; algún rechazado da `rechazado`; en otro caso `en_revision`. Cuando todos quedan aprobados se agrega un historial automático ("Todos los documentos obligatorios aprobados").
 
-#### `Login.tsx`
+### 7.2 Flujo de notificaciones
 
-**Propósito**: pantalla de autenticación institucional.
+1. `NotificacionService::create()` inserta en `notificaciones` (`in_app`, `email` o `ambos`) vinculada al trámite.
+2. Para `email` y `ambos` envía `NotificacionMail`; un error de envío se registra y se ignora.
+3. La campana (en el panel del estudiante y el conteo en la barra lateral administrativa) consulta `/notificaciones` cada 30 s y muestra el conteo de no leídas; el usuario las marca leídas una a una o todas.
+4. Generan notificación: aprobación y rechazo de documentos (`ambos`) y emisión de dictamen (`ambos`). La subida de documentos, las asignaciones y las solicitudes ARCO no generan notificaciones.
 
-**Diseño**: split-screen con branding TESCHA a la izquierda y formulario a la derecha sobre fondo banner institucional con overlay guinda semi-transparente.
+### 7.3 Flujo de auditoría (bitácora)
 
-**Funcionalidades**:
-- Campo "Número de Control" (reemplazó el campo email original del mock)
-- Campo contraseña con toggle de visibilidad
-- Validación de dominio institucional movida al backend
-- Llamada a `AuthContext.login()` que invoca `POST /api/auth/login`
-- Manejo de errores: toast rojo para credenciales inválidas o cuenta bloqueada
-- Redirección post-login según rol: admin → `/admin`, estudiante/asesor → `/dashboard`
-- Botón "Solicita tu acceso aquí" → modal con contactos de Control Escolar y Jefatura ISC desde BD (`GET /api/directorio`), con emails `mailto:` pre-llenados
+`BitacoraService::log()` se invoca desde las Actions de revisión y de dictamen:
 
-#### `Dashboard.tsx`
+| Acción | Entidad | Detalle (JSON) |
+|---|---|---|
+| Aprobación de documento | `documentos` | `tipo`, `tramite_id` |
+| Rechazo de documento | `documentos` | `tipo`, `tramite_id`, `motivo` |
+| Emisión de dictamen | `dictamenes` | `resultado`, `observaciones` |
 
-**Propósito**: centro de control del estudiante. Es el componente más grande del frontend (~1100 líneas) porque concentra la mayoría de la interacción del usuario.
+`GET /admin/bitacora` las lista de la más reciente a la más antigua con el nombre del usuario. Ver 10.1 para lo que no se audita.
 
-**Sidebar** (fondo guinda `#56212f`):
-- Logo TESCHA + nombre "SCA-ISC"
-- Perfil del estudiante con nombre real desde `useAuth()`
-- Navegación: Dashboard (overview), Expediente (documentos), Asesores, Privacidad (ARCO), Mi Dictamen
-- Logout en footer
+### 7.4 Reglas decididas en la migración
 
-**Tabs del contenido principal**:
+- **Aprobación**: solo se aprueban documentos en estado `cargado` o `en_revision`; un documento pendiente o rechazado devuelve 422.
+- **Un dictamen por trámite**: `dictamenes.tramite_id` es único y la Action rechaza un segundo dictamen ("Este trámite ya tiene un dictamen emitido.").
+- **Cambio de asesor**: `PUT /admin/tramites/{tramite}/asesor` **reemplaza** al asesor anterior en una transacción; si la carga del nuevo asesor está completa, la operación falla y se conserva el anterior. `usuario_id: null` retira al asesor. Los sinodales y revisores no se tocan.
+- **Carga máxima**: un docente no recibe nuevas asignaciones si `carga_actual >= carga_maxima` (5 si no está definida); cuenta toda asignación activa, sea cual sea su rol.
+- **Expedientes cancelados**: `toggle` cancela (`activo = 0`) o reactiva. El listado muestra solo activos por defecto; `?activo=0` lista los cancelados, y su detalle sigue disponible para revisarlos y reactivarlos. Un trámite cancelado no se puede editar ni recibir archivos ni dictamen.
+- **Subidas grandes**: un archivo rechazado por los límites de PHP produce un 422 con el mensaje del límite real (`ServerUploadLimit`) en lugar de un genérico "no se recibió archivo".
+- **Reemplazo de archivos**: un documento aprobado o en revisión no puede reemplazarse; el pendiente y el rechazado sí.
+- **Baja de usuarios**: no se puede eliminar o desactivar a uno mismo, ni eliminar al último administrador activo; las restricciones de clave foránea (p. ej. un administrador que emitió dictámenes) devuelven un 422 con mensaje.
 
-| Tab | Fuente de datos | Contenido |
-|-----|----------------|-----------|
-| **Resumen** | `GET /api/tramites/mi-tramite` | Barra de progreso con color dinámico (verde/ámbar/rojo), semáforo visual, métricas (Total/Aprobados/Pendientes), línea de tiempo con historial, quick actions |
-| **Documentos** | `GET /api/tramites/mi-tramite` | 7 documentos con estados reales. Cada fila tiene: nombre, fecha de subida, formato/tamaño permitido, badge de estado, botón [Subir] (si pendiente y no bloqueado), botón [Ver] (si ya cargado). Documentos bloqueados por prerrequisito se atenúan con mensaje explicativo. Upload usa FormData → `POST /api/tramites/:id/documentos` con TanStack Query invalidation. |
-| **Requisitos** | `GET /api/tramites/mi-tramite` (documentos) | 3 secciones informativas: Especificaciones de Fotografía (12 requisitos como bullets), Requisitos por Documento (tabla con formato y tamaño máx desde BD), Guía de Pago (5 pasos con referencia de 18 dígitos) |
-| **Asesores** | `GET /api/tramites/mi-tramite` (asignaciones) | Asesor principal con badge, email y foto. Sinodales en grid de tarjetas con iniciales y emails clickeables. Mensaje si no hay asignaciones. |
-| **Dictamen** | `GET /api/tramites/mi-tramite` (dictamen) | Si existe: tarjeta verde/roja con resultado, emisor, fecha, observaciones y próximo paso. Si no: reloj con mensaje "Dictamen pendiente". |
+### 7.5 Privacidad y ARCO
 
-**Componentes embebidos en Dashboard**:
-- `BracketCard`: tarjeta con esquinas decorativas doradas (componente interno)
-- `DirectorioModal`: modal con contactos desde `GET /api/directorio`, buscador por nombre/cargo/departamento
-- `ArcoModal`: formulario de derechos ARCO con tipo (acceso/rectificación/cancelación/oposición), detalle, y aviso de 15 días hábiles
+- **Fundamento**: Ley General de Protección de Datos Personales en Posesión de Sujetos Obligados (LGPDPPSO), aplicable al TESCHA como institución pública.
+- **Consentimiento**: ver 4.3.
+- **Solicitud**: el usuario elige tipo (acceso, rectificación, cancelación u oposición) y un detalle opcional; se guarda como `pendiente` y se le informa un plazo máximo de 15 días hábiles.
+- **Atención**: un administrativo revisa en `/admin/arco`, cambia el estado (`en_proceso`, `completada`, `rechazada`) y escribe la respuesta; se fija `fecha_resolucion`. No se registra `atendido_por`, bitácora ni notificación (ver 10.1).
 
-#### `Normativa.tsx`
+### 7.6 Carga de usuarios por administración
 
-Carga contenido desde `GET /api/normativa`. Acordeones con categoría visible y filtro dropdown por modalidad de titulación. Contenido renderizado con `dangerouslySetInnerHTML` para soportar formato HTML en los textos de la BD.
-
-#### `AdminDashboard.tsx`
-
-4 cards de métricas (expedientes activos, docs pendientes, dictámenes emitidos, en proceso) + gráfico de distribución por estado con barras de progreso + resumen agrupado (aprobados/completados, en revisión, rechazados). Datos desde `GET /api/admin/stats`.
-
-#### `AdminExpedientes.tsx`
-
-Tabla con búsqueda en tiempo real (número de control o nombre), filtro dropdown por estatus, paginación 20 registros. Click en fila → diálogo modal con detalle completo: progreso, documentos con botones [Aprobar]/[Rechazar]/[Ver], motivo de rechazo con prompt.
-
-#### `AdminDocumentos.tsx`
-
-Panel dividido: izquierda lista de expedientes, derecha documentos del expediente seleccionado. Cada documento muestra [Aprobar]/[Rechazar] si está en estado "cargado", con modal para escribir motivo de rechazo usando `<Textarea>`.
-
-#### `AdminUsuarios.tsx`
-
-Tabla CRUD completa: lista con búsqueda y filtro por rol, botón "Nuevo Usuario" con formulario modal (número de control, email, contraseña, nombre, apellidos, rol, grado académico condicional para asesores), toggle activar/desactivar con icono de escudo. Contraseña se hashea con bcrypt en el backend.
-
-#### `AdminARCO.tsx`
-
-**Propósito**: gestión administrativa de solicitudes de derechos ARCO (LGPDPPSO). Panel dividido en dos columnas: izquierda tabla de solicitudes con filtro por estado (pendiente/completada/rechazada), derecha formulario de procesamiento con Textarea para respuesta y botones [Resolver]/[Rechazar]. Cada solicitud muestra solicitante, tipo (acceso/rectificación/cancelación/oposición), detalle y fecha. APIs: `GET /api/admin/solicitudes-arco`, `PUT /api/admin/solicitudes-arco/:id`.
-
-#### `AdminBitacora.tsx`
-
-**Propósito**: visualización de la bitácora de auditoría del sistema (`tabla bitacora`). Lista cronológica con paginación (20 registros/página) mostrando: acción, entidad afectada, ID, detalle (JSON truncado a 200 chars), usuario responsable, IP origen y timestamp. Datos desde `GET /api/admin/bitacora?page=&limit=`. Diseño tipo timeline con indicadores circulares color navy.
-
-#### `AdminCatalogos.tsx`
-
-**Propósito**: CRUD genérico sobre 4 catálogos del sistema mediante tabs: Opciones de Titulación (con fecha límite), Tipos de Documento, Normativa y Directorio. Cada tab comparte interfaz unificada: tabla con columnas nombre, estado (activo/inactivo) y acciones (editar, toggle activar/desactivar). Modal reutilizable para crear/editar registros con validación de nombre requerido. API usa ruta genérica `/api/admin/catalogos/{tab}` con operaciones CRUD estándar.
-
-#### `AsesorDashboard.tsx`
-
-**Propósito**: panel del docente/asesor que muestra los estudiantes asignados. Layout de 2 columnas: izquierda lista de estudiantes con nombre, número de control, opción de titulación, semáforo y barra de progreso; derecha detalle del expediente seleccionado con documentos y botones [Aprobar]/[Rechazar] con modal de motivo. Usa TanStack Query con queries `["asesor", "estudiantes"]` y `["asesor", "tramite", id]`. APIs: `GET /api/asesor/estudiantes`, `PUT /api/asesor/documentos/:id/aprobar`, `PUT /api/asesor/documentos/:id/rechazar`.
-
-#### `ResetPassword.tsx`
-
-**Propósito**: pantalla pública de restablecimiento de contraseña. Recibe `token` vía query param (`/reset-password?token=...`). Tres estados: token inválido/expirado (mensaje + link a login), formulario de nueva contraseña (mínimo 8 caracteres, toggle visibilidad), y confirmación de éxito (ícono verde + link a login). API: `POST /api/auth/reset-password` con `{token, password}`.
-
-#### `ErrorBoundary.tsx`
-
-**Propósito**: componente de clase React que captura errores de renderizado en cualquier parte del árbol de componentes. Usa `getDerivedStateFromError` y `componentDidCatch`. Muestra pantalla de fallback con ícono AlertTriangle, mensaje "Algo salió mal" y botón "Recargar página" (`window.location.reload()`). Envuelve toda la app en `App.tsx` como wrapper de `<Routes>`.
-
-#### `ThemeToggle.tsx`
-
-**Propósito**: botón de alternancia entre modo claro y oscuro. Estado inicial desde localStorage (`sca_theme`). Al cambiar, agrega/remueve clase `dark` en `document.documentElement` y persiste preferencia. Usa iconos `Moon`/`Sun` de lucide-react. Integrado en el header del `AdminLayout.tsx`.
-
-### 5.3 Contextos y Estado Global
-
-#### `AuthContext.tsx`
-
-**Estado**: `usuario`, `isAuthenticated`, `isLoading`, `consentido`
-
-**Al montar**: intenta restaurar sesión con `GET /api/auth/me` si hay token en localStorage. Luego verifica consentimiento con `GET /api/privacidad/consentimiento`.
-
-**Funciones**:
-- `login(numeroControl, password)`: llama `POST /api/auth/login`, guarda token, retorna usuario (con rol para redirect)
-- `logout()`: borra token de localStorage, limpia estado
-- `darConsentimiento()`: llama `POST /api/privacidad/consentimiento`
-
-**Uso**: envuelve toda la app en `<AuthProvider>`. Los componentes acceden vía `useAuth()`.
-
-### 5.4 Hooks de Datos (TanStack Query)
-
-| Hook | Query Key | Endpoint | staleTime | Funciones |
-|------|-----------|----------|-----------|-----------|
-| `useTramite` | `["mi-tramite"]` | `GET /api/tramites/mi-tramite` | 30s | `uploadDocumento.mutate()` con FormData |
-| `useTramite` (historial) | `["mi-tramite", "historial", id]` | `GET /api/tramites/:id/historial` | 30s | — |
-| `useAdmin` (stats) | `["admin", "stats"]` | `GET /api/admin/stats` | 30s | — |
-| `useAdmin` (expedientes) | `["admin", "expedientes", params]` | `GET /api/admin/expedientes` | 10s | `listarExpedientes({search, estatus, page})` |
-| `useAdmin` (detalle) | `["admin", "expediente", id]` | `GET /api/admin/expedientes/:id` | — | `aprobarDoc.mutate()`, `rechazarDoc.mutate()`, `emitirDictamen.mutate()` |
-| `useNotificaciones` | `["notificaciones"]` | `GET /api/notificaciones` | 15s, refetch 30s | `marcarTodas.mutate()` |
-| `AsesorDashboard` (useQuery) | `["asesor", "estudiantes"]` | `GET /api/asesor/estudiantes` | 15s | `aprobarMutation.mutate()`, `rechazarMutation.mutate()` |
-
-**Justificación TanStack Query**: elegido sobre useEffect+useState porque provee cache automático, invalidación tras mutaciones, refetch en intervalos para notificaciones, y estados de loading/error integrados. Estaba instalado en el proyecto original (Lovable lo incluye), solo estaba sin usar.
-
-### 5.5 Servicio API
-
-`src/services/api.ts` proporciona cuatro funciones HTTP con interceptor JWT automático:
-
-- `apiGet<T>(url)` — GET con header `Authorization: Bearer <token>` automático
-- `apiPost<T>(url, body)` — POST con header JWT automático
-- `apiPut<T>(url, body?)` — PUT con header JWT automático, body opcional
-- `apiDelete<T>(url)` — DELETE con header JWT automático
-- `getToken()`, `setToken()`, `removeToken()` — gestión de token en localStorage con key `sca_token`
-
-El interceptor `handleResponse` parsea la respuesta JSON y lanza `ApiError` tipado si `!response.ok`, permitiendo a los hooks y componentes manejar errores de forma estructurada.
+`POST /admin/usuarios`: el administrador define la contraseña; el sistema no la genera ni envía correo al usuario nuevo. Un estudiante recibe su trámite y documentos pendientes; un asesor recibe `carga_maxima` (5 por defecto).
 
 ---
 
-## 6. Catálogo Completo de APIs
-
-### 6.1 Autenticación (`/api/auth`)
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| `POST` | `/api/auth/login` | No (rate-limited) | Login con numero_control + password. Retorna JWT + usuario. Implementa bloqueo tras 5 fallos. |
-| `GET` | `/api/auth/me` | JWT | Retorna payload del JWT actual (sub, numero_control, rol, nombre) |
-
-| `POST` | `/api/auth/reset-password` | No | Restablece contraseña con token enviado por email. Requiere `{token, password}`. |
-
-### 6.2 Trámites (`/api/tramites`)
-
-| Método | Ruta | Auth | Roles | Descripción |
-|--------|------|------|-------|-------------|
-| `GET` | `/api/tramites/mi-tramite` | JWT | estudiante | Trámite activo con todos los documentos, progreso, semáforo, asignaciones y dictamen |
-| `GET` | `/api/tramites/:id/historial` | JWT | estudiante | Línea de tiempo del trámite |
-| `POST` | `/api/tramites/:id/documentos` | JWT | estudiante | Subir archivo (multipart). Valida formato, tamaño, PDF corrupto y prerrequisito |
-| `GET` | `/api/tramites/:id/documentos/:docId` | JWT (query o header) | estudiante, admin | Visualizar archivo inline (Content-Disposition: inline) |
-
-### 6.3 Admin (`/api/admin`)
-
-| Método | Ruta | Auth | Roles | Descripción |
-|--------|------|------|-------|-------------|
-| `GET` | `/api/admin/stats` | JWT | administrativo | Métricas agregadas del dashboard |
-| `GET` | `/api/admin/expedientes` | JWT | administrativo | Lista con búsqueda (search), filtro (estatus), paginación (page, limit) |
-| `GET` | `/api/admin/expedientes/:id` | JWT | administrativo | Detalle completo de un trámite con documentos |
-| `PUT` | `/api/admin/documentos/:id/aprobar` | JWT | administrativo | Aprueba documento, notifica al estudiante, registra bitácora |
-| `PUT` | `/api/admin/documentos/:id/rechazar` | JWT | administrativo | Rechaza documento con motivo, notifica, registra bitácora |
-| `POST` | `/api/admin/dictamenes` | JWT | administrativo | Emite dictamen (aprobado/rechazado), cambia estatus del trámite |
-| `GET` | `/api/admin/docentes` | JWT | administrativo | Lista docentes con carga actual desde `vw_carga_docente` |
-| `GET` | `/api/admin/usuarios` | JWT | administrativo | Lista usuarios con búsqueda, filtro rol, paginación |
-| `POST` | `/api/admin/usuarios` | JWT | administrativo | Crea usuario con bcrypt automático |
-| `PUT` | `/api/admin/usuarios/:id/toggle` | JWT | administrativo | Activa/desactiva usuario, resetea intentos fallidos |
-| `GET` | `/api/admin/solicitudes-arco` | JWT | administrativo | Lista todas las solicitudes ARCO para gestión admin |
-| `PUT` | `/api/admin/solicitudes-arco/:id` | JWT | administrativo | Resuelve/rechaza solicitud ARCO con respuesta |
-| `GET` | `/api/admin/bitacora` | JWT | administrativo | Lista bitácora de auditoría con paginación (`page`, `limit`) |
-| `GET` | `/api/admin/catalogos/:catalogo` | JWT | administrativo | Lista items de un catálogo (opciones/tipos-documento/normativa/directorio) |
-| `POST` | `/api/admin/catalogos/:catalogo` | JWT | administrativo | Crea item en un catálogo |
-| `PUT` | `/api/admin/catalogos/:catalogo/:id` | JWT | administrativo | Actualiza item en un catálogo |
-| `PUT` | `/api/admin/catalogos/:catalogo/:id/toggle` | JWT | administrativo | Activa/desactiva item en un catálogo (`activo = NOT activo`) |
-
-### 6.4 Asesor (`/api/asesor`)
-
-| Método | Ruta | Auth | Roles | Descripción |
-|--------|------|------|-------|-------------|
-| `GET` | `/api/asesor/estudiantes` | JWT | asesor | Lista estudiantes asignados al asesor con progreso y semáforo desde `vw_progreso_tramite` |
-| `PUT` | `/api/asesor/documentos/:id/aprobar` | JWT | asesor | Aprueba documento asignado (verifica pertenencia a trámite del asesor) |
-| `PUT` | `/api/asesor/documentos/:id/rechazar` | JWT | asesor | Rechaza documento asignado con motivo requerido |
-
-### 6.5 Notificaciones (`/api/notificaciones`)
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| `GET` | `/api/notificaciones` | JWT | Lista notificaciones del usuario. Query `?no_leidas=true` filtra. Retorna `{notificaciones, noLeidas}` |
-| `PUT` | `/api/notificaciones/:id/leida` | JWT | Marca una notificación como leída |
-| `PUT` | `/api/notificaciones/leer-todas` | JWT | Marca todas las no leídas como leídas |
-
-### 6.6 Contenido (sin auth)
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/api/directorio` | Lista contactos. Query `?search=` filtra por nombre/cargo/departamento |
-| `GET` | `/api/normativa` | Lista reglamentos. Query `?modalidad_id=` filtra por opción de titulación |
-| `GET` | `/api/requisitos-fotografia` | Lista los 12 requisitos para fotografía tamaño miñón |
-
-### 6.7 Privacidad (`/api/privacidad`, `/api/solicitudes-arco`)
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| `GET` | `/api/privacidad/consentimiento` | JWT | Verifica si el usuario ya aceptó el aviso de privacidad |
-| `POST` | `/api/privacidad/consentimiento` | JWT | Registra aceptación con IP y timestamp |
-| `POST` | `/api/solicitudes-arco` | JWT | Crea solicitud ARCO (acceso/rectificación/cancelación/oposición) |
-| `GET` | `/api/solicitudes-arco` | JWT | Lista solicitudes ARCO del usuario autenticado |
-
-### 6.8 Sistema
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| `GET` | `/api/health` | No | Health check: `{status:"ok", service:"SCA-TESCHA API", version:"1.0.0"}` |
-
----
-
-## 7. Flujos de Negocio
-
-### 7.1 Flujo Completo de Titulación
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. REGISTRO                                                 │
-│    Admin crea usuario en /admin/usuarios                    │
-│    o Estudiante solicita acceso vía email a Control Escolar │
-└──────────────────────────┬──────────────────────────────────┘
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. PRIMER LOGIN                                             │
-│    - Login con número de control + contraseña               │
-│    - Modal de Aviso de Privacidad (obligatorio aceptar)     │
-│    - Consentimiento registrado en BD con IP y timestamp     │
-└──────────────────────────┬──────────────────────────────────┘
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 3. CARGA DOCUMENTAL                                         │
-│    - Estudiante ve 7 documentos requeridos                  │
-│    - Sube uno por uno con validación automática:            │
-│      ✓ Formato correcto (PDF/JPEG/PNG)                     │
-│      ✓ Tamaño ≤ máximo permitido                            │
-│      ✓ PDF no corrupto (header %PDF)                        │
-│      ✓ Prerrequisito aprobado (carga secuencial)           │
-│    - Cada upload → documento en estado "Recibido"           │
-│    - Semáforo se actualiza en tiempo real                   │
-└──────────────────────────┬──────────────────────────────────┘
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 4. REVISIÓN ADMINISTRATIVA                                  │
-│    - Admin ve lista de expedientes                          │
-│    - Revisa cada documento (click [Ver] para abrir PDF)     │
-│    - [Aprobar] → documento pasa a "Aprobado"                │
-│    - [Rechazar] → escribe motivo → documento "Rechazado"    │
-│    - Estudiante recibe notificación del cambio              │
-│    - Si hay rechazo: estudiante corrige y vuelve a subir    │
-└──────────────────────────┬──────────────────────────────────┘
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 5. DICTAMEN                                                 │
-│    - Admin verifica que todos los docs estén aprobados      │
-│    - Emite dictamen: Aprobado o Rechazado                   │
-│    - Escribe observaciones oficiales                        │
-│    - Trámite cambia a "completado" (o "rechazado")          │
-│    - Estudiante ve resultado en "Mi Dictamen"               │
-│    - Si aprobado: "Acude a ventanilla 08:00-14:00 hrs"     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 7.2 Flujo de Notificaciones
-
-Cada cambio de estado genera automáticamente:
-
-1. **INSERT en `notificaciones`** (tipo: `in_app` o `ambos`)
-2. **Si `ambos`**: se intenta envío de email (infraestructura lista, requiere SMTP)
-3. **Frontend**: TanStack Query refetcha cada 30s, campana muestra badge con conteo
-4. **Dashboard**: la línea de tiempo (`historial_estados`) refleja el cambio
-
-### 7.3 Flujo de Auditoría (Bitácora)
-
-Cada acción administrativa registra automáticamente:
-- **Aprobar documento**: `{accion: "Aprobación de documento", entidad: "documentos", detalle: {tipo, tramite_id}}`
-- **Rechazar documento**: `{accion: "Rechazo de documento", entidad: "documentos", detalle: {tipo, tramite_id, motivo}}`
-- **Emitir dictamen**: `{accion: "Emisión de dictamen", entidad: "dictamenes", detalle: {resultado, observaciones}}`
-
----
-
-## 8. Sistema de Seguridad
-
-### 8.1 Autenticación
-
-- **JWT (JSON Web Token)**: generado con `jsonwebtoken`, firmado con secreto configurable (`JWT_SECRET` en `.env`), expira en 24h
-- **Payload**: `{sub: usuario_id, numero_control, rol, nombre}`
-- **bcrypt**: contraseñas hasheadas con 12 rondas de sal. Hash ≥ 60 caracteres. Nunca se almacenan en texto plano
-- **Stateless**: el servidor no mantiene sesiones en memoria. Toda la información de autorización viaja en el token
-
-### 8.2 Control de Acceso (RBAC)
-
-Tres roles con privilegios granulares:
-
-| Rol | Acceso |
-|-----|--------|
-| `estudiante` | `/dashboard`, `/api/tramites/mi-tramite`, subir/bajar sus docs |
-| `asesor` | Acceso futuro: revisar proyectos asignados (infraestructura lista) |
-| `administrativo` | `/admin/*`, todas las APIs de gestión, aprobar/rechazar, dictaminar, CRUD usuarios |
-
-Cada endpoint protegido declara sus roles permitidos con `authorize("rol1", "rol2")`. El frontend refuerza con `ProtectedRoute` que verifica el JWT antes de renderizar y redirige según rol si no coincide.
-
-### 8.3 Protección contra Ataques
-
-| Capa | Mecanismo |
-|------|-----------|
-| **Brute force login** | Bloqueo de cuenta tras 5 intentos fallidos por 15 minutos (a nivel BD) + rate limiting por IP (express-rate-limit, 30 req/15min) |
-| **JWT expirado** | `authenticate` middleware detecta `TokenExpiredError` → 401. Frontend redirige a login |
-| **Archivos maliciosos** | Validación de header `%PDF` para prevenir PDFs corruptos. Límite de 10MB |
-| **Inyección SQL** | `mysql2` con prepared statements (placeholders `?`) en todas las queries |
-| **XSS** | React escapa automáticamente. Único `dangerouslySetInnerHTML` en Normativa (contenido controlado por admin) |
-| **CORS** | Solo permite origen configurado (`CORS_ORIGIN` en `.env`) |
-| **Cabeceras HTTP** | `helmet` middleware aplica headers de seguridad (X-Content-Type-Options, X-Frame-Options, etc.) |
-| **Token en query param** | El endpoint de visualización de archivos acepta token vía `?token=` para `window.open()` que no puede enviar headers. El middleware verifica el JWT manualmente. |
-
----
-
-## 9. Privacidad y Cumplimiento LGPDPPSO
-
-### 9.1 Fundamento Legal
-
-La **Ley General de Protección de Datos Personales en Posesión de Sujetos Obligados** aplica al TESCHA como institución pública. El documento de requisitos (línea 223) lo establece como restricción obligatoria.
-
-### 9.2 Componentes Implementados
-
-#### Modal de Consentimiento (P-49)
-
-- **Disparador**: primer login de un usuario sin registro en `consentimientos`
-- **Contenido**: finalidad del tratamiento, derechos ARCO, almacenamiento seguro, referencia a LGPDPPSO
-- **Bloqueante**: el usuario no puede acceder al sistema sin hacer clic en "He leído y acepto"
-- **Registro**: `INSERT INTO consentimientos` con `usuario_id`, `version_aviso`, `ip_origen`, `user_agent`, `fecha_consentimiento`
-- **Versionado**: si se actualiza el aviso (`version_aviso` = "2.0"), se solicita re-consentimiento
-
-#### Formulario ARCO (P-50)
-
-- **Acceso**: sidebar → "Privacidad" → modal con formulario
-- **Tipos**: Acceso (ver datos), Rectificación (corregir), Cancelación (eliminar), Oposición (restringir uso)
-- **Registro**: `INSERT INTO solicitudes_arco` con estado `pendiente`
-- **Plazo legal**: se informa al usuario que la respuesta debe darse en ≤15 días hábiles
-- **Procesamiento**: responsabilidad del administrativo (revisar y actualizar `estado` y `respuesta`)
-
----
-
-## 10. Pruebas
-
-### 10.1 Unit Tests (Vitest)
-
-| Archivo | Tests | Cobertura |
-|---------|-------|-----------|
-| `src/test/api.test.ts` | 5 tests | `getToken`, `setToken`, `removeToken`, sobrescritura |
-| `src/test/ProtectedRoute.test.tsx` | 5 tests | Redirect sin login, acceso autenticado, redirect por rol (estudiante→admin), acceso admin, sin restricción de rol |
-| `src/test/example.test.ts` | 1 test | Trivial (sanity check) |
-
-**Resultado**: 11/11 pasando. Ejecutar con `npm run test` o `npx vitest run`.
-
-### 10.2 Auditoría Lighthouse (Chrome DevTools MCP)
-
-| Página | Accesibilidad | Best Practices | SEO |
-|--------|--------------|----------------|-----|
-| Landing (`/`) | 94 | 100 | 100 |
-| Dashboard (`/dashboard`) | 88 | 100 | 100 |
-
-29-27 auditorías pasadas por página.
-
-### 10.3 Pruebas Manuales de API
-
-24 tests ejecutados vía Chrome DevTools MCP evaluando flujos end-to-end. 23 pasaron, 1 advertencia esperada (estados de documentos dependientes de testing previo).
-
----
-
-## 11. Dependencias y Stack Tecnológico
-
-### 11.1 Frontend (Vite + React 18)
-
-| Dependencia | Versión | Propósito |
-|------------|---------|-----------|
-| `react`, `react-dom` | ^18.3.1 | Biblioteca UI |
-| `react-router-dom` | ^6.30.1 | Enrutamiento SPA |
-| `@tanstack/react-query` | ^5.83.0 | Manejo de estado del servidor, cache, mutaciones |
-| `tailwindcss` | ^3.4.17 | Utilidades CSS atómicas |
-| `lucide-react` | ^0.462.0 | Iconografía consistente |
-| `@radix-ui/*` | 30+ paquetes | Primitivas headless UI (dialog, popover, select, sidebar, tooltip, etc.) |
-| `react-hook-form` + `zod` | ^7.61 / ^3.25 | Formularios con validación |
-| `recharts` | ^2.15.4 | Gráficos de progreso |
-| `sonner` | ^1.7.4 | Toasts |
-| `date-fns` | ^3.6.0 | Formateo de fechas |
-| `next-themes` | ^0.3.0 | Dark/light mode (configurado, no activado) |
-
-### 11.2 Backend (Express + TypeScript)
-
-| Dependencia | Versión | Propósito |
-|------------|---------|-----------|
-| `express` | ^4.21.0 | Framework HTTP |
-| `mysql2` | ^3.11.0 | Driver MySQL/MariaDB con soporte async/await |
-| `bcryptjs` | ^2.4.3 | Hashing de contraseñas |
-| `jsonwebtoken` | ^9.0.2 | Generación y verificación JWT |
-| `express-rate-limit` | ^7.4.0 | Rate limiting por IP |
-| `multer` | ^2.1.1 | Manejo de archivos multipart |
-| `helmet` | ^7.1.0 | Cabeceras de seguridad HTTP |
-| `cors` | ^2.8.5 | Control de acceso cross-origin |
-| `dotenv` | ^16.4.5 | Variables de entorno |
-| `pdfkit` | ^0.19.1 | Generación de PDF (dictamen oficial de titulación) |
-| `nodemailer` | ^9.0.0 | Envío de emails transaccionales (infraestructura lista para SMTP) |
-| `adm-zip` | ^0.5.17 | Empaquetado de archivos ZIP para descarga de expedientes |
-
-### 11.3 Desarrollo y Testing
-
-| Herramienta | Uso |
-|------------|-----|
-| `vitest` + `@testing-library/react` + `jsdom` | Unit tests (11 tests) |
-| `@playwright/test` + `lovable-agent-playwright-config` | E2E (configurado, tests pendientes) |
-| `eslint` (flat config) + `typescript-eslint` | Linting |
-| `typescript` ^5.5 | Type checking frontend y backend |
-
----
-
-## 12. Configuración y Despliegue
-
-### 12.1 Variables de Entorno (`server/.env`)
-
-```
-DB_HOST=localhost         # Host MariaDB
-DB_PORT=3306              # Puerto MariaDB
-DB_USER=root              # Usuario BD
-DB_PASSWORD=***           # Contraseña BD
-DB_NAME=sca_tescha        # Nombre de la base de datos
-DB_CONNECTION_LIMIT=10    # Conexiones máximas en el pool
-
-JWT_SECRET=***            # Clave secreta para firmar tokens
-JWT_EXPIRES_IN=24h        # Duración de sesiones JWT
-
-PORT=3000                 # Puerto del servidor Express
-NODE_ENV=development      # Entorno
-CORS_ORIGIN=http://localhost:8080  # Origen permitido
-
-LOGIN_MAX_ATTEMPTS=5      # Intentos antes de bloqueo
-LOGIN_BLOCK_MINUTES=15    # Duración del bloqueo
-```
-
-### 12.2 Inicialización de Base de Datos
+## 8. Pruebas
+
+### 8.1 Estructura
+
+| Directorio | Contenido |
+|---|---|
+| `tests/Feature/Admin` | Flujo administrativo, páginas, bitácora, catálogos, expedientes cancelados, reemplazo de asesor, CRUD de usuarios |
+| `tests/Feature/Arco` | Solicitudes ARCO |
+| `tests/Feature/Asesor` | Panel y detalle de expediente del asesor |
+| `tests/Feature/Auth` | Inicio de sesión, bloqueo, recuperación de contraseña |
+| `tests/Feature/Estudiante` | Trámite, subida y consulta de documentos |
+| `tests/Feature/Public` | Contenido público y páginas Inertia |
+| `tests/Feature/Services` | Servicios transversales (PDF del dictamen, correo de notificaciones, exportación CSV y ZIP) |
+| `tests/Feature/NotificacionTest.php`, `T7dFixesTest.php` | Notificaciones y correcciones de paridad |
+| `tests/Unit` | Prueba de ejemplo |
+
+Resultado verificado de `php artisan test`: **172 pruebas, 172 correctas, 1837 aserciones** (suite completa en unos 4 segundos).
+
+### 8.2 Seguridad de la base
+
+- `phpunit.xml` fuerza `DB_DATABASE=sca_tescha_test`, mailer `array`, sesión y caché `array` y cola `sync`.
+- `tests/TestCase.php` vuelve a forzar caché, sesión y correo en memoria (las variables exportadas en la shell prevalecen sobre `phpunit.xml`) y lanza `RuntimeException` si la base conectada no es `sca_tescha_test`.
+- Se usa `DatabaseTransactions`; **nunca** `RefreshDatabase`, que borraría datos.
+- `scripts/demo.sh test-db` crea `sca_tescha_test` y ejecuta `php artisan sca:test-db`, que hace `migrate:fresh --seed` solo si el nombre termina en `_test`. Debe ejecutarse una vez antes de la primera corrida.
+
+### 8.3 Ejecución
 
 ```bash
-# Una sola vez
-sudo systemctl start mariadb
-mysql -u root -p < database/schema.sql
-mysql -u root -p < database/seed.sql
+scripts/demo.sh test-db   # una vez
+composer test             # limpia la configuración en caché y ejecuta php artisan test
+php artisan test --filter=AuthFlowTest
 ```
 
-### 12.3 Ejecución en Desarrollo
+---
+
+## 9. Operación y despliegue local
+
+### 9.1 Requisitos
+
+- PHP 8.3 o superior con `pdo_mysql`, `mbstring`, `xml`, `dom`, `zip`, `curl`, `fileinfo`, `openssl`, `tokenizer`, `ctype`, `bcmath`.
+- Composer 2, Node.js 22 y npm.
+- MariaDB o MySQL.
+
+### 9.2 Instalación
 
 ```bash
-# Terminal 1: Backend (puerto 3000)
-cd server && npx tsx src/index.ts
-
-# Terminal 2: Frontend (puerto 8080, proxy /api → :3000)
-bun run dev
+composer install
+npm ci --ignore-scripts
+cp .env.example .env
+php artisan key:generate
+# editar .env (ver 9.4), crear la base vacía y luego:
+php artisan migrate --seed
+npm run build
+php artisan serve
 ```
 
-### 12.4 Build de Producción
+Cuentas de demostración (contraseña `Demo1234!`): estudiante `2021-0001`, asesor `DOC-0001`, administrativo `ADM-0001`. En desarrollo, `npm run dev` levanta Vite y `composer dev` lanza los procesos de desarrollo (`php artisan dev`).
 
-```bash
-# Frontend
-npm run build          # Genera dist/
+### 9.3 `scripts/demo.sh`
 
-# Backend
-cd server && npm run build  # Compila TypeScript → dist/
-npm start                    # Ejecuta node dist/index.js
-```
+Levanta una instancia propia de MariaDB (sin root, datos en `~/.local/share/sca-mariadb`) y sirve Laravel con `php -S` en `http://127.0.0.1:8001`.
+
+| Comando | Efecto |
+|---|---|
+| `scripts/demo.sh up` | Inicia la base, la crea con migraciones y seeders si no existe, compila el frontend y arranca la aplicación |
+| `scripts/demo.sh status` | Informa si la base y la aplicación responden (verifica que `/login` renderice realmente) |
+| `scripts/demo.sh down` | Detiene aplicación y base |
+| `scripts/demo.sh reset-db --yes` | Borra y recrea la base de demostración |
+| `scripts/demo.sh test-db` | Prepara la base de pruebas |
+
+Detalles relevantes:
+
+- **`php -S` debe ejecutarse desde `public/`**: el script *router* de Laravel resuelve `index.php` desde el directorio de trabajo, por lo que el script hace `cd public` antes de iniciar el servidor.
+- El servidor se inicia con `upload_max_filesize=25M` y `post_max_size=30M`, mayores que el tope de 20 MB de la aplicación.
+- Variables opcionales del script: `SCA_PORT`, `SCA_DB_NAME`, `SCA_DB_DIR`.
+
+### 9.4 Claves de `.env` relevantes
+
+| Clave | Uso |
+|---|---|
+| `APP_KEY`, `APP_ENV`, `APP_DEBUG`, `APP_URL` | Identidad y modo de la aplicación |
+| `DB_CONNECTION=mariadb`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | Base de datos (`sca_tescha`) |
+| `SESSION_DRIVER`, `SESSION_LIFETIME` | Sesión (`file` por defecto; 120 minutos) |
+| `CACHE_STORE` | Caché (los contadores de `throttle` usan la caché) |
+| `MAIL_MAILER` y `MAIL_*` | Correo (`log` por defecto) |
+| `LOGIN_MAX_ATTEMPTS`, `LOGIN_BLOCK_MINUTES` | Bloqueo de cuenta (5 y 15) |
+| `BCRYPT_ROUNDS`, `HASH_VERIFY` | Hash de contraseñas |
+| `FILESYSTEM_DISK` | Disco por defecto (`local`, privado) |
+
+El archivo `.env` no se versiona.
+
+### 9.5 Lista previa a producción
+
+- `APP_DEBUG=false`, `APP_ENV=production` y un `APP_KEY` propio.
+- HTTPS delante de la aplicación.
+- SMTP real (`MAIL_*`); con el mailer `log` los correos no llegan a nadie.
+- Sustituir las contraseñas de demostración y retirar o desactivar los usuarios de ejemplo.
+- Respaldos de la base de datos **y** de `storage/app/private` (documentos subidos): ambos son necesarios para recuperar un expediente.
+- Límites de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento y que el tope de 20 MB.
+- `php artisan config:cache`, `route:cache` y `npm run build` en el despliegue.
+- Sesión: `file` basta en un solo servidor; con varias instancias, usar `database` (o `redis`) y una caché compartida para que los contadores de límite de tasa sean coherentes. Para `database` debe crearse la tabla de sesiones (no la incluye la migración base).
+
+### 9.6 Recomendación sobre contenedores
+
+Se recomienda contenerizar la aplicación para fijar la versión de PHP, las extensiones requeridas y los límites de subida, y así reproducir el entorno entre equipos y servidores. Hoy **no existe** ningún `Dockerfile` ni `docker-compose` en el repositorio: es una mejora pendiente, no algo ya provisto.
 
 ---
 
-## 13. Estructura de Archivos
+## 10. Decisiones de diseño y comportamientos heredados
 
-```
-titulaci-n-digital-tescha/
-├── index.html                     # Entrypoint HTML (Vite)
-├── vite.config.ts                 # Config Vite + proxy /api → :3000
-├── vitest.config.ts               # Config Vitest + jsdom
-├── playwright.config.ts           # Config Playwright E2E
-├── tailwind.config.ts             # Tailwind + colores TESCHA + Rubik
-├── tsconfig.json                  # TypeScript raíz
-├── tsconfig.app.json              # TS para frontend (strict:false)
-├── tsconfig.node.json             # TS para Vite (strict:true)
-├── eslint.config.js               # ESLint flat config
-├── package.json                   # Dependencias frontend
-├── public/                        # Assets estáticos Vite
-│   ├── favicon.ico                # Favicon TESCHA
-│   └── favicon.png                # Favicon PNG 32x32
-├── database/                      # Esquema y datos BD
-│   ├── schema.sql                 # 14 tablas + 2 vistas + índices
-│   └── seed.sql                   # 150+ registros de prueba
-├── server/                        # Backend Express + TypeScript
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── .env                       # Variables de entorno (no commit)
-│   ├── .env.example               # Template de variables
-│   ├── public/
-│   │   └── favicon.svg            # Favicon TESCHA para backend
-│   ├── uploads/                   # Archivos subidos (no commit)
-│   └── src/
-│       ├── index.ts               # Entrypoint
-│       ├── app.ts                 # Express setup
-│       ├── config/
-│       │   ├── env.ts
-│       │   └── database.ts
-│       ├── domain/entities/
-│       │   ├── Usuario.ts
-│       │   ├── Tramite.ts
-│       │   ├── Documento.ts
-│       │   └── Admin.ts
-│       ├── infrastructure/
-│       │   ├── database/
-│       │   │   ├── MysqlUsuarioRepository.ts
-│       │   │   ├── MysqlTramiteRepository.ts
-│       │   │   └── AdminRepository.ts
-│       │   └── services/
-│       │       ├── NotificacionService.ts
-│       │       └── generarDictamenPDF.ts  # PDFKit: dictamen oficial en PDF
-│       ├── use-cases/
-│       │   ├── auth/login.ts
-│       │   └── tramites/
-│       │       ├── obtenerMiTramite.ts
-│       │       └── subirDocumento.ts
-│       ├── middleware/
-│       │   ├── authenticate.ts
-│       │   ├── authorize.ts
-│       │   ├── rateLimiter.ts
-│       │   └── upload.ts
-│       └── routes/
-│           ├── auth.routes.ts
-│           ├── tramite.routes.ts
-│           ├── admin.routes.ts
-│           ├── asesor.routes.ts
-│           ├── catalogos.routes.ts
-│           ├── notificacion.routes.ts
-│           ├── directorio.routes.ts
-│           ├── normativa.routes.ts
-│           ├── contenido.routes.ts
-│           ├── privacidad.routes.ts
-│           └── arco.routes.ts
-└── src/                           # Frontend React
-    ├── main.tsx                   # React DOM entrypoint
-    ├── App.tsx                    # Raíz: providers + rutas
-    ├── App.css
-    ├── index.css                  # Tailwind + Rubik + CSS variables
-    ├── assets/                    # Imágenes, logos
-    ├── components/
-    │   ├── NavLink.tsx
-    │   ├── AdminSidebar.tsx
-    │   ├── ProtectedRoute.tsx
-    │   ├── PrivacyConsentModal.tsx
-    │   ├── ErrorBoundary.tsx
-    │   ├── ThemeToggle.tsx
-    │   └── ui/                    # 48 componentes shadcn/ui
-    ├── contexts/
-    │   └── AuthContext.tsx
-    ├── hooks/
-    │   ├── useTramite.ts
-    │   ├── useAdmin.ts
-    │   ├── useNotificaciones.ts
-    │   ├── use-mobile.tsx
-    │   └── use-toast.ts
-    ├── lib/
-    │   └── utils.ts               # cn() helper
-    ├── pages/
-    │   ├── Index.tsx
-    │   ├── Landing.tsx
-    │   ├── Login.tsx
-    │   ├── Dashboard.tsx
-    │   ├── Normativa.tsx
-    │   ├── NotFound.tsx
-    │   ├── ResetPassword.tsx
-    │   ├── admin/
-    │   │   ├── AdminLayout.tsx
-    │   │   ├── AdminDashboard.tsx
-    │   │   ├── AdminExpedientes.tsx
-    │   │   ├── AdminDocumentos.tsx
-    │   │   ├── AdminDictamenes.tsx
-    │   │   ├── AdminUsuarios.tsx
-    │   │   ├── AdminARCO.tsx
-    │   │   ├── AdminBitacora.tsx
-    │   │   └── AdminCatalogos.tsx
-    │   └── asesor/
-    │       └── AsesorDashboard.tsx
-    ├── services/
-    │   └── api.ts
-    └── test/
-        ├── setup.ts
-        ├── example.test.ts
-        ├── api.test.ts
-        └── ProtectedRoute.test.tsx
-```
+### 10.1 Paridad con el sistema anterior (se conserva a propósito)
+
+| Comportamiento | Detalle |
+|---|---|
+| Sin bitácora en otras operaciones | CRUD de usuarios, ARCO, catálogos, edición y cancelación de expedientes y asignaciones no escriben en `bitacora`; tampoco el inicio de sesión ni la subida de documentos. Solo revisión de documentos y dictámenes |
+| ARCO sin responsable ni aviso | `atendido_por` queda `NULL` y no se notifica al solicitante al resolver |
+| Progreso sin redondear | La lista de expedientes y el trámite usan `porcentaje_avance` de la vista (un decimal); solo el detalle administrativo recalcula el porcentaje y lo redondea a entero |
+| Exportación CSV | Se entrega `expedientes.csv` (UTF-8 con BOM) en lugar de un `.xlsx` |
+| Errores 422 con clave `message` | En JSON, además de `errors` por campo, viene `message` (primer error), como el formato anterior |
+| Aprobación del dictamen | Solo exige aprobados los documentos obligatorios que ya tienen fila; un tipo obligatorio nunca cargado no bloquea |
+| Historial al aprobar todo | La fila automática registra siempre `en_revision` como estado anterior |
+| Asesor con cualquier rol de asignación | `viewAsAsesor`, el panel del asesor y la revisión lo consideran asesor sin importar el `rol_asignacion` ni si la asignación está activa |
+| Operaciones idempotentes | Crear una asignación repetida no falla; borrar una inexistente responde éxito; marcar la notificación de otro usuario no tiene efecto |
+| Edición parcial de usuarios | `numero_control`, `email`, `nombre`, `apellido_paterno`, `rol` y `password` solo cambian si vienen con valor; `apellido_materno`, `grado_academico` y `carga_maxima` cambian si vienen presentes |
+| Asesor sin archivos | El asesor puede revisar documentos pero no tiene ruta para abrir los archivos |
+| `docentes` con `id` | La respuesta añade `id` a `docente_id` porque la interfaz lo lee así |
+
+### 10.2 Mejoras sobre el sistema anterior
+
+- Verificación del MIME real del archivo (no la cabecera del cliente) y rechazo de reemplazo de documentos aprobados o en revisión.
+- Hash y token de recuperación guardados con SHA-256; el token en claro solo viaja por correo.
+- Almacenamiento privado por trámite y autorización con Policies en toda lectura de archivos.
+- El detalle de usuario no expone el hash de contraseña ni el token de recuperación.
+- Reemplazo atómico del asesor y control de carga en el servidor.
+
+### 10.3 Limitaciones y pendientes conocidos
+
+- Sin `Dockerfile` ni integración continua en el repositorio.
+- El aviso de privacidad no se vuelve a pedir al cambiar la versión (4.3).
+- Sin notificaciones al asignar asesores ni al subir documentos.
+- Sin filtros en la bitácora (solo paginación).
+- La interfaz de creación de solicitudes ARCO existe en el panel del estudiante; los demás roles solo tienen el endpoint.
+- Los usuarios de demostración comparten contraseña; hay que retirarlos en producción.
+- La migración base solo funciona en MariaDB/MySQL.
+- Paquetes instalados sin uso en el código: Sanctum.
 
 ---
 
-## Apéndice A: Paleta de Colores Institucional
+## 11. Historial / migración desde Express
 
-| Color | Hex | Uso |
-|-------|-----|-----|
-| Guinda (Primario) | `#8A2036` | Botones principales, header admin, iconos activos |
-| Guinda oscuro (Terciario) | `#56212F` | Sidebar, footer, fondos de progreso |
-| Dorado (Secundario) | `#BC955B` | Acentos, barras de progreso, iconos decorativos |
-| Crema | `#EFE1CA` | Bordes decorativos, fondos suaves |
-| Texto general | `#847374` | Textos secundarios, botones inactivos |
+La versión anterior (SPA React + API Express con JWT) se conserva en la rama `legacy-express` y en el tag `pre-laravel-cleanup`. La migración conservó los endpoints, los textos y las reglas, y los reubicó en Laravel.
 
----
+| Aspecto | Antes | Ahora |
+|---|---|---|
+| Servidor | Express + TypeScript (`server/`) | Laravel 13 (PHP 8.3+) |
+| Cliente | SPA React 18 + React Router + TanStack Query | React 18 + TypeScript servido por Inertia |
+| Autenticación | JWT en `localStorage` | Sesión de Laravel con CSRF |
+| Control de acceso | `authenticate` / `authorize(rol)` | `auth` + `role:` + Policies |
+| Casos de uso | `use-cases/` y repositorios | `app/Actions` y `app/Services` |
+| Acceso a datos | `mysql2` con SQL directo | Eloquent y Query Builder |
+| Esquema | `database/schema.sql` y `seed.sql` | Migración base adoptable y seeders |
+| PDF | PDFKit | Dompdf mediante el contrato `DictamenPdfRenderer` |
+| Subidas | `multer` en `server/uploads` | Disco privado `storage/app/private/uploads/{tramite_id}` |
+| Correo | `nodemailer` | `Mail` de Laravel (`NotificacionMail`, `ResetPasswordMail`) |
+| Exportación | `.xlsx` y ZIP (`adm-zip`) | CSV y ZIP (`ZipArchive`) |
+| Pruebas | Vitest en el frontend | PHPUnit (172 pruebas) sobre `sca_tescha_test` |
+| Proxy de desarrollo | Vite proxy `/api` a `:3000` | No aplica (un solo servidor) |
 
-## Apéndice B: Cumplimiento de Casos de Prueba (P-01 a P-50)
+Puntos de la migración:
 
-| Módulo | CP Implementados | Total CP | % |
-|--------|-----------------|----------|---|
-| 1. Auth y RBAC | P-01 a P-09 | 9 | 100% |
-| 2. Carga Documental | P-10 a P-17 | 8 | 100% |
-| 3. Semáforo e Historial | P-18 a P-22 | 5 | 100% |
-| 4. Notificaciones y Docentes | P-23 a P-28 | 6 | 100% |
-| 5. Dictamen, Búsqueda, Filtros | P-29 a P-32 | 4 | 100% |
-| 6. Directorio, Normativa, Guías | P-33 a P-40 | 8 | 100% |
-| 7. Responsividad, WCAG | P-41 a P-48 | 8 | 83% |
-| 8. Privacidad LGPDPPSO | P-49 a P-50 | 2 | 100% |
-| **Total** | **46** | **50** | **92%** |
-
-Nota: P-47 (50 usuarios concurrentes) y P-48 (verificación Rubik en todos los niveles) requieren infraestructura de pruebas de carga y verificación tipográfica exhaustiva, respectivamente. Ambos están fuera del alcance de esta fase de desarrollo.
+- Los archivos subidos con el sistema anterior se localizan con la convención heredada: un nombre sin `/` se resuelve como `uploads/<nombre>` en el disco privado, por lo que basta copiar la carpeta antigua de subidas a `storage/app/private/uploads/`.
+- Una base `sca_tescha` creada con el esquema anterior se adopta sin cambios (3.5); los hashes `$2b$` siguen siendo válidos (4.1).
+- Las rutas del sistema anterior bajo `/api/...` dejaron de existir; las equivalentes están en la sección 6.
