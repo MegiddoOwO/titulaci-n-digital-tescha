@@ -39,14 +39,29 @@ start_laravel() {
   if alive laravel; then echo "laravel: already running"; return; fi
   (cd "$ROOT" && npm run build >"$RUN/build.log" 2>&1) \
     || { echo "laravel: npm run build failed, see $RUN/build.log"; exit 1; }
-  cd "$ROOT"
+  # Like `artisan serve`: the router script resolves index.php from the working
+  # directory, so the server must run from public/.
+  cd "$ROOT/public"
   # The pid recorded is php's own: `&` must apply to the php command alone.
   nohup php -d upload_max_filesize=25M -d post_max_size=30M \
-    -S "127.0.0.1:$PORT" -t public \
-    vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php \
+    -S "127.0.0.1:$PORT" \
+    "$ROOT/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php" \
     >"$RUN/laravel.log" 2>&1 &
   echo $! >"$RUN/laravel.pid"
-  echo "laravel: started on http://127.0.0.1:$PORT (log: $RUN/laravel.log)"
+  sleep 2
+  if app_ok; then
+    echo "laravel: started on http://127.0.0.1:$PORT (log: $RUN/laravel.log)"
+  else
+    echo "laravel: started but the app does not render, see $RUN/laravel.log"
+    exit 1
+  fi
+}
+
+# True only if the login page really renders (an HTTP 200 alone can hide a PHP fatal error).
+app_ok() {
+  local body
+  body="$(curl -fs "http://127.0.0.1:$PORT/login" 2>/dev/null || true)"
+  [[ "$body" == *"data-page"* && "$body" != *"Fatal error"* ]]
 }
 
 stop_laravel() {
@@ -79,7 +94,7 @@ case "${1:-}" in
     ;;
   status)
     db -e "select 1" >/dev/null 2>&1 && echo "db: up" || echo "db: down"
-    curl -fs -o /dev/null "http://127.0.0.1:$PORT/login" && echo "laravel: up" || echo "laravel: down"
+    app_ok && echo "laravel: up" || echo "laravel: down (or not rendering)"
     ;;
   reset-db)
     if [[ "${2:-}" != "--yes" ]]; then
