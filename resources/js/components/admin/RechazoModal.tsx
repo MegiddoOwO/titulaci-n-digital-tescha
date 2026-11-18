@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+/** Reason prompt shared by every document rejection (a real dialog: focus trap, Escape, labelled). */
 export function RechazoModal({
   pending,
   onCancel,
@@ -15,13 +16,16 @@ export function RechazoModal({
   const [motivo, setMotivo] = useState("");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="font-display text-base">Motivo del rechazo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <DialogContent className="w-[calc(100%-1.5rem)] max-w-md">
+        <DialogHeader className="text-left">
+          <DialogTitle>Motivo del rechazo</DialogTitle>
+          <DialogDescription>El estudiante verá este motivo para corregir y volver a subir el documento.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <label htmlFor="motivo-rechazo" className="sr-only">Motivo del rechazo</label>
           <Textarea
+            id="motivo-rechazo"
             placeholder="Describe por qué se rechaza este documento..."
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
@@ -35,8 +39,8 @@ export function RechazoModal({
               {pending ? "Rechazando..." : "Confirmar rechazo"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -106,13 +106,19 @@ function LampBadge({
   label,
   className,
 }: {
-  state: LampState;
+  /** "off" renders an unlit lamp (not started, cancelled): neutral text, still labelled. */
+  state: LampState | "off";
   /** Overrides the default text for the state. */
   label?: string;
   className?: string;
 }) {
-  const text = label ?? LAMP_LABEL[state];
-  const textColor = { verde: "text-state-green", ambar: "text-state-amber", rojo: "text-state-red" }[state];
+  const text = label ?? (state === "off" ? "Sin estado" : LAMP_LABEL[state]);
+  const textColor = {
+    verde: "text-state-green",
+    ambar: "text-state-amber",
+    rojo: "text-state-red",
+    off: "text-muted-foreground",
+  }[state];
 
   return (
     <span className={cn("inline-flex items-center gap-2 text-xs font-semibold", className)}>
@@ -121,9 +127,9 @@ function LampBadge({
         className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-lamp-housing"
         style={{ boxShadow: "inset 0 0 0 1px hsl(var(--lamp-housing-edge))" }}
       >
-        <i className={cn("block h-3 w-3 rounded-full", lampLit[state])} />
+        <i className={cn("block h-3 w-3 rounded-full", state === "off" ? "bg-lamp-off" : lampLit[state])} />
       </span>
-      <span className={textColor}>{text}</span>
+      <span className={cn("whitespace-nowrap", textColor)}>{text}</span>
     </span>
   );
 }

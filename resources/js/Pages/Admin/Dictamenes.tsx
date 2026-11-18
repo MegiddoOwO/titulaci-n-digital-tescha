@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { ClipboardCheck, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -37,24 +36,22 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-4 px-4 py-6 sm:px-8">
       <Head title="Dictámenes" />
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Dictámenes</h1>
-        <p className="text-muted-foreground font-body text-sm">Emite dictámenes oficiales de titulación</p>
+        <h1 className="text-2xl font-extrabold">Dictámenes</h1>
+        <p className="text-sm text-muted-foreground">Emite dictámenes oficiales de titulación</p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">Emitir Dictamen</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-medium">Selecciona el trámite</label>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <section className="min-w-0 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="emitir-titulo">
+          <h2 id="emitir-titulo" className="mb-3 text-base font-extrabold">Emitir dictamen</h2>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="dictamen-tramite" className="text-xs font-semibold">Trámite</label>
               <Select value={tramiteId} onValueChange={setTramiteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Elige un trámite aprobado/en revisión..." />
+                <SelectTrigger id="dictamen-tramite">
+                  <SelectValue placeholder="Elige un trámite aprobado o en revisión..." />
                 </SelectTrigger>
                 <SelectContent>
                   {candidatos.map((c) => (
@@ -66,10 +63,10 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium">Resultado</label>
+            <div className="space-y-1.5">
+              <label htmlFor="dictamen-resultado" className="text-xs font-semibold">Resultado</label>
               <Select value={resultado} onValueChange={setResultado}>
-                <SelectTrigger>
+                <SelectTrigger id="dictamen-resultado">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -79,9 +76,10 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium">Observaciones</label>
+            <div className="space-y-1.5">
+              <label htmlFor="dictamen-observaciones" className="text-xs font-semibold">Observaciones</label>
               <Textarea
+                id="dictamen-observaciones"
                 placeholder="Observaciones del dictamen..."
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
@@ -89,52 +87,58 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
               />
             </div>
 
-            <Button
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={!tramiteId || pending}
-              onClick={handleEmitir}
-            >
-              {pending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
+            <Button className="w-full" disabled={!tramiteId || pending} onClick={handleEmitir}>
+              {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <ClipboardCheck aria-hidden="true" />}
               Emitir Dictamen
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">Expedientes disponibles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {candidatos.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => setTramiteId(String(c.id))}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    tramiteId === String(c.id) ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold">{c.nombre_completo}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {c.numero_control} · {c.opcion_titulacion}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge className={`text-[10px] ${
-                        c.color_semaforo === "verde" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                      }`}>
-                        {c.porcentaje}%
-                      </Badge>
-                    </div>
-                  </div>
-                  <Progress value={c.porcentaje} className="h-1 mt-2" />
-                </div>
-              ))}
+        <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-labelledby="candidatos-titulo">
+          <h2 id="candidatos-titulo" className="border-b px-4 py-3 text-base font-extrabold">
+            Expedientes disponibles <span className="tnum text-sm font-normal text-muted-foreground">({candidatos.length})</span>
+          </h2>
+          {candidatos.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm font-semibold">No hay expedientes listos para dictamen.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Aquí aparecen los trámites aprobados o en revisión que aún no tienen dictamen. Cada trámite recibe uno solo.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <ul className="max-h-[440px] divide-y overflow-y-auto">
+              {candidatos.map((c) => {
+                const selected = tramiteId === String(c.id);
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setTramiteId(String(c.id))}
+                      aria-pressed={selected}
+                      className={`w-full px-4 py-2.5 text-left transition-colors hover:bg-muted/60 ${
+                        selected ? "bg-muted shadow-[inset_2px_0_0_hsl(var(--foreground))]" : ""
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">{c.nombre_completo}</span>
+                          <span className="tnum block truncate text-xs text-muted-foreground">
+                            {c.numero_control} · {c.opcion_titulacion}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-col items-end gap-0.5">
+                          <StatusBadge kind="tramite" status={c.estatus} semaforo={c.color_semaforo} />
+                          <span className="tnum text-xs text-muted-foreground">{c.porcentaje}%</span>
+                        </span>
+                      </span>
+                      <Progress value={c.porcentaje} className="mt-2 h-1" aria-label={`Avance de ${c.nombre_completo}`} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );
