@@ -7,10 +7,15 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * The database already contains its data (sca_tescha); nothing to seed.
+     * Seeds the demo data (order matters: foreign keys).
      */
     public function run(): void
     {
-        //
+        $this->call([
+            CatalogoSeeder::class,
+            UsuarioSeeder::class,
+            TramiteSeeder::class,
+            TrazabilidadSeeder::class,
+        ]);
     }
 }
