@@ -23,6 +23,22 @@ const DOCUMENTO: Record<string, { tone: Tone; label: string }> = {
   rechazado: { tone: "rojo", label: "Rechazado" },
 };
 
+/** Solicitudes ARCO: pending and in-process work is amber; the two closing states are green and red. */
+const ARCO: Record<string, { tone: Tone; label: string }> = {
+  pendiente: { tone: "ambar", label: "Pendiente" },
+  en_proceso: { tone: "ambar", label: "En proceso" },
+  completada: { tone: "verde", label: "Completada" },
+  rechazada: { tone: "rojo", label: "Rechazada" },
+};
+
+/** Accounts and catalog records: active is lit green, inactive is an unlit lamp. */
+const CUENTA: Record<string, { tone: Tone; label: string }> = {
+  activo: { tone: "verde", label: "Activo" },
+  inactivo: { tone: "off", label: "Inactivo" },
+};
+
+const KINDS = { tramite: TRAMITE, documento: DOCUMENTO, arco: ARCO, cuenta: CUENTA };
+
 const SEMAFORO_NAME: Record<LampState, string> = { verde: "verde", ambar: "ámbar", rojo: "rojo" };
 
 function humanize(status: string) {
@@ -36,7 +52,7 @@ export function estatusLabel(kind: "tramite" | "documento", status: string): str
 }
 
 interface StatusBadgeProps {
-  kind: "tramite" | "documento";
+  kind: "tramite" | "documento" | "arco" | "cuenta";
   status: string;
   /**
    * Trámite only: the semáforo computed by the database view for that trámite. When given, it picks
@@ -47,7 +63,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ kind, status, semaforo, className }: StatusBadgeProps) {
-  const entry = (kind === "tramite" ? TRAMITE : DOCUMENTO)[status] ?? { tone: "off" as Tone, label: humanize(status) };
+  const entry = KINDS[kind][status] ?? { tone: "off" as Tone, label: humanize(status) };
   const lit: LampState | null =
     kind === "tramite" && (semaforo === "verde" || semaforo === "ambar" || semaforo === "rojo") ? semaforo : null;
   const lamp: Tone = lit && entry.tone !== "off" ? lit : entry.tone;

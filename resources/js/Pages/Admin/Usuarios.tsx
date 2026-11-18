@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
-import { Search, UserPlus, Loader2, ShieldCheck, ShieldX, Pencil, Trash2 } from "lucide-react";
+import { Search, UserPlus, Loader2, Power, PowerOff, Pencil, Trash2, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -63,6 +63,7 @@ const emptyForm: FormData = {
 };
 
 interface FieldsProps {
+  idPrefix: string;
   data: FormData;
   onChange: (next: FormData) => void;
   passwordLabel: string;
@@ -76,74 +77,82 @@ interface FieldsProps {
   asesorLabel: string;
 }
 
+const ROL_LABEL: Record<string, string> = {
+  estudiante: "Estudiante",
+  asesor: "Asesor",
+  administrativo: "Administrativo",
+};
+
+function Field({ id, label, className, children }: { id: string; label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`space-y-1.5 ${className ?? ""}`}>
+      <label htmlFor={id} className="text-xs font-semibold">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 /** Fields shared by the create and edit dialogs (identical layout in the legacy page). */
 function UsuarioFields({
-  data, onChange, passwordLabel, passwordPlaceholder, opciones, docentes, opcion, onOpcion, asesor, onAsesor, asesorLabel,
+  idPrefix, data, onChange, passwordLabel, passwordPlaceholder, opciones, docentes, opcion, onOpcion, asesor, onAsesor, asesorLabel,
 }: FieldsProps) {
+  const id = (name: string) => `${idPrefix}-${name}`;
   return (
     <>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs">Matrícula *</label>
-          <Input value={data.numero_control} onChange={(e) => onChange({ ...data, numero_control: e.target.value })} className="h-8 text-xs" />
-        </div>
-        <div>
-          <label className="text-xs">Rol *</label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={id("matricula")} label="Matrícula *">
+          <Input id={id("matricula")} value={data.numero_control} onChange={(e) => onChange({ ...data, numero_control: e.target.value })} />
+        </Field>
+        <Field id={id("rol")} label="Rol *">
           <Select value={data.rol} onValueChange={(v) => onChange({ ...data, rol: v as Rol })}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger id={id("rol")}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="estudiante">Estudiante</SelectItem>
               <SelectItem value="asesor">Asesor</SelectItem>
               <SelectItem value="administrativo">Administrativo</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       </div>
-      <div>
-        <label className="text-xs">Email *</label>
-        <Input type="email" value={data.email} onChange={(e) => onChange({ ...data, email: e.target.value })} className="h-8 text-xs" />
-      </div>
-      <div>
-        <label className="text-xs">{passwordLabel}</label>
+      <Field id={id("email")} label="Email *">
+        <Input id={id("email")} type="email" value={data.email} onChange={(e) => onChange({ ...data, email: e.target.value })} />
+      </Field>
+      <Field id={id("password")} label={passwordLabel}>
         <Input
+          id={id("password")}
           type="password"
+          autoComplete="new-password"
           value={data.password}
           onChange={(e) => onChange({ ...data, password: e.target.value })}
-          className="h-8 text-xs"
           placeholder={passwordPlaceholder}
         />
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={id("nombre")} label="Nombre *">
+          <Input id={id("nombre")} value={data.nombre} onChange={(e) => onChange({ ...data, nombre: e.target.value })} />
+        </Field>
+        <Field id={id("paterno")} label="Apellido Paterno *">
+          <Input id={id("paterno")} value={data.apellido_paterno} onChange={(e) => onChange({ ...data, apellido_paterno: e.target.value })} />
+        </Field>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-xs">Nombre *</label>
-          <Input value={data.nombre} onChange={(e) => onChange({ ...data, nombre: e.target.value })} className="h-8 text-xs" />
-        </div>
-        <div>
-          <label className="text-xs">Apellido Paterno *</label>
-          <Input value={data.apellido_paterno} onChange={(e) => onChange({ ...data, apellido_paterno: e.target.value })} className="h-8 text-xs" />
-        </div>
-      </div>
-      <div>
-        <label className="text-xs">Apellido Materno</label>
-        <Input value={data.apellido_materno} onChange={(e) => onChange({ ...data, apellido_materno: e.target.value })} className="h-8 text-xs" />
-      </div>
+      <Field id={id("materno")} label="Apellido Materno">
+        <Input id={id("materno")} value={data.apellido_materno} onChange={(e) => onChange({ ...data, apellido_materno: e.target.value })} />
+      </Field>
       {data.rol === "estudiante" && (
         <>
-          <div>
-            <label className="text-xs">Opción de Titulación</label>
+          <Field id={id("opcion")} label="Opción de Titulación">
             <Select value={opcion} onValueChange={onOpcion}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger id={id("opcion")}><SelectValue /></SelectTrigger>
               <SelectContent>
                 {opciones.map((o) => (
                   <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <label className="text-xs">{asesorLabel}</label>
+          </Field>
+          <Field id={id("asesor")} label={asesorLabel}>
             <Select value={asesor} onValueChange={onAsesor}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin asesor" /></SelectTrigger>
+              <SelectTrigger id={id("asesor")}><SelectValue placeholder="Sin asesor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sin asesor</SelectItem>
                 {docentes.map((d) => (
@@ -153,25 +162,24 @@ function UsuarioFields({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
         </>
       )}
       {data.rol === "asesor" && (
-        <div>
-          <label className="text-xs">Grado Académico</label>
+        <Field id={id("grado")} label="Grado Académico">
           <Input
+            id={id("grado")}
             value={data.grado_academico}
             onChange={(e) => onChange({ ...data, grado_academico: e.target.value })}
-            className="h-8 text-xs"
             placeholder="Mtra., Dr., etc."
           />
-        </div>
+        </Field>
       )}
     </>
   );
 }
 
-export default function AdminUsuarios({ usuarios, page, totalPages, filters, docentes, opciones }: Props) {
+export default function AdminUsuarios({ usuarios, total, page, totalPages, filters, docentes, opciones }: Props) {
   const { success, failure } = useAdminToasts();
   const [search, setSearch] = useState(filters.search);
   const [rolFilter, setRolFilter] = useState(filters.rol || "todos");
@@ -357,23 +365,29 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
     });
   };
 
+  const hasFilters = search.trim() !== "" || rolFilter !== "todos";
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-4 px-4 py-6 sm:px-8">
       <Head title="Usuarios" />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Usuarios</h1>
-          <p className="text-muted-foreground font-body text-sm">Gestiona los usuarios del sistema</p>
+          <h1 className="text-2xl font-extrabold">Usuarios</h1>
+          <p className="tnum text-sm text-muted-foreground">
+            {total} {total === 1 ? "usuario" : "usuarios"}
+            {hasFilters ? " con los filtros aplicados" : " en el sistema"}
+          </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
-          <UserPlus className="w-4 h-4" /> Nuevo Usuario
+        <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <UserPlus aria-hidden="true" /> Nuevo usuario
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-2.5 sm:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
+            aria-label="Buscar usuarios"
             placeholder="Buscar por número de control, nombre o email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -388,7 +402,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
             visit({ search, rol: v, page: 1 });
           }}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filtrar por rol">
             <SelectValue placeholder="Todos los roles" />
           </SelectTrigger>
           <SelectContent>
@@ -399,84 +413,114 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={() => visit({ search, rol: rolFilter, page: 1 })} disabled={loading}>
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
+          {loading ? <Loader2 className="animate-spin" aria-label="Buscando" /> : "Buscar"}
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Matrícula</TableHead>
-              <TableHead className="text-xs">Nombre</TableHead>
-              <TableHead className="text-xs">Email</TableHead>
-              <TableHead className="text-xs">Rol</TableHead>
-              <TableHead className="text-xs">Estado</TableHead>
-              <TableHead className="text-xs w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : usuarios.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">No se encontraron usuarios.</TableCell></TableRow>
-            ) : (
-              usuarios.map((u) => (
-                <TableRow key={u.id} className="hover:bg-muted/30 transition-colors">
-                  <TableCell className="text-xs font-mono">{u.numero_control}</TableCell>
-                  <TableCell className="text-xs font-medium">
-                    {u.nombre} {u.apellido_paterno}
-                    {u.grado_academico && <span className="text-muted-foreground ml-1">({u.grado_academico})</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{u.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[10px] ${
-                      u.rol === "administrativo" ? "border-primary text-foreground" :
-                      u.rol === "asesor" ? "border-amber-200 text-amber-700" :
-                      "border-border text-muted-foreground"
-                    }`}>{u.rol}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`text-[10px] ${u.activo ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                      {u.activo ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="ghost" onClick={() => handleEdit(u)} title="Editar">
-                      <Pencil className="w-4 h-4 text-foreground" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleToggle(u.id)} title={u.activo ? "Desactivar" : "Activar"}>
-                      {u.activo ? <ShieldX className="w-4 h-4 text-rose-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleteId(u.id)} title="Eliminar">
-                      <Trash2 className="w-4 h-4 text-muted-foreground hover:text-rose-500" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-label="Lista de usuarios">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-14 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Cargando usuarios...
+          </div>
+        ) : usuarios.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+            <Users className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-semibold">No se encontraron usuarios.</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {hasFilters
+                ? "Prueba con otro número de control, nombre o email, o quita el filtro de rol."
+                : "Cuando registres usuarios con \"Nuevo usuario\", aparecerán en esta lista."}
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>Usuario</TableHead>
+                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                <TableHead className="hidden md:table-cell">Rol</TableHead>
+                <TableHead className="hidden md:table-cell">Estado</TableHead>
+                <TableHead className="w-px"><span className="sr-only">Acciones</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {usuarios.map((u) => {
+                const nombre = `${u.nombre} ${u.apellido_paterno}`;
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="py-2.5">
+                      <p className="text-sm font-semibold leading-snug">
+                        {nombre}
+                        {u.grado_academico && <span className="ml-1 font-normal text-muted-foreground">({u.grado_academico})</span>}
+                      </p>
+                      <p className="tnum text-xs text-muted-foreground">
+                        {u.numero_control}
+                        <span className="md:hidden"> · {ROL_LABEL[u.rol] ?? u.rol}</span>
+                      </p>
+                      <p className="mt-0.5 break-all text-xs text-muted-foreground lg:hidden">{u.email}</p>
+                      <div className="mt-1 md:hidden">
+                        <StatusBadge kind="cuenta" status={u.activo ? "activo" : "inactivo"} />
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden py-2.5 text-sm text-muted-foreground lg:table-cell">{u.email}</TableCell>
+                    <TableCell className="hidden py-2.5 text-sm md:table-cell">{ROL_LABEL[u.rol] ?? u.rol}</TableCell>
+                    <TableCell className="hidden py-2.5 md:table-cell">
+                      <StatusBadge kind="cuenta" status={u.activo ? "activo" : "inactivo"} />
+                    </TableCell>
+                    <TableCell className="py-2.5 pr-3 align-top md:align-middle">
+                      <div className="flex flex-nowrap items-center justify-end gap-0.5">
+                        <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => handleEdit(u)} aria-label={`Editar a ${nombre}`} title="Editar">
+                          <Pencil aria-hidden="true" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9"
+                          onClick={() => handleToggle(u.id)}
+                          aria-label={`${u.activo ? "Desactivar" : "Activar"} a ${nombre}`}
+                          title={u.activo ? "Desactivar" : "Activar"}
+                        >
+                          {u.activo ? <PowerOff aria-hidden="true" /> : <Power aria-hidden="true" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleteId(u.id)}
+                          aria-label={`Eliminar a ${nombre}`}
+                          title="Eliminar"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </section>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Página {page} de {totalPages}</span>
+        <nav className="flex items-center justify-between gap-3" aria-label="Paginación">
+          <span className="tnum text-xs text-muted-foreground">Página {page} de {totalPages} ({total} usuarios)</span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => visit({ search, rol: rolFilter, page: page - 1 })}>Anterior</Button>
             <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => visit({ search, rol: rolFilter, page: page + 1 })}>Siguiente</Button>
           </div>
-        </div>
+        </nav>
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nuevo Usuario</DialogTitle>
+            <DialogTitle>Nuevo usuario</DialogTitle>
             <DialogDescription>Registra un nuevo usuario en el sistema.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <UsuarioFields
+              idPrefix="nuevo"
               data={formData}
               onChange={setFormData}
               passwordLabel="Contraseña *"
@@ -488,8 +532,8 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
               onAsesor={setAsesorSeleccionado}
               asesorLabel="Asesor (opcional)"
             />
-            <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary text-primary-foreground">
-              {creating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleCreate} disabled={creating} className="w-full">
+              {creating ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
               Crear Usuario
             </Button>
           </div>
@@ -497,13 +541,14 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
       </Dialog>
 
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Usuario</DialogTitle>
             <DialogDescription>Modifica los datos del usuario. Deja la contraseña en blanco para mantenerla.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <UsuarioFields
+              idPrefix="editar"
               data={editData}
               onChange={setEditData}
               passwordLabel="Nueva contraseña (dejar vacío para no cambiar)"
@@ -516,8 +561,8 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
               onAsesor={setEditAsesorSeleccionado}
               asesorLabel="Asesor"
             />
-            <Button onClick={handleUpdate} disabled={updating} className="w-full bg-primary text-primary-foreground">
-              {updating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleUpdate} disabled={updating} className="w-full">
+              {updating ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
               Guardar Cambios
             </Button>
           </div>
@@ -535,7 +580,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              {deleting ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
               Eliminar
             </Button>
           </div>
