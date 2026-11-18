@@ -30,6 +30,7 @@ class ExpedienteController extends Controller
             $request->query('estatus') ?: null,
             $request->page(),
             $request->limit(),
+            $request->activo(),
         );
 
         if ($this->wantsPlainJson($request)) {
@@ -37,7 +38,7 @@ class ExpedienteController extends Controller
         }
 
         return Inertia::render('Admin/Expedientes/Index', $result + [
-            'filters' => $request->only('search', 'estatus'),
+            'filters' => $request->only('search', 'estatus', 'activo'),
         ]);
     }
 
@@ -53,7 +54,10 @@ class ExpedienteController extends Controller
 
     public function show(Request $request, int $tramite): Response|JsonResponse
     {
-        $detail = $this->expedientes->detail($this->activeOrFail($tramite));
+        $detail = $this->expedientes->detail(
+            // Cancelled tramites stay viewable so the admin can review and reactivate them.
+            $this->expedientes->find($tramite, onlyActive: false) ?? abort(404, 'Trámite no encontrado.'),
+        );
 
         if ($this->wantsPlainJson($request)) {
             return response()->json($detail);

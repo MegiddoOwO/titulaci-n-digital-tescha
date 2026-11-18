@@ -9,12 +9,15 @@ export function ExpedienteDocumentos({
   detalle,
   loading,
   pending,
+  readOnly = false,
   onApprove,
   onReject,
 }: {
   detalle: ExpedienteDetalle | null;
   loading: boolean;
   pending: boolean;
+  /** Cancelled expedientes: no review actions. */
+  readOnly?: boolean;
   onApprove: (docId: number) => void;
   onReject: (docId: number) => void;
 }) {
@@ -62,7 +65,7 @@ export function ExpedienteDocumentos({
             </Badge>
             {doc.id && (
               <>
-                {doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
+                {!readOnly && doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
                   <>
                     {(doc.estatus === "cargado" || doc.estatus === "en_revision") && (
                       <Button

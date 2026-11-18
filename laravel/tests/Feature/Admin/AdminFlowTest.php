@@ -122,7 +122,8 @@ class AdminFlowTest extends TestCase
         $this->actingAs($admin)->putJson('/admin/expedientes/3/toggle')
             ->assertOk()->assertExactJson(['message' => 'Trámite cancelado.', 'activo' => 0]);
         $this->assertFalse(Tramite::find(3)->activo);
-        $this->actingAs($admin)->getJson('/admin/expedientes/3')->assertNotFound();
+        // Cancelled tramites stay viewable by the admin (needed to reactivate them from the UI).
+        $this->actingAs($admin)->getJson('/admin/expedientes/3')->assertOk()->assertJsonPath('activo', 0);
         $this->actingAs($admin)->getJson('/admin/stats')->assertJsonPath('total_activos', 4);
 
         $this->actingAs($admin)->putJson('/admin/expedientes/3/toggle')

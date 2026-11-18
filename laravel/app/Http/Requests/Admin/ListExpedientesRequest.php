@@ -16,6 +16,8 @@ class ListExpedientesRequest extends FormRequest
         return [
             'search' => ['nullable', 'string'],
             'estatus' => ['nullable', 'string'],
+            // Optional: 0 lists cancelled tramites; anything absent keeps the Express active-only list.
+            'activo' => ['nullable', 'in:0,1'],
             'page' => ['nullable'],
             'limit' => ['nullable'],
         ];
@@ -25,6 +27,11 @@ class ListExpedientesRequest extends FormRequest
     public function page(): int
     {
         return max(1, (int) $this->query('page') ?: 1);
+    }
+
+    public function activo(): int
+    {
+        return $this->query('activo') === '0' ? 0 : 1;
     }
 
     public function limit(): int

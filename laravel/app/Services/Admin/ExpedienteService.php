@@ -18,11 +18,11 @@ class ExpedienteService
     /**
      * @return array{expedientes: array<int, array<string, mixed>>, total: int, page: int, totalPages: int}
      */
-    public function list(?string $search, ?string $estatus, int $page, int $limit): array
+    public function list(?string $search, ?string $estatus, int $page, int $limit, int $activo = 1): array
     {
         $base = DB::table('tramites as t')
             ->join('usuarios as u', 't.usuario_id', '=', 'u.id')
-            ->where('t.activo', 1)
+            ->where('t.activo', $activo)
             ->where('u.rol', 'estudiante');
 
         if ($search) {

@@ -49,6 +49,7 @@ export interface ExpedienteDetalle {
   usuario_id: number;
   opcion_titulacion: string;
   estatus: string;
+  activo?: number;
   titulo_proyecto: string | null;
   documentos: DocumentoAdmin[];
   dictamen?: { resultado: string } | null;

@@ -30,7 +30,7 @@ interface Props {
   total: number;
   page: number;
   totalPages: number;
-  filters: { search?: string; estatus?: string };
+  filters: { search?: string; estatus?: string; activo?: string };
 }
 
 export default function AdminExpedientes({ expedientes, total, page, totalPages, filters }: Props) {
@@ -47,6 +47,9 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
   const [pending, setPending] = useState(false);
   const [zipLoading, setZipLoading] = useState(false);
 
+  // Server-driven (query string): true while the "Cancelados" tab is active.
+  const cancelled = filters.activo === "0";
+
   const { toast } = useToast();
   const { detalle, loading, refetch } = useExpedienteDetalle(selectedId);
 
@@ -55,11 +58,12 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
   }, []);
 
   // Server-side filtering: the query string drives the Inertia props (filters/pagination are bookmarkable).
-  const visit = (next: { search: string; estatus: string; page: number }) => {
+  const visit = (next: { search: string; estatus: string; page: number; cancelled?: boolean }) => {
     router.get(
       "/admin/expedientes",
       {
         ...(next.search ? { search: next.search } : {}),
+        ...((next.cancelled ?? cancelled) ? { activo: "0" } : {}),
         ...(next.estatus !== "todos" ? { estatus: next.estatus } : {}),
         ...(next.page > 1 ? { page: next.page } : {}),
       },
@@ -80,6 +84,10 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
   const onEstatus = (v: string) => {
     setEstatusFilter(v);
     visit({ search, estatus: v, page: 1 });
+  };
+
+  const onTab = (showCancelled: boolean) => {
+    if (showCancelled !== cancelled) visit({ search, estatus: estatusFilter, page: 1, cancelled: showCancelled });
   };
 
   const exportQs = new URLSearchParams();
@@ -166,6 +174,20 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         <p className="text-muted-foreground font-body text-sm">Gestiona los trámites de titulación</p>
       </div>
 
+      <div className="inline-flex rounded-md border bg-white p-0.5" role="tablist" aria-label="Estado del trámite">
+        {([[false, "Activos"], [true, "Cancelados"]] as const).map(([value, label]) => (
+          <button
+            key={label}
+            role="tab"
+            aria-selected={cancelled === value}
+            className={`px-3 py-1 text-sm rounded font-body ${cancelled === value ? "bg-navy text-white" : "text-muted-foreground hover:bg-muted"}`}
+            onClick={() => onTab(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -243,6 +265,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                     <Badge className={`text-[10px] transition-colors ${semaforoColor[exp.color_semaforo] || "bg-gray-100"}`}>
                       {exp.estatus.replace(/_/g, " ")}
                     </Badge>
+                    {cancelled && <Badge className="ml-1 text-[10px] bg-gray-100 text-gray-700 border-gray-300">Cancelado</Badge>}
                   </TableCell>
                   <TableCell>
                     <Eye className="w-4 h-4 text-muted-foreground" />
@@ -282,6 +305,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
             <DialogDescription asChild>
               <div className="font-body text-sm flex items-center gap-2 flex-wrap">
                 <span>{detalle?.titulo_proyecto || "Sin título de proyecto"}</span>
+                {detalle?.activo !== 0 && (
                 <button
                   className="text-[10px] text-navy hover:underline"
                   onClick={() => {
@@ -293,14 +317,15 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                 >
                   Editar
                 </button>
+                )}
                 <button
-                  className="text-[10px] px-2 py-0.5 rounded border text-rose-600 hover:bg-rose-50"
+                  className={`text-[10px] px-2 py-0.5 rounded border ${detalle?.activo === 0 ? "text-emerald-700 hover:bg-emerald-50" : "text-rose-600 hover:bg-rose-50"}`}
                   disabled={togglingId === detalle?.id}
                   onClick={() => detalle && handleToggleTramite(detalle.id)}
                 >
-                  {togglingId === detalle?.id ? "..." : "Cancelar trámite"}
+                  {togglingId === detalle?.id ? "..." : detalle?.activo === 0 ? "Reactivar trámite" : "Cancelar trámite"}
                 </button>
-                {detalle && (
+                {detalle && detalle.activo !== 0 && (
                   <button
                     className="text-[10px] px-2 py-0.5 rounded border text-navy hover:bg-navy/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={zipLoading || !detalle.documentos.some((d) => d.archivo_url)}
@@ -327,6 +352,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
             detalle={detalle}
             loading={loading}
             pending={pending}
+            readOnly={detalle?.activo === 0}
             onApprove={(id) => review(id, "aprobar")}
             onReject={(id) => { setSelectedId(null); setRechazarDocId(id); }}
           />
