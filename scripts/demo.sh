@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Local demo runner: user-space MariaDB + Express API + Vite frontend.
-# Usage: scripts/demo.sh up|down|status|reset-db|up-laravel|down-laravel
+# Local demo runner: user-space MariaDB + Laravel served with `php -S`.
+# Usage: scripts/demo.sh up|down|status|reset-db --yes|test-db
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB_DIR="${SCA_DB_DIR:-$HOME/.local/share/sca-mariadb}"
 SOCK="$DB_DIR/mysqld.sock"
 RUN="$DB_DIR/run"
+PORT="${SCA_PORT:-8001}"
+DB_NAME="${SCA_DB_NAME:-sca_tescha}"
 mkdir -p "$RUN"
 
 db() { mariadb --no-defaults -uroot --socket="$SOCK" "$@"; }
@@ -26,68 +28,72 @@ start_db() {
   echo "db: started"
 }
 
-load_schema() {
-  db < "$ROOT/database/schema.sql"
-  db < "$ROOT/database/seed.sql"
-  echo "db: schema and seed loaded"
+# Create the database and load schema + demo data through Laravel migrations/seeders.
+build_database() {
+  db -e "create database if not exists \`$DB_NAME\` character set utf8mb4 collate utf8mb4_unicode_ci"
+  (cd "$ROOT" && DB_DATABASE="$DB_NAME" php artisan migrate --seed --force)
+  echo "db: $DB_NAME migrated and seeded"
 }
 
-start_app() { # name dir
-  if alive "$1"; then echo "$1: already running"; return; fi
-  (cd "$2" && nohup npm run dev >"$RUN/$1.log" 2>&1 & echo $! >"$RUN/$1.pid")
-  echo "$1: started (log: $RUN/$1.log)"
-}
-
-stop_app() {
-  if alive "$1"; then
-    # npm spawns children; kill the whole process group
-    kill -- "-$(ps -o pgid= "$(<"$RUN/$1.pid")" | tr -d ' ')" 2>/dev/null || kill "$(<"$RUN/$1.pid")" || true
-    echo "$1: stopped"
-  fi
-  rm -f "$RUN/$1.pid"
-}
-
-start_laravel() { # Laravel app on :8001 with upload limits above the 2M default
+start_laravel() {
   if alive laravel; then echo "laravel: already running"; return; fi
-  (cd "$ROOT/laravel" && npm run build >"$RUN/laravel-build.log" 2>&1) \
-    || { echo "laravel: npm run build failed, see $RUN/laravel-build.log"; exit 1; }
-  (cd "$ROOT/laravel" && nohup php -d upload_max_filesize=25M -d post_max_size=30M \
-    -S 127.0.0.1:8001 -t public vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php \
-    >"$RUN/laravel.log" 2>&1 & echo $! >"$RUN/laravel.pid")
-  echo "laravel: started on http://127.0.0.1:8001 (log: $RUN/laravel.log)"
+  (cd "$ROOT" && npm run build >"$RUN/build.log" 2>&1) \
+    || { echo "laravel: npm run build failed, see $RUN/build.log"; exit 1; }
+  cd "$ROOT"
+  # The pid recorded is php's own: `&` must apply to the php command alone.
+  nohup php -d upload_max_filesize=25M -d post_max_size=30M \
+    -S "127.0.0.1:$PORT" -t public \
+    vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php \
+    >"$RUN/laravel.log" 2>&1 &
+  echo $! >"$RUN/laravel.pid"
+  echo "laravel: started on http://127.0.0.1:$PORT (log: $RUN/laravel.log)"
+}
+
+stop_laravel() {
+  local pid=""
+  if alive laravel; then
+    pid="$(<"$RUN/laravel.pid")"
+  else
+    # Fallback: whoever listens on our port, only if it is a `php -S` on that port.
+    local cand
+    cand="$(ss -ltnpH "sport = :$PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)"
+    if [[ -n "$cand" ]] && ps -o args= -p "$cand" 2>/dev/null | grep -q -- "-S 127.0.0.1:$PORT"; then
+      pid="$cand"
+    fi
+  fi
+  if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; echo "laravel: stopped"; fi
+  rm -f "$RUN/laravel.pid"
 }
 
 case "${1:-}" in
   up)
     start_db
-    db -e "use sca_tescha" 2>/dev/null || load_schema
-    start_app api "$ROOT/server"
-    start_app web "$ROOT"
-    sleep 6
-    echo "Open http://localhost:8080  (password for all demo users: Demo1234!)"
+    db -e "use \`$DB_NAME\`" 2>/dev/null || build_database
+    start_laravel
+    echo "Open http://127.0.0.1:$PORT  (password for all demo users: Demo1234!)"
     echo "  estudiante 2021-0001 | asesor DOC-0001 | administrativo ADM-0001"
     ;;
   down)
-    stop_app web
-    stop_app api
+    stop_laravel
     db -e "shutdown" 2>/dev/null && echo "db: stopped" || true
-    ;;
-  up-laravel)
-    start_laravel
-    ;;
-  down-laravel)
-    if alive laravel; then kill "$(<"$RUN/laravel.pid")" 2>/dev/null || true; echo "laravel: stopped"; fi
-    rm -f "$RUN/laravel.pid"
     ;;
   status)
     db -e "select 1" >/dev/null 2>&1 && echo "db: up" || echo "db: down"
-    curl -fs localhost:3000/api/health >/dev/null && echo "api: up" || echo "api: down"
-    curl -fs -o /dev/null localhost:8080 && echo "web: up" || echo "web: down"
+    curl -fs -o /dev/null "http://127.0.0.1:$PORT/login" && echo "laravel: up" || echo "laravel: down"
     ;;
   reset-db)
+    if [[ "${2:-}" != "--yes" ]]; then
+      echo "reset-db drops and recreates the \`$DB_NAME\` database (all demo data). Re-run with --yes."
+      exit 1
+    fi
     start_db
-    db -e "drop database if exists sca_tescha"
-    load_schema
+    db -e "drop database if exists \`$DB_NAME\`"
+    build_database
     ;;
-  *) echo "Usage: $0 up|down|status|reset-db|up-laravel|down-laravel"; exit 1 ;;
+  test-db)
+    start_db
+    db -e "create database if not exists sca_tescha_test character set utf8mb4 collate utf8mb4_unicode_ci"
+    (cd "$ROOT" && DB_DATABASE=sca_tescha_test php artisan sca:test-db)
+    ;;
+  *) echo "Usage: $0 up|down|status|reset-db --yes|test-db"; exit 1 ;;
 esac
