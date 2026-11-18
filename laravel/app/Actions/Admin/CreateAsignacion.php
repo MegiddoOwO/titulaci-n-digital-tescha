@@ -17,6 +17,18 @@ class CreateAsignacion
 
     public function execute(int $tramiteId, int $usuarioId, string $rol): Asignacion
     {
+        $this->assertWithinLoad($usuarioId);
+
+        return Asignacion::firstOrCreate([
+            'tramite_id' => $tramiteId,
+            'usuario_id' => $usuarioId,
+            'rol_asignacion' => $rol,
+        ]);
+    }
+
+    /** The load rule, shared with ReplaceAsesorAsignacion. */
+    public function assertWithinLoad(int $usuarioId): void
+    {
         $carga = VwCargaDocente::find($usuarioId);
 
         if ($carga && $carga->carga_actual >= ($carga->carga_maxima ?: self::DEFAULT_MAX_LOAD)) {
@@ -24,11 +36,5 @@ class CreateAsignacion
                 'usuario_id' => 'El docente ha alcanzado su carga máxima de asesorías.',
             ]);
         }
-
-        return Asignacion::firstOrCreate([
-            'tramite_id' => $tramiteId,
-            'usuario_id' => $usuarioId,
-            'rol_asignacion' => $rol,
-        ]);
     }
 }

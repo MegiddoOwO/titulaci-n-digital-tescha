@@ -299,10 +299,10 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
         if (tramiteId) {
           setEditTramiteId(tramiteId);
           const tramite = await jsonRequest<{
-            asignaciones?: { usuario_id?: number }[];
+            asignaciones?: { usuario_id?: number; rol_asignacion?: string }[];
             opcion_titulacion_id?: number;
           }>(`/admin/expedientes/${tramiteId}`);
-          const asesor = tramite.asignaciones?.find((a) => a.usuario_id);
+          const asesor = tramite.asignaciones?.find((a) => a.rol_asignacion === "asesor");
           if (asesor?.usuario_id) setEditAsesorSeleccionado(String(asesor.usuario_id));
           if (tramite.opcion_titulacion_id) setEditOpcionSeleccionada(String(tramite.opcion_titulacion_id));
         }
@@ -333,24 +333,20 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
       onStart: () => setUpdating(true),
       onFinish: () => setUpdating(false),
       onSuccess: async (p) => {
-        // Advisor and option live on the tramite: the legacy page saved them with two extra calls
-        // (their failures were ignored). The refreshed props then pick up the new advisor loads.
+        // Advisor and option live on the tramite. The advisor is replaced (or removed) server-side in
+        // one transaction; its Spanish error, if any, is shown and the option is not saved.
         if (editData.rol === "estudiante" && editTramiteId) {
           try {
-            if (editAsesorSeleccionado !== "none") {
-              await jsonRequest("/admin/asignaciones", "POST", {
-                tramite_id: editTramiteId,
-                usuario_id: parseInt(editAsesorSeleccionado),
-                rol_asignacion: "asesor",
-              });
-            }
+            await jsonRequest(`/admin/tramites/${editTramiteId}/asesor`, "PUT", {
+              usuario_id: editAsesorSeleccionado === "none" ? null : parseInt(editAsesorSeleccionado),
+            });
             if (editOpcionSeleccionada) {
               await jsonRequest(`/admin/expedientes/${editTramiteId}`, "PUT", {
                 opcion_titulacion_id: parseInt(editOpcionSeleccionada),
               });
             }
-          } catch {
-            /* ignored, as in the legacy page */
+          } catch (e) {
+            failure(e instanceof Error ? e.message : "Error desconocido");
           }
           router.reload({ only: ["docentes", "usuarios"] });
         }

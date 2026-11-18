@@ -92,6 +92,8 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('tramite')->name('dictamenes.pdf');
 
         Route::post('/asignaciones', [AsignacionController::class, 'store'])->name('asignaciones.store');
+        Route::put('/tramites/{tramite}/asesor', [AsignacionController::class, 'replaceAsesor'])
+            ->whereNumber('tramite')->name('tramites.asesor');
         Route::delete('/asignaciones/{asignacion}', [AsignacionController::class, 'destroy'])
             ->whereNumber('asignacion')->name('asignaciones.destroy');
 
