@@ -75,7 +75,7 @@ export default function AdminDocumentos({
                   key={exp.id}
                   onClick={() => setSelectedId(exp.id)}
                   className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-                    selectedId === exp.id ? "bg-muted border-l-2 border-navy" : ""
+                    selectedId === exp.id ? "bg-muted border-l-2 border-primary" : ""
                   }`}
                 >
                   <p className="font-body text-sm font-medium">{exp.nombre_completo}</p>
@@ -115,7 +115,7 @@ export default function AdminDocumentos({
                     className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                       doc.estatus === "aprobado" ? "bg-emerald-50/30 border-emerald-200" :
                       doc.estatus === "rechazado" ? "bg-rose-50/30 border-rose-200" :
-                      doc.estatus === "pendiente" ? "bg-gray-50" : "bg-blue-50/30 border-blue-100"
+                      doc.estatus === "pendiente" ? "bg-muted" : "bg-blue-50/30 border-blue-100"
                     }`}
                   >
                     <div className="min-w-0 flex-1">

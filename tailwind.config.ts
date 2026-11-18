@@ -16,8 +16,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['"Rubik"', 'sans-serif'],
-        body: ['"Rubik"', 'sans-serif'],
+        display: ['"Archivo"', 'system-ui', 'sans-serif'],
+        body: ['"Archivo"', 'system-ui', 'sans-serif'],
+        sans: ['"Archivo"', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +61,25 @@ export default {
         navy: {
           DEFAULT: "hsl(var(--navy))",
           light: "hsl(var(--navy-light))",
+        },
+        lamp: {
+          green: "hsl(var(--lamp-green))",
+          amber: "hsl(var(--lamp-amber))",
+          red: "hsl(var(--lamp-red))",
+          off: "hsl(var(--lamp-off))",
+          housing: "hsl(var(--lamp-housing))",
+        },
+        // Text-safe state colors (AA on card and ground) for labels next to a lamp.
+        state: {
+          green: "hsl(var(--state-green))",
+          amber: "hsl(var(--state-amber))",
+          red: "hsl(var(--state-red))",
+        },
+        chart: {
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          grid: "hsl(var(--chart-grid))",
         },
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",

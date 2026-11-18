@@ -41,7 +41,7 @@ export function ExpedienteDocumentos({
           className={`p-3 rounded-lg border flex items-center justify-between ${
             doc.estatus === "aprobado" ? "bg-emerald-50/50 border-emerald-200" :
             doc.estatus === "rechazado" ? "bg-rose-50/50 border-rose-200" :
-            doc.estatus === "pendiente" ? "bg-gray-50/50" :
+            doc.estatus === "pendiente" ? "bg-muted/50" :
             "bg-blue-50/50 border-blue-100"
           }`}
         >

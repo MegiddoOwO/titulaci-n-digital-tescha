@@ -2,63 +2,144 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tablero Semáforo tokens. Graphite shell, cool-grey work ground, white modules, and state carried
+ * only by three lamp colors (always paired with a text label). Dark mode follows the same tokens.
+ */
 @layer base {
   :root {
-    --colorprincipal: #8a2036;
-    --colorsecundario: #efe1ca;
-    --colorterciario: #BC955B;
-    --colorgiga: #56212f;
-    --letrablanca: #ffffff;
-    --sombra1: rgba(0, 0, 0, 0.15);
-    --sombra2: rgba(0, 0, 0, 0.2);
-
-    /* HSL equivalents for Shadcn UI components */
-    --background: 210 20% 98%;
-    --foreground: 344 45% 23%; /* colorgiga */
+    --background: 220 14% 96%; /* #F4F5F7 work ground */
+    --foreground: 214 16% 14%; /* #1F2328 graphite */
 
     --card: 0 0% 100%;
-    --card-foreground: 344 45% 23%;
+    --card-foreground: 214 16% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 344 45% 23%;
+    --popover-foreground: 214 16% 14%;
 
-    --primary: 348 62% 33%; /* colorprincipal */
-    --primary-foreground: 0 0% 100%; /* letrablanca */
+    --primary: 214 16% 14%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 37 56% 86%; /* colorsecundario */
-    --secondary-foreground: 348 62% 33%;
+    --secondary: 216 15% 92%;
+    --secondary-foreground: 214 16% 14%;
 
-    --muted: 37 56% 86%;
-    --muted-foreground: 344 45% 23%;
+    --muted: 216 15% 94%; /* #ECEEF1 */
+    --muted-foreground: 217 11% 38%; /* #565E6B, 5.9:1 on the ground */
 
-    --accent: 36 42% 55%; /* colorterciario */
-    --accent-foreground: 0 0% 100%; /* letrablanca */
+    --accent: 216 15% 92%;
+    --accent-foreground: 214 16% 14%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 4 70% 38%; /* #A52A22, AA with white text */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 37 56% 86%;
-    --input: 37 56% 86%;
-    --ring: 348 62% 33%;
+    --border: 215 15% 87%; /* #D8DCE2 */
+    --input: 215 13% 72%; /* form control edges need 3:1 */
+    --ring: 214 16% 14%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem; /* 10px */
 
-    --gold: 36 42% 55%; /* colorterciario */
-    --gold-light: 37 56% 86%; /* colorsecundario */
-    --navy: 348 62% 33%; /* colorprincipal */
-    --navy-light: 344 45% 23%; /* colorgiga */
-    --success: 152 60% 40%;
-    --warning: 38 92% 50%;
-    --info: 210 80% 55%;
+    /* Lamps: the only state colors. */
+    --lamp-green: 135 54% 39%; /* #2E9B4B */
+    --lamp-amber: 42 89% 54%; /* #F2B01E */
+    --lamp-red: 4 70% 51%; /* #D9362B */
+    --lamp-off: 213 11% 25%; /* #3A4048 unlit lamp */
+    --lamp-housing: 214 16% 14%; /* #1F2328 */
+    --lamp-housing-edge: 214 14% 30%;
 
-    --sidebar-background: 344 45% 23%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 348 62% 33%;
+    /* Text-safe counterparts for labels beside a lamp. */
+    --state-green: 138 62% 25%;
+    --state-amber: 38 100% 27%;
+    --state-red: 4 68% 42%;
+
+    --chart-1: 214 16% 14%;
+    --chart-2: 217 11% 38%;
+    --chart-3: 215 13% 62%;
+    --chart-grid: 216 15% 90%;
+
+    /* Legacy semantic tokens used by unported pages, mapped onto the new system. */
+    --gold: 217 11% 38%;
+    --gold-light: 216 15% 92%;
+    --navy: 214 16% 14%;
+    --navy-light: 217 11% 32%;
+    --success: 138 62% 25%;
+    --warning: 38 100% 27%;
+    --info: 214 16% 14%;
+
+    --sidebar-background: 214 16% 14%; /* graphite rail */
+    --sidebar-foreground: 216 10% 80%; /* #C9CDD3 */
+    --sidebar-primary: 216 14% 23%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 348 62% 33%;
+    --sidebar-accent: 213 14% 23%; /* #323840 active item */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 348 62% 33%;
-    --sidebar-ring: 36 42% 55%;
+    --sidebar-border: 213 12% 24%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
+  /*
+   * Dark tokens are opt-in per surface: `.dark.tablero-dark` is set on <html> by AdminLayout
+   * (useTableroDark), so EVERY admin page gets them, redesigned or not. Admin pages that still
+   * carry old palette classes received minimal token swaps (bg-card, text-foreground, ...) so they
+   * stay legible. Student, asesor and public pages are not opted in and keep light tokens in dark
+   * mode, as before the redesign. When R4-R5 land, change this selector to plain `.dark` and drop
+   * useTableroDark.
+   */
+  .dark.tablero-dark {
+    --background: 214 17% 8%;
+    --foreground: 216 15% 92%;
+
+    --card: 214 15% 12%;
+    --card-foreground: 216 15% 92%;
+
+    --popover: 214 15% 12%;
+    --popover-foreground: 216 15% 92%;
+
+    --primary: 216 15% 92%;
+    --primary-foreground: 214 16% 12%;
+
+    --secondary: 214 13% 18%;
+    --secondary-foreground: 216 15% 92%;
+
+    --muted: 214 13% 16%;
+    --muted-foreground: 215 11% 68%;
+
+    --accent: 214 13% 20%;
+    --accent-foreground: 216 15% 92%;
+
+    --destructive: 4 72% 58%;
+    --destructive-foreground: 214 17% 8%;
+
+    --border: 214 11% 22%;
+    --input: 214 10% 40%;
+    --ring: 216 15% 85%;
+
+    --lamp-housing: 214 18% 7%;
+    --lamp-housing-edge: 214 12% 30%;
+
+    --state-green: 135 50% 55%;
+    --state-amber: 42 89% 60%;
+    --state-red: 4 85% 68%;
+
+    --chart-1: 216 15% 85%;
+    --chart-2: 215 11% 68%;
+    --chart-3: 215 9% 48%;
+    --chart-grid: 214 11% 18%;
+
+    --gold: 215 11% 68%;
+    --gold-light: 214 13% 20%;
+    --navy: 216 15% 92%;
+    --navy-light: 215 11% 75%;
+    --success: 135 50% 55%;
+    --warning: 42 89% 60%;
+    --info: 216 15% 85%;
+
+    --sidebar-background: 214 16% 11%;
+    --sidebar-foreground: 216 10% 78%;
+    --sidebar-primary: 214 13% 22%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 14% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 213 12% 20%;
+    --sidebar-ring: 0 0% 100%;
   }
 }
 
@@ -67,15 +148,37 @@
     @apply border-border;
   }
 
+  html {
+    font-family: "Archivo", system-ui, sans-serif;
+    color-scheme: light;
+  }
+
+  .dark.tablero-dark {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: "Rubik", sans-serif;
-    font-optical-sizing: auto;
+    @apply bg-background text-foreground antialiased;
+    font-family: "Archivo", system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Rubik", sans-serif;
-    font-optical-sizing: auto;
+    font-family: "Archivo", system-ui, sans-serif;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: hsl(var(--foreground) / 0.16);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  input,
+  textarea {
+    caret-color: hsl(var(--foreground));
   }
 }
 
@@ -90,5 +193,10 @@
 
   .focus-ring {
     @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background transition-shadow duration-200;
+  }
+
+  /* Counts line up in columns and rows. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }

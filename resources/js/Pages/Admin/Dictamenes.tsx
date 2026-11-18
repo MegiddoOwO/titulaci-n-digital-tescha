@@ -90,7 +90,7 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
             </div>
 
             <Button
-              className="w-full bg-navy text-white hover:bg-navy/90"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={!tramiteId || pending}
               onClick={handleEmitir}
             >
@@ -111,7 +111,7 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
                   key={c.id}
                   onClick={() => setTramiteId(String(c.id))}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    tramiteId === String(c.id) ? "border-navy bg-navy/5" : "hover:bg-muted/50"
+                    tramiteId === String(c.id) ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                   }`}
                 >
                   <div className="flex items-center justify-between">

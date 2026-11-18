@@ -365,7 +365,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
           <h1 className="font-display text-2xl font-bold text-foreground">Usuarios</h1>
           <p className="text-muted-foreground font-body text-sm">Gestiona los usuarios del sistema</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="bg-navy text-white hover:bg-navy/90 gap-2">
+        <Button onClick={() => setShowCreate(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
           <UserPlus className="w-4 h-4" /> Nuevo Usuario
         </Button>
       </div>
@@ -403,7 +403,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-white">
+      <div className="border rounded-lg bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -431,9 +431,9 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
                   <TableCell className="text-xs text-muted-foreground">{u.email}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={`text-[10px] ${
-                      u.rol === "administrativo" ? "border-navy text-navy" :
+                      u.rol === "administrativo" ? "border-primary text-foreground" :
                       u.rol === "asesor" ? "border-amber-200 text-amber-700" :
-                      "border-gray-200 text-gray-600"
+                      "border-border text-muted-foreground"
                     }`}>{u.rol}</Badge>
                   </TableCell>
                   <TableCell>
@@ -443,13 +443,13 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
                   </TableCell>
                   <TableCell>
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(u)} title="Editar">
-                      <Pencil className="w-4 h-4 text-navy" />
+                      <Pencil className="w-4 h-4 text-foreground" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => handleToggle(u.id)} title={u.activo ? "Desactivar" : "Activar"}>
                       {u.activo ? <ShieldX className="w-4 h-4 text-rose-500" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setDeleteId(u.id)} title="Eliminar">
-                      <Trash2 className="w-4 h-4 text-gray-400 hover:text-rose-500" />
+                      <Trash2 className="w-4 h-4 text-muted-foreground hover:text-rose-500" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -488,7 +488,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
               onAsesor={setAsesorSeleccionado}
               asesorLabel="Asesor (opcional)"
             />
-            <Button onClick={handleCreate} disabled={creating} className="w-full bg-navy text-white">
+            <Button onClick={handleCreate} disabled={creating} className="w-full bg-primary text-primary-foreground">
               {creating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Crear Usuario
             </Button>
@@ -516,7 +516,7 @@ export default function AdminUsuarios({ usuarios, page, totalPages, filters, doc
               onAsesor={setEditAsesorSeleccionado}
               asesorLabel="Asesor"
             />
-            <Button onClick={handleUpdate} disabled={updating} className="w-full bg-navy text-white">
+            <Button onClick={handleUpdate} disabled={updating} className="w-full bg-primary text-primary-foreground">
               {updating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Guardar Cambios
             </Button>

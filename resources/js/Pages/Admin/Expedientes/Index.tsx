@@ -174,13 +174,13 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         <p className="text-muted-foreground font-body text-sm">Gestiona los trámites de titulación</p>
       </div>
 
-      <div className="inline-flex rounded-md border bg-white p-0.5" role="tablist" aria-label="Estado del trámite">
+      <div className="inline-flex rounded-md border bg-card p-0.5" role="tablist" aria-label="Estado del trámite">
         {([[false, "Activos"], [true, "Cancelados"]] as const).map(([value, label]) => (
           <button
             key={label}
             role="tab"
             aria-selected={cancelled === value}
-            className={`px-3 py-1 text-sm rounded font-body ${cancelled === value ? "bg-navy text-white" : "text-muted-foreground hover:bg-muted"}`}
+            className={`px-3 py-1 text-sm rounded font-body ${cancelled === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
             onClick={() => onTab(value)}
           >
             {label}
@@ -219,7 +219,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-white">
+      <div className="border rounded-lg bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -307,7 +307,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                 <span>{detalle?.titulo_proyecto || "Sin título de proyecto"}</span>
                 {detalle?.activo !== 0 && (
                 <button
-                  className="text-[10px] text-navy hover:underline"
+                  className="text-[10px] text-foreground hover:underline"
                   onClick={() => {
                     if (!detalle) return;
                     setEditTramiteId(detalle.id);
@@ -327,7 +327,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                 </button>
                 {detalle && detalle.activo !== 0 && (
                   <button
-                    className="text-[10px] px-2 py-0.5 rounded border text-navy hover:bg-navy/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-[10px] px-2 py-0.5 rounded border text-foreground hover:bg-primary/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={zipLoading || !detalle.documentos.some((d) => d.archivo_url)}
                     title={detalle.documentos.some((d) => d.archivo_url) ? undefined : "No hay documentos para descargar."}
                     onClick={() => void handleDownloadZip(detalle.id)}

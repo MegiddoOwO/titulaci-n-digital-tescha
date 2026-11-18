@@ -166,7 +166,7 @@ export default function AdminCatalogos({ tab: tabKey, items }: { tab: string; it
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-navy" />
+          <Icon className="w-4 h-4 text-foreground" />
           <span className="font-display text-sm">
             {tab.label} ({items.length})
           </span>
@@ -176,7 +176,7 @@ export default function AdminCatalogos({ tab: tabKey, items }: { tab: string; it
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-white">
+      <div className="border rounded-lg bg-card">
         <Table>
           <TableHeader>
             <TableRow>

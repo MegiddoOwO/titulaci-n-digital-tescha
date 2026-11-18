@@ -102,4 +102,22 @@ class NotificacionTest extends TestCase
             $this->actingAs($this->user($numero))->getJson('/notificaciones')->assertOk();
         }
     }
+
+    public function test_admin_bell_flow_marks_all_read_without_touching_other_users(): void
+    {
+        $admin = $this->user('ADM-0001');
+        $student = $this->user('2021-0005');
+        $mine = $this->notify($admin, 'Admin 1');
+        $this->notify($admin, 'Admin 2');
+        $theirs = $this->notify($student, 'Student 1');
+
+        $before = $this->actingAs($admin)->getJson('/notificaciones')->json('noLeidas');
+        $this->assertGreaterThanOrEqual(2, $before);
+
+        $this->actingAs($admin)->putJson('/notificaciones/leer-todas')->assertOk();
+
+        $this->actingAs($admin)->getJson('/notificaciones')->assertJsonPath('noLeidas', 0);
+        $this->assertTrue($mine->fresh()->leida);
+        $this->assertFalse($theirs->fresh()->leida);
+    }
 }

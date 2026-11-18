@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Concerns\RespondsInertiaOrJson;
 use App\Http\Controllers\Controller;
 use App\Services\Admin\AdminStatsService;
+use App\Services\Admin\AdminTableroService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,7 +15,10 @@ class DashboardController extends Controller
 {
     use RespondsInertiaOrJson;
 
-    public function __construct(private readonly AdminStatsService $stats) {}
+    public function __construct(
+        private readonly AdminStatsService $stats,
+        private readonly AdminTableroService $tablero,
+    ) {}
 
     public function show(Request $request): Response|JsonResponse
     {
@@ -22,7 +26,10 @@ class DashboardController extends Controller
             return response()->json($this->stats->stats());
         }
 
-        return Inertia::render('Admin/Home', ['stats' => $this->stats->stats()]);
+        return Inertia::render('Admin/Home', [
+            'stats' => $this->stats->stats(),
+            'tablero' => $this->tablero->tablero(),
+        ]);
     }
 
     /** Express GET /api/admin/stats: always the raw stats payload. */

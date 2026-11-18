@@ -29,7 +29,7 @@ export default function AdminExpedienteShow({ tramite }: { tramite: ExpedienteDe
         </h1>
         <p className="text-muted-foreground font-body text-sm">
           {tramite.titulo_proyecto || "Sin título de proyecto"} ·{" "}
-          <Link href="/admin/expedientes" className="text-navy hover:underline">Volver a expedientes</Link>
+          <Link href="/admin/expedientes" className="text-foreground hover:underline">Volver a expedientes</Link>
         </p>
       </div>
       <Card className="border-border max-w-2xl">
