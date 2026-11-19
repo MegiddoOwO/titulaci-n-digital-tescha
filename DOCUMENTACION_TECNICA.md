@@ -355,7 +355,8 @@ Los mensajes de validación están en español y conservan los textos del sistem
 
 ### 4.7 Archivos y almacenamiento
 
-- Los documentos se guardan en el disco `uploads` (`App\Support\Uploads::disk()`), elegido con `UPLOADS_DISK`: `local` (por defecto, `storage/app/private`, privado) o `s3` (cualquier servicio compatible con S3: AWS, Cloudflare R2, Backblaze B2, DigitalOcean Spaces, MinIO; paquete `league/flysystem-aws-s3-v3`). **Nunca en `public/`** y nunca con URLs públicas o prefirmadas: solo se sirven por controlador, con autorización, en streaming (`InlineDocumentResponse`). El ZIP de expediente copia cada objeto por flujo a un temporal antes de comprimirlo y lo borra después.
+- Los documentos se guardan en el disco `uploads` (`App\Support\Uploads::disk()`), elegido con `UPLOADS_DISK`: `local` (por defecto, `storage/app/private`, privado) o `s3` (cualquier servicio compatible con S3; el proveedor recomendado es Cloudflare R2, también AWS, Backblaze B2, DigitalOcean Spaces, MinIO; paquete `league/flysystem-aws-s3-v3`). **Nunca en `public/`** y nunca con URLs públicas o prefirmadas: solo se sirven por controlador, con autorización, en streaming (`InlineDocumentResponse`). El ZIP de expediente copia cada objeto por flujo a un temporal antes de comprimirlo y lo borra después.
+- `php artisan sca:uploads-test` diagnostica el disco `uploads`: imprime la configuración efectiva (sin secreto; clave enmascarada, solo el host del endpoint, opciones de checksum) y hace put, lectura, exists, delete y comprobación de un objeto temporal en `uploads/_healthcheck/`, con pistas en español para errores comunes; sale con 1 si algún paso falla. El disco `s3` fija `request_checksum_calculation` y `response_checksum_validation` en `when_required` (el SDK >= 3.337 envía CRC32 por defecto y algunos servicios compatibles lo rechazan); `AWS_ENDPOINT` vacío equivale a AWS S3.
 - `php artisan sca:uploads-copy {--from=local} {--to=} {--dry-run} {--delete-source}` copia los archivos referenciados por `documentos.archivo_url` entre discos (omite los ya presentes con el mismo tamaño, verifica el tamaño, nunca borra el origen salvo `--delete-source` tras verificar; sale con 1 si algo falló).
 - Las pruebas fuerzan el disco `uploads` local; `tests/Feature/RealS3ProtocolTest.php` es opt-in (`SCA_TEST_REAL_S3=1` con un MinIO desechable) y se omite por defecto.
 - Convención de ruta: `uploads/{tramite_id}/<epoch_ms>_<nombre_sanitizado>`; el nombre se limpia con `[^a-zA-Z0-9._-]` a `_`. `documentos.archivo_url` guarda esa ruta relativa y `archivo_nombre` el nombre original.
@@ -792,7 +793,8 @@ Detalles relevantes:
 | `FILESYSTEM_DISK` | Disco por defecto (`local`, privado) |
 | `UPLOADS_DISK` | Disco de los documentos subidos: `local` (por defecto) o `s3` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET` | Credenciales y bucket cuando `UPLOADS_DISK=s3` (bucket privado) |
-| `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | Endpoint de servicios compatibles (R2: `https://<account>.r2.cloudflarestorage.com`, región `auto`, path style `true`; vacío en AWS S3) |
+| `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | Endpoint de servicios compatibles (R2: `https://<account>.r2.cloudflarestorage.com`, o `<account>.eu.r2...` en jurisdicción UE; región `auto`, path style `true`; vacío en AWS S3) |
+| `AWS_REQUEST_CHECKSUM_CALCULATION`, `AWS_RESPONSE_CHECKSUM_VALIDATION` | `when_required` (por defecto) o `when_supported`; ver `sca:uploads-test` |
 
 El archivo `.env` no se versiona.
 

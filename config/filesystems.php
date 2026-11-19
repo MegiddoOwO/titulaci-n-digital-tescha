@@ -12,10 +12,14 @@ $uploadsDisks = [
         'driver' => 's3',
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION'),
+        'region' => env('AWS_DEFAULT_REGION') ?: 'us-east-1', // Cloudflare R2 uses 'auto'
         'bucket' => env('AWS_BUCKET'),
-        'endpoint' => env('AWS_ENDPOINT'),
+        'endpoint' => env('AWS_ENDPOINT') ?: null, // empty/unset means plain AWS S3
         'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
+        // aws-sdk-php >= 3.337 sends CRC32 checksums by default, which some S3-compatible
+        // services (R2, MinIO, B2...) reject or mishandle; send them only when the operation requires it.
+        'request_checksum_calculation' => env('AWS_REQUEST_CHECKSUM_CALCULATION', 'when_required'),
+        'response_checksum_validation' => env('AWS_RESPONSE_CHECKSUM_VALIDATION', 'when_required'),
         'visibility' => 'private',
         'throw' => true,
         'report' => false,
