@@ -370,9 +370,13 @@ Los mensajes de validación están en español y conservan los textos del sistem
 
 ### 4.9 Correo y notificaciones
 
-- `NotificacionService::create()` inserta siempre la fila in-app y, si `tipo` es `email` o `ambos`, envía `NotificacionMail` (asunto = título). Un fallo de correo se reporta con `report()` pero **no interrumpe** la operación.
+- `NotificacionService::create()` inserta siempre la fila in-app y, si `tipo` es `email` o `ambos`, envía `NotificacionMail` (asunto = título). Un fallo de correo se registra en el log (solo dominio del destinatario, mensaje sin direcciones) con `App\Support\MailFailure` pero **no interrumpe** la operación; lo mismo en la recuperación de contraseña. El envío es síncrono.
 - La campana (`useNotificaciones`) consulta `GET /notificaciones` cada 30 segundos; el listado devuelve las últimas 50 notificaciones del usuario y `noLeidas`.
 - `ResetPasswordMail` envía el enlace de recuperación. Con `MAIL_MAILER=log` (valor por defecto) los correos se escriben en el log; en producción debe configurarse SMTP.
+- **Plantillas**: `resources/views/mail/layout.blade.php` (600 px, solo claro, tablas con CSS en línea, cabecera grafito con el texto «SCA-TESCHA», sin imágenes remotas) la comparten `reset-password`, `notificacion` y `test`; cada Mailable tiene además versión de texto plano en `resources/views/mail/text/`.
+- **`MAIL_ALWAYS_TO`**: si es una dirección válida, el listener `RedirectOutgoingMail` (evento `MessageSending`, registrado en `AppServiceProvider`) entrega todo correo a esa dirección, quita Cc/Cco, antepone `[Para: original]` al asunto y conserva el destinatario en `X-Original-To`. (`Mail::alwaysTo()` de Laravel descarta los originales, por eso no se usa.)
+- **Configuración SMTP** (Laravel 13): `MAIL_SCHEME` (`smtp` = STARTTLS si el servidor lo ofrece, `smtps` = SSL; sin valor, el puerto 465 usa `smtps`), `MAIL_TIMEOUT` (10 s por defecto), remitente `MAIL_FROM_ADDRESS`/`MAIL_FROM_NAME` (por defecto `SCA-TESCHA`).
+- **Diagnóstico**: `php artisan sca:mail-test {email}` (`ScaMailTest`) imprime la configuración efectiva sin contraseña, rechaza direcciones inválidas, envía `TestMail` y devuelve código 1 si falla. Pruebas en `tests/Feature/Mail/MailDeliveryTest.php`.
 
 ### 4.10 Exportación CSV y ZIP
 
@@ -390,7 +394,7 @@ No hay otros límites de tasa. La protección CSRF de `web` aplica a todas las m
 
 ### 4.12 Otras utilidades
 
-- Mail y vistas: `resources/views/mail/{notificacion,reset-password}.blade.php`.
+- Mail y vistas: `resources/views/mail/{layout,notificacion,reset-password,test}.blade.php` y `mail/text/*`.
 - `Support\StoredUploadPath` y `Support\ServerUploadLimit` están descritos en 4.7.
 - `bootstrap/app.php` conserva comprobaciones heredadas de `api/*` para formatear errores como JSON; la aplicación actual no define rutas `api`.
 
@@ -777,6 +781,10 @@ Detalles relevantes:
 | `SESSION_DRIVER`, `SESSION_LIFETIME` | Sesión (`file` por defecto; 120 minutos) |
 | `CACHE_STORE` | Caché (los contadores de `throttle` usan la caché) |
 | `MAIL_MAILER` y `MAIL_*` | Correo (`log` por defecto) |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_SCHEME`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Servidor SMTP (`MAIL_SCHEME=smtp` STARTTLS, `smtps` SSL) |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Remitente (nombre `SCA-TESCHA` por defecto; con Gmail, la misma cuenta) |
+| `MAIL_TIMEOUT` | Tiempo máximo de conexión SMTP en segundos (10) |
+| `MAIL_ALWAYS_TO` | Si se define, todo correo se redirige a esa dirección (demos); vacío en producción |
 | `LOGIN_MAX_ATTEMPTS`, `LOGIN_BLOCK_MINUTES` | Bloqueo de cuenta (5 y 15) |
 | `BCRYPT_ROUNDS`, `HASH_VERIFY` | Hash de contraseñas |
 | `FILESYSTEM_DISK` | Disco por defecto (`local`, privado) |

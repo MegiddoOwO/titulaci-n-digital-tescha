@@ -25,6 +25,6 @@ class NotificacionMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'mail.notificacion');
+        return new Content(view: 'mail.notificacion', text: 'mail.text.notificacion');
     }
 }
