@@ -14,7 +14,7 @@ use ZipArchive;
 
 /**
  * Opt-in check against a real S3-compatible endpoint (e.g. a throwaway local MinIO).
- * Skipped unless SCA_TEST_REAL_S3=1 and UPLOADS_DISK=s3 plus AWS_* are exported on the command line.
+ * Skipped unless SCA_TEST_REAL_S3=1 and UPLOADS_DISK=s3 (AWS_*) or UPLOADS_DISK=r2 (R2_*, plus R2_ENDPOINT for MinIO) are exported on the command line.
  * Never run in CI or against production buckets; it creates and removes its own objects only.
  */
 class RealS3ProtocolTest extends TestCase
@@ -26,7 +26,7 @@ class RealS3ProtocolTest extends TestCase
     protected function setUp(): void
     {
         if (! env('SCA_TEST_REAL_S3')) {
-            $this->markTestSkipped('Opt-in: set SCA_TEST_REAL_S3=1 with UPLOADS_DISK=s3 and AWS_* variables.');
+            $this->markTestSkipped('Opt-in: set SCA_TEST_REAL_S3=1 with UPLOADS_DISK=s3 (AWS_*) or r2 (R2_*) variables.');
         }
 
         parent::setUp();

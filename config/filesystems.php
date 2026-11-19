@@ -1,30 +1,8 @@
 <?php
 
-$uploadsDisks = [
-    'local' => [
-        'driver' => 'local',
-        'root' => storage_path('app/private'),
-        'serve' => false,
-        'throw' => true,
-        'report' => false,
-    ],
-    's3' => [
-        'driver' => 's3',
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION') ?: 'us-east-1', // Cloudflare R2 uses 'auto'
-        'bucket' => env('AWS_BUCKET'),
-        'endpoint' => env('AWS_ENDPOINT') ?: null, // empty/unset means plain AWS S3
-        'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
-        // aws-sdk-php >= 3.337 sends CRC32 checksums by default, which some S3-compatible
-        // services (R2, MinIO, B2...) reject or mishandle; send them only when the operation requires it.
-        'request_checksum_calculation' => env('AWS_REQUEST_CHECKSUM_CALCULATION', 'when_required'),
-        'response_checksum_validation' => env('AWS_RESPONSE_CHECKSUM_VALIDATION', 'when_required'),
-        'visibility' => 'private',
-        'throw' => true,
-        'report' => false,
-    ],
-];
+use App\Support\UploadsDiskConfig;
+
+$uploadsEnv = UploadsDiskConfig::readEnv();
 
 return [
 
@@ -64,9 +42,14 @@ return [
             'report' => false,
         ],
 
-        // Expediente uploads: UPLOADS_DISK=local (default, storage/app/private) or s3
-        // (any S3-compatible service). Always private; served only through the app.
-        'uploads' => $uploadsDisks[env('UPLOADS_DISK', 'local')] ?? $uploadsDisks['local'],
+        // Expediente uploads: UPLOADS_DISK=local (default, storage/app/private), r2 (Cloudflare R2,
+        // R2_* variables) or s3 (generic S3-compatible, AWS_* variables). Always private; served only
+        // through the app. See App\Support\UploadsDiskConfig.
+        'uploads' => UploadsDiskConfig::make((string) env('UPLOADS_DISK', 'local'), $uploadsEnv),
+
+        // The r2 variant is always defined under its own name so it can be a copy target
+        // (`sca:uploads-copy --to=r2`) while UPLOADS_DISK is still `local`.
+        'r2' => UploadsDiskConfig::make('r2', $uploadsEnv),
 
         'public' => [
             'driver' => 'local',

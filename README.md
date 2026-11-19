@@ -110,36 +110,40 @@ MAIL_FROM_NAME="SCA-TESCHA"
 Los documentos subidos usan el disco `uploads`, elegido con `UPLOADS_DISK` en `.env`:
 
 - `local` (por defecto): `storage/app/private/uploads/{tramite_id}/...`.
-- `s3`: cualquier servicio compatible con S3. **Se recomienda Cloudflare R2.** Usa `league/flysystem-aws-s3-v3` (ya incluido en `composer.json`).
+- `r2`: Cloudflare R2 (**recomendado**), con variables `R2_*`.
+- `s3`: cualquier otro servicio compatible con S3 (AWS, Backblaze B2, MinIO...), con variables `AWS_*`.
+
+Ambos usan `league/flysystem-aws-s3-v3` (ya incluido en `composer.json`).
 
 ### Configurar Cloudflare R2
 
 1. En el panel de Cloudflare: **R2 > Create bucket**. Mantenlo **privado**: no actives la URL pública `r2.dev` ni un dominio público personalizado.
 2. **R2 > Manage API tokens > Create API token**. Permiso **Object Read & Write**, limitado a ese bucket.
-3. Copia el **Access Key ID** y el **Secret Access Key** (solo se muestran una vez) y tu **Account ID** (el endpoint S3 es `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`).
-4. Agrega a `.env` (deja `UPLOADS_DISK=local` hasta migrar los archivos existentes, paso 6):
+3. Copia el **Access Key ID** y el **Secret Access Key** (solo se muestran una vez) y tu **Account ID** de Cloudflare. El endpoint se arma solo: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+4. Agrega a `.env`:
 
 ```env
-UPLOADS_DISK=s3
-AWS_ACCESS_KEY_ID=<access key id>
-AWS_SECRET_ACCESS_KEY=<secret access key>
-AWS_DEFAULT_REGION=auto
-AWS_BUCKET=<nombre del bucket>
-AWS_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-AWS_USE_PATH_STYLE_ENDPOINT=true
+UPLOADS_DISK=r2
+R2_ACCOUNT_ID=<tu account id de Cloudflare>
+R2_ACCESS_KEY_ID=<access key id>
+R2_SECRET_ACCESS_KEY=<secret access key>
+R2_BUCKET=<nombre del bucket>
 ```
 
-5. Ejecuta `php artisan config:clear` y luego `php artisan sca:uploads-test`. Muestra la configuración efectiva (sin el secreto, la clave enmascarada y solo el host del endpoint) y prueba escribir, leer, comprobar y borrar un objeto temporal en `uploads/_healthcheck/`. Termina con código 1 si algo falla y traduce los errores comunes (firma inválida, clave inexistente, permisos, bucket inexistente, endpoint o red) a una pista concreta. Con `UPLOADS_DISK=local` solo prueba el disco local.
+   Opcionales: `R2_JURISDICTION=eu` (solo si el bucket se creó con jurisdicción UE; no se puede cambiar después de crear el bucket; fuente: <https://developers.cloudflare.com/r2/reference/data-location/>) y `R2_ENDPOINT` (reemplaza por completo el endpoint calculado; útil para pruebas con MinIO o configuraciones propias). Si ya hay archivos subidos, deja `UPLOADS_DISK=local` con las demás variables `R2_*` hasta migrar (paso 6).
+5. Ejecuta `php artisan config:clear` y luego `UPLOADS_DISK=r2 php artisan sca:uploads-test` (con `UPLOADS_DISK=r2` ya en `.env` basta `php artisan sca:uploads-test`). Muestra la configuración efectiva (proveedor, Account ID y clave enmascarados, solo el host del endpoint, sin el secreto) y prueba escribir, leer, comprobar y borrar un objeto temporal en `uploads/_healthcheck/`. Termina con código 1 si algo falla y traduce los errores comunes (variable `R2_*` faltante, firma inválida, clave inexistente, permisos, bucket inexistente, endpoint o red) a una pista que nombra la variable `R2_*` a revisar. Con `UPLOADS_DISK=local` solo prueba el disco local.
 6. Si ya hay archivos subidos, migra con la sección siguiente (respaldo, simulación y copia real).
-7. Cambia a `UPLOADS_DISK=s3`, ejecuta `php artisan config:clear` y prueba abrir un documento y descargar un expediente.
+7. Cambia a `UPLOADS_DISK=r2`, ejecuta `php artisan config:clear` y prueba abrir un documento y descargar un expediente.
 
 Notas:
 
-- Si el bucket se creó con jurisdicción UE, el endpoint es `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com` (fuente: <https://developers.cloudflare.com/r2/reference/data-location/>); la jurisdicción no se puede cambiar después.
+- Si no defines `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` o `R2_BUCKET`, se usan `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_BUCKET` si existen.
 - Checksums: el SDK de AWS (>= 3.337) envía sumas CRC32 por defecto y algunos servicios compatibles con S3 fallan con ellas. Por eso el disco usa `request_checksum_calculation` y `response_checksum_validation` en `when_required`. Pueden cambiarse con `AWS_REQUEST_CHECKSUM_CALCULATION` y `AWS_RESPONSE_CHECKSUM_VALIDATION` (`when_required` o `when_supported`).
-- La integración con R2 se verificó con el protocolo S3 contra MinIO, no con una cuenta real de R2; haz la prueba del paso 5 con tus credenciales antes de migrar.
+- La integración con R2 se verificó con el protocolo S3 contra MinIO (`R2_ENDPOINT`), no con una cuenta real de R2; haz la prueba del paso 5 con tus credenciales antes de migrar.
 
 ### Otros proveedores compatibles con S3
+
+Para estos se usa `UPLOADS_DISK=s3`. Los nombres `AWS_*` son la convención del SDK de S3, no implican tener una cuenta de AWS.
 
 | Proveedor | `AWS_ENDPOINT` | `AWS_DEFAULT_REGION` | Path style |
 |---|---|---|---|
@@ -159,9 +163,9 @@ Notas:
 
 1. Haz un respaldo de la base de datos y de `storage/app/private`.
 2. Configura las variables del bucket pero deja `UPLOADS_DISK=local`; luego ejecuta `php artisan config:clear`.
-3. Simula: `php artisan sca:uploads-copy --from=local --to=s3 --dry-run`. Para copiar al disco configurado como `uploads` omite `--to` (con `UPLOADS_DISK=s3`).
-4. Copia: `php artisan sca:uploads-copy --from=local --to=s3`. Omite los archivos ya presentes con el mismo tamaño, verifica el tamaño tras copiar e informa copiados, omitidos, faltantes y fallidos (código de salida 1 si algo falló).
-5. Cambia a `UPLOADS_DISK=s3` y prueba abrir un documento y descargar un expediente.
+3. Simula: `php artisan sca:uploads-copy --from=local --to=r2 --dry-run`. `--to=r2` siempre usa las variables `R2_*`, aunque `UPLOADS_DISK` siga en `local`. Para otro proveedor usa `--to=s3` (disco `s3` estándar de Laravel) o omite `--to` para copiar al disco `uploads` configurado.
+4. Copia: `php artisan sca:uploads-copy --from=local --to=r2`. Omite los archivos ya presentes con el mismo tamaño, verifica el tamaño tras copiar e informa copiados, omitidos, faltantes y fallidos (código de salida 1 si algo falló).
+5. Cambia a `UPLOADS_DISK=r2` (o `s3`), ejecuta `php artisan config:clear` y prueba abrir un documento y descargar un expediente.
 6. Conserva `storage/app/private/uploads` hasta confirmar. Solo si lo deseas, `--delete-source` borra cada origen únicamente tras una copia verificada.
 
 ## Antes de producción
