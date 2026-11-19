@@ -22,8 +22,14 @@ class ScaUploadsTest extends Command
         $config = (array) config('filesystems.disks.uploads');
         $driver = (string) ($config['driver'] ?? '-');
 
-        $rows = [['driver', $driver]];
+        $provider = $driver === 's3' ? (string) ($config['provider'] ?? 's3') : $driver;
+        $this->provider = $provider;
+
+        $rows = [['driver', $driver], ['provider', $provider]];
         if ($driver === 's3') {
+            if ($provider === 'r2') {
+                $rows[] = ['account id', $this->mask($config['account_id'] ?? null)];
+            }
             $rows = array_merge($rows, [
                 ['bucket', (string) ($config['bucket'] ?? '') ?: '(unset)'],
                 ['endpoint host', $this->host($config['endpoint'] ?? null)],
@@ -37,7 +43,16 @@ class ScaUploadsTest extends Command
         $this->table(['Setting', 'Value'], $rows);
 
         if ($driver !== 's3') {
-            $this->warn('Se esta probando el disco LOCAL. Para probar R2 u otro bucket define UPLOADS_DISK=s3 y ejecuta php artisan config:clear.');
+            $this->warn('Se esta probando el disco LOCAL. Para probar R2 define UPLOADS_DISK=r2 (u otro bucket UPLOADS_DISK=s3) y ejecuta php artisan config:clear.');
+        }
+
+        if ($provider === 'r2' && ($problems = $this->r2Problems($config))) {
+            foreach ($problems as $problem) {
+                $this->line('  FAIL  config: '.$problem);
+            }
+            $this->error('La configuracion de R2 esta incompleta; no se intento conectar.');
+
+            return self::FAILURE;
         }
 
         $path = 'uploads/_healthcheck/'.now()->format('YmdHis').'-'.bin2hex(random_bytes(3)).'.txt';
@@ -89,6 +104,27 @@ class ScaUploadsTest extends Command
         return self::FAILURE;
     }
 
+    private string $provider = 'local';
+
+    /** Spanish hints for missing/invalid R2 settings, naming the R2_* variables. */
+    private function r2Problems(array $config): array
+    {
+        $problems = [];
+        $jurisdiction = (string) ($config['jurisdiction'] ?? '');
+        if (! ($config['endpoint'] ?? null)) {
+            $problems[] = $jurisdiction !== '' && $jurisdiction !== 'eu'
+                ? "R2_JURISDICTION=\"{$jurisdiction}\" no es valido (solo se admite eu o dejarlo vacio)"
+                : 'falta R2_ACCOUNT_ID (tu Account ID de Cloudflare) o, en su lugar, R2_ENDPOINT';
+        }
+        foreach (['bucket' => 'R2_BUCKET', 'key' => 'R2_ACCESS_KEY_ID', 'secret' => 'R2_SECRET_ACCESS_KEY'] as $field => $var) {
+            if (! ($config[$field] ?? null)) {
+                $problems[] = "falta {$var}";
+            }
+        }
+
+        return $problems;
+    }
+
     private function step(string $name, callable $fn): bool
     {
         try {
@@ -115,11 +151,12 @@ class ScaUploadsTest extends Command
             $text .= ' '.$t->getMessage();
         }
 
+        $r2 = $this->provider === 'r2';
         $hints = [
-            'SignatureDoesNotMatch' => 'revisa AWS_SECRET_ACCESS_KEY y que el token sea de R2',
-            'InvalidAccessKeyId' => 'revisa AWS_ACCESS_KEY_ID',
+            'SignatureDoesNotMatch' => 'revisa '.($r2 ? 'R2_SECRET_ACCESS_KEY' : 'AWS_SECRET_ACCESS_KEY').' y que el token sea de R2',
+            'InvalidAccessKeyId' => 'revisa '.($r2 ? 'R2_ACCESS_KEY_ID' : 'AWS_ACCESS_KEY_ID'),
             'AccessDenied' => 'el token necesita permiso Object Read & Write sobre ese bucket',
-            'NoSuchBucket' => 'revisa AWS_BUCKET',
+            'NoSuchBucket' => 'revisa '.($r2 ? 'R2_BUCKET' : 'AWS_BUCKET'),
         ];
         foreach ($hints as $needle => $hint) {
             if ($code === $needle || str_contains($text, $needle)) {
@@ -127,7 +164,7 @@ class ScaUploadsTest extends Command
             }
         }
         if (preg_match('/cURL error|Could not resolve host|Connection refused|timed out|Failed to connect/i', $text)) {
-            return 'error de conexion -> revisa AWS_ENDPOINT (account id) y la red';
+            return 'error de conexion -> revisa '.($r2 ? 'R2_ACCOUNT_ID (o R2_ENDPOINT)' : 'AWS_ENDPOINT (account id)').' y la red';
         }
 
         return $code ? "{$code} (sin pista conocida)" : $e::class;

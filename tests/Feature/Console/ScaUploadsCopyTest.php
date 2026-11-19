@@ -92,6 +92,18 @@ class ScaUploadsCopyTest extends TestCase
         Storage::disk('src')->assertExists('uploads/legacy_b.pdf');
     }
 
+    public function test_r2_is_a_valid_copy_target_while_uploads_stays_local(): void
+    {
+        $this->seedSource();
+        Storage::fake('r2');
+
+        $this->artisan('sca:uploads-copy', ['--from' => 'src', '--to' => 'r2'])
+            ->expectsOutputToContain('copied=2')->assertExitCode(0);
+
+        Storage::disk('r2')->assertExists('uploads/1/a.pdf');
+        $this->assertSame('r2', config('filesystems.disks.r2.provider'));
+    }
+
     public function test_same_disk_is_rejected(): void
     {
         $this->artisan('sca:uploads-copy', ['--from' => 'src', '--to' => 'src'])->assertExitCode(1);
