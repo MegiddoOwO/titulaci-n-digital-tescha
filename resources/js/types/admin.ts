@@ -61,3 +61,30 @@ export interface ExpedienteDetalle {
     porcentaje: number;
   };
 }
+
+/** Per-status lamp counts: trámites of that status split by the semáforo from `vw_progreso_tramite`. */
+export interface TableroEstatus {
+  estatus: "en_proceso" | "en_revision" | "aprobado" | "rechazado" | "completado";
+  total: number;
+  rojo: number;
+  ambar: number;
+  verde: number;
+}
+
+export interface TableroFila {
+  id: number;
+  numero_control: string;
+  nombre_completo: string;
+  estatus: string;
+  color_semaforo: string;
+  docs_rechazados: number;
+  /** Documents pending, loaded or in review. */
+  docs_pendientes: number;
+}
+
+export interface Tablero {
+  estatus: TableroEstatus[];
+  /** Documents reviewed per week (Monday start), last 8 weeks, oldest first. */
+  semanal: { semana: string; documentos: number }[];
+  pendientes: { total: number; filas: TableroFila[] };
+}

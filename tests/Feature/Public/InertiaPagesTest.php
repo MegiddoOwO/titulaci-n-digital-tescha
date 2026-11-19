@@ -87,6 +87,16 @@ class InertiaPagesTest extends TestCase
         $this->getJson('/no-existe-esta-ruta')->assertNotFound();
     }
 
+    public function test_unknown_url_shares_the_session_user_with_the_not_found_page(): void
+    {
+        $user = $this->userWithRole('estudiante');
+
+        $this->get('/no-existe-esta-ruta')->assertNotFound()->assertInertia(fn (Assert $page) => $page
+            ->component('NotFound')->where('auth.user', null));
+        $this->actingAs($user)->get('/no-existe-esta-ruta')->assertNotFound()->assertInertia(fn (Assert $page) => $page
+            ->component('NotFound')->where('auth.user.email', $user->email));
+    }
+
     public function test_shared_auth_props_expose_profile_fields_but_no_secrets(): void
     {
         $user = $this->userWithRole('estudiante');

@@ -7,23 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Estudiante\UploadDocumentoRequest;
 use App\Models\Documento;
 use App\Models\Tramite;
-use App\Support\StoredUploadPath;
+use App\Support\InlineDocumentResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 class DocumentoController extends Controller
 {
-    private const CONTENT_TYPES = [
-        'pdf' => 'application/pdf',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-    ];
-
     public function store(UploadDocumentoRequest $request, Tramite $tramite, UploadDocumento $upload): RedirectResponse|Response
     {
         $documento = $upload->execute(
@@ -46,20 +37,6 @@ class DocumentoController extends Controller
     {
         Gate::authorize('view', $documento);
 
-        abort_if(! $documento->archivo_url, 404, 'Documento no encontrado.');
-
-        $path = StoredUploadPath::resolve($documento->archivo_url);
-        $disk = Storage::disk(UploadDocumento::DISK);
-
-        abort_unless($path && $disk->exists($path), 404, 'Archivo no encontrado en el servidor.');
-
-        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-
-        return $disk->response(
-            $path,
-            $documento->archivo_nombre ?: basename($path),
-            ['Content-Type' => self::CONTENT_TYPES[$extension] ?? 'application/octet-stream'],
-            'inline',
-        );
+        return InlineDocumentResponse::for($documento);
     }
 }

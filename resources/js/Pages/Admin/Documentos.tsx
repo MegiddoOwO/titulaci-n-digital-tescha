@@ -1,13 +1,12 @@
+import { formatPercent } from "@/lib/format";
 import { useEffect, useRef, useState } from "react";
 import { Head, router } from "@inertiajs/react";
-import { FileText, Loader2, Search } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { adminLayout } from "@/components/admin/AdminLayout";
 import { RechazoModal } from "@/components/admin/RechazoModal";
-import { documentoBadgeClass, documentoBadgeLabel } from "@/components/admin/documentoBadge";
+import { ExpedienteDocumentos } from "@/components/admin/ExpedienteDocumentos";
 import { reviewDocumento, useExpedienteDetalle } from "@/components/admin/useExpedienteDetalle";
 import type { ExpedienteItem } from "@/types/admin";
 
@@ -48,119 +47,101 @@ export default function AdminDocumentos({
       },
     });
 
+  const seleccionado = expedientes.find((e) => e.id === selectedId);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-4 px-4 py-6 sm:px-8">
       <Head title="Documentos" />
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Documentos</h1>
-        <p className="text-muted-foreground font-body text-sm">Revisa y valida documentos de los expedientes</p>
+        <h1 className="text-2xl font-extrabold">Documentos</h1>
+        <p className="text-sm text-muted-foreground">Revisa y valida los documentos de cada expediente</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar estudiante..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          aria-label="Buscar estudiante"
+          placeholder="Buscar estudiante..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 sm:max-w-md"
+        />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">Expedientes</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y max-h-[600px] overflow-y-auto">
-              {expedientes.map((exp) => (
-                <div
-                  key={exp.id}
-                  onClick={() => setSelectedId(exp.id)}
-                  className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-                    selectedId === exp.id ? "bg-muted border-l-2 border-navy" : ""
-                  }`}
-                >
-                  <p className="font-body text-sm font-medium">{exp.nombre_completo}</p>
-                  <p className="font-body text-[11px] text-muted-foreground">{exp.numero_control} · {exp.opcion_titulacion}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge className={`text-[10px] ${
-                      exp.color_semaforo === "verde" ? "bg-emerald-100 text-emerald-700" :
-                      exp.color_semaforo === "rojo" ? "bg-rose-100 text-rose-700" :
-                      "bg-amber-100 text-amber-700"
-                    }`}>
-                      {exp.porcentaje}%
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">{exp.estatus.replace(/_/g, " ")}</span>
-                  </div>
-                </div>
-              ))}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-labelledby="exp-lista-titulo">
+          <h2 id="exp-lista-titulo" className="border-b px-4 py-3 text-base font-extrabold">
+            Expedientes <span className="tnum text-sm font-normal text-muted-foreground">({expedientes.length})</span>
+          </h2>
+          {expedientes.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm font-semibold">
+                {search.trim() ? "Ningún expediente coincide con tu búsqueda." : "Todavía no hay expedientes para revisar."}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {search.trim()
+                  ? "Prueba con otro nombre o número de control."
+                  : "Cuando un estudiante inicie su trámite y suba documentos, su expediente aparecerá aquí."}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2 border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-base">
-              {selectedId ? `Documentos del expediente #${selectedId}` : "Selecciona un expediente"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!selectedId ? (
-              <p className="text-muted-foreground text-sm text-center py-8">Selecciona un expediente para revisar sus documentos.</p>
-            ) : loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
-            ) : (
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {detalle?.documentos.map((doc) => (
-                  <div
-                    key={doc.tipo_documento_id}
-                    className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                      doc.estatus === "aprobado" ? "bg-emerald-50/30 border-emerald-200" :
-                      doc.estatus === "rechazado" ? "bg-rose-50/30 border-rose-200" :
-                      doc.estatus === "pendiente" ? "bg-gray-50" : "bg-blue-50/30 border-blue-100"
+          ) : (
+            <ul className="max-h-72 divide-y overflow-y-auto lg:max-h-[640px]">
+              {expedientes.map((exp) => (
+                <li key={exp.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(exp.id)}
+                    aria-pressed={selectedId === exp.id}
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/60 ${
+                      selectedId === exp.id ? "bg-muted" : ""
                     }`}
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <p className="text-xs font-semibold truncate">{doc.tipo_documento_nombre}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 ml-[1.375rem]">
-                        {doc.archivo_nombre || "No subido"} · {doc.formato_permitido}
-                        {doc.estatus === "rechazado" && doc.motivo_rechazo && (
-                          <span className="text-rose-600 block mt-0.5">Rechazado: {doc.motivo_rechazo}</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className={`text-[10px] transition-colors ${documentoBadgeClass(doc.estatus)}`}>
-                        {documentoBadgeLabel(doc.estatus)}
-                      </Badge>
-                      {doc.id && doc.estatus !== "aprobado" && doc.estatus !== "rechazado" && (
-                        <>
-                          {(doc.estatus === "cargado" || doc.estatus === "en_revision") && (
-                            <Button
-                              size="sm" className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => review(doc.id!, "aprobar")}
-                              disabled={pending}
-                            >Aprobar</Button>
-                          )}
-                          <Button
-                            size="sm" variant="destructive" className="h-7 text-[10px]"
-                            onClick={() => setRechazarDocId(doc.id!)}
-                          >Rechazar</Button>
-                        </>
-                      )}
-                      {doc.id && (
-                        <Button size="sm" variant="outline" className="h-7 text-[10px]" asChild>
-                          <a href={`/admin/tramites/${detalle.id}/documentos/${doc.id}`} target="_blank" rel="noreferrer">Ver</a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    <span className="min-w-0">
+                      <span className={`block truncate text-sm ${selectedId === exp.id ? "font-extrabold" : "font-semibold"}`}>{exp.nombre_completo}</span>
+                      <span className="tnum block truncate text-xs text-muted-foreground">
+                        {exp.numero_control} · {exp.opcion_titulacion}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-0.5">
+                      <StatusBadge kind="tramite" status={exp.estatus} semaforo={exp.color_semaforo} />
+                      <span className="tnum text-xs text-muted-foreground">{formatPercent(exp.porcentaje)}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="min-w-0 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="exp-detalle-titulo">
+          <h2 id="exp-detalle-titulo" className="mb-3 text-base font-extrabold">
+            {selectedId ? (
+              <>
+                Documentos del expediente <span className="tnum">#{selectedId}</span>
+                {seleccionado && <span className="ml-2 text-sm font-normal text-muted-foreground">{seleccionado.nombre_completo}</span>}
+              </>
+            ) : (
+              "Selecciona un expediente"
             )}
-          </CardContent>
-        </Card>
+          </h2>
+          {!selectedId ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+              <FileText className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Elige un expediente de la lista para revisar sus documentos: aprobar, rechazar con motivo o abrirlos.
+              </p>
+            </div>
+          ) : (
+            <ExpedienteDocumentos
+              detalle={detalle}
+              loading={loading}
+              pending={pending}
+              showFormat
+              onApprove={(id) => review(id, "aprobar")}
+              onReject={setRechazarDocId}
+            />
+          )}
+        </section>
       </div>
 
       {rechazarDocId !== null && (

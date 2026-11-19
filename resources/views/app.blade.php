@@ -8,13 +8,26 @@
 
         <title inertia>Sistema de Titulación ISC</title>
 
+        {{-- Apply the stored theme before first paint so dark users do not see a light flash.
+             next-themes (storageKey "sca_theme", class attribute) takes over once the JS mounts. --}}
+        <script>
+            (function () {
+                try {
+                    if (localStorage.getItem('sca_theme') === 'dark') {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.style.colorScheme = 'dark';
+                    }
+                } catch (e) {}
+            })();
+        </script>
+
         <link rel="icon" type="image/svg+xml" href="/favicon.svg">
         <link rel="shortcut icon" href="/favicon.ico">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
         @routes

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
-import { Loader2, Plus, Pencil, Power, PowerOff, BookOpen, Building2, FileCheck, FileText } from "lucide-react";
+import { Loader2, Plus, Pencil, Power, PowerOff, BookOpen, Building2, FileCheck, FileText, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -139,101 +140,114 @@ export default function AdminCatalogos({ tab: tabKey, items }: { tab: string; it
     });
   };
 
-  const colSpan = 3 + tab.columns.length;
+  const titleHead = tab.title === "titulo" ? "Título" : "Nombre";
+  const rowName = (item: Item) => String(item[tab.title] ?? "");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-4 px-4 py-6 sm:px-8">
       <Head title="Catálogos" />
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Catálogos</h1>
-        <p className="text-muted-foreground font-body text-sm">Administra los catálogos del sistema</p>
+        <h1 className="text-2xl font-extrabold">Catálogos</h1>
+        <p className="text-sm text-muted-foreground">Administra los catálogos del sistema</p>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {TABS.map((t) => (
-          <Button
-            key={t.key}
-            variant={tab.key === t.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => changeTab(t.key)}
-            className="gap-1.5"
-          >
-            <t.icon className="w-3.5 h-3.5" />
-            {t.label}
-          </Button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Catálogo"
+        value={tab.key}
+        onChange={changeTab}
+        className="grid grid-cols-2 sm:flex sm:w-fit sm:flex-wrap"
+        options={TABS.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
+      />
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-navy" />
-          <span className="font-display text-sm">
-            {tab.label} ({items.length})
-          </span>
-        </div>
-        <Button size="sm" onClick={() => openForm(null)} className="gap-1.5">
-          <Plus className="w-3.5 h-3.5" /> Nuevo
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-base font-extrabold">
+          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          {tab.label} <span className="tnum text-sm font-normal text-muted-foreground">({items.length})</span>
+        </h2>
+        <Button onClick={() => openForm(null)} className="gap-1.5">
+          <Plus aria-hidden="true" /> Nuevo
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-body text-xs">{tab.title === "titulo" ? "Título" : "Nombre"}</TableHead>
-              {tab.columns.map((c) => (
-                <TableHead key={c.key} className={`font-body text-xs ${c.className ?? ""}`}>{c.label}</TableHead>
-              ))}
-              <TableHead className="font-body text-xs w-24">Estado</TableHead>
-              <TableHead className="font-body text-xs w-24">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={colSpan} className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={colSpan} className="text-center py-8 text-muted-foreground text-sm">No hay registros.</TableCell></TableRow>
-            ) : (
-              items.map((item) => (
+      <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-label={tab.label}>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-14 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Cargando...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+            <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-semibold">No hay registros.</p>
+            <p className="max-w-md text-sm text-muted-foreground">Este catálogo está vacío. Usa "Nuevo" para agregar el primer registro.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>{titleHead}</TableHead>
+                {tab.columns.map((c) => (
+                  <TableHead key={c.key} className={`hidden md:table-cell ${c.className ?? ""}`}>{c.label}</TableHead>
+                ))}
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-px"><span className="sr-only">Acciones</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-body text-sm">{item[tab.title]}</TableCell>
-                  {tab.columns.map((c) => (
-                    <TableCell key={c.key} className="text-xs text-muted-foreground">{cell(item, tab, c.key)}</TableCell>
-                  ))}
-                  <TableCell>
-                    <Badge className={`text-[10px] ${item.activo ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                      {item.activo ? "Activo" : "Inactivo"}
-                    </Badge>
+                  <TableCell className="py-2.5">
+                    <p className="text-sm font-semibold leading-snug">{rowName(item)}</p>
+                    {tab.columns.length > 0 && (
+                      <p className="tnum text-xs text-muted-foreground md:hidden">
+                        {tab.columns.map((c) => String(cell(item, tab, c.key))).filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openForm(item)}>
-                        <Pencil className="w-3 h-3" />
+                  {tab.columns.map((c) => (
+                    <TableCell key={c.key} className="tnum hidden py-2.5 text-sm text-muted-foreground md:table-cell">
+                      {cell(item, tab, c.key)}
+                    </TableCell>
+                  ))}
+                  <TableCell className="py-2.5">
+                    <StatusBadge kind="cuenta" status={item.activo ? "activo" : "inactivo"} />
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3">
+                    <div className="flex flex-nowrap items-center justify-end gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => openForm(item)} aria-label={`Editar ${rowName(item)}`} title="Editar">
+                        <Pencil aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggle(item.id)}>
-                        {item.activo ? <PowerOff className="w-3 h-3 text-rose-500" /> : <Power className="w-3 h-3 text-emerald-500" />}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => handleToggle(item.id)}
+                        aria-label={`${item.activo ? "Desactivar" : "Activar"} ${rowName(item)}`}
+                        title={item.activo ? "Desactivar" : "Activar"}
+                      >
+                        {item.activo ? <PowerOff aria-hidden="true" /> : <Power aria-hidden="true" />}
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar" : "Nuevo"} registro</DialogTitle>
             <DialogDescription>{tab.label}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
             {tab.fields.map((f) => (
-              <div key={f.key}>
-                <label className="text-xs">{f.label}</label>
+              <div key={f.key} className="space-y-1.5">
+                <label htmlFor={`catalogo-${f.key}`} className="text-xs font-semibold">{f.label}</label>
                 {f.type === "textarea" ? (
                   <Textarea
+                    id={`catalogo-${f.key}`}
                     value={values[f.key] ?? ""}
                     onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
                     required={f.required}
@@ -241,18 +255,18 @@ export default function AdminCatalogos({ tab: tabKey, items }: { tab: string; it
                   />
                 ) : (
                   <Input
+                    id={`catalogo-${f.key}`}
                     type={f.type ?? "text"}
                     value={values[f.key] ?? ""}
                     onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
                     required={f.required}
-                    className="h-9"
                   />
                 )}
               </div>
             ))}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button size="sm" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" type="button" onClick={() => setShowForm(false)}>Cancelar</Button>
+              <Button disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
             </div>
           </form>
         </DialogContent>

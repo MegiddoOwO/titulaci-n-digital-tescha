@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Loader2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { adminLayout } from "@/components/admin/AdminLayout";
 
 interface BitacoraEntry {
@@ -24,8 +23,67 @@ interface Props {
   totalPages: number;
 }
 
-const detalleText = (detalle: unknown) =>
-  typeof detalle === "string" ? detalle : JSON.stringify(detalle);
+/** DB table names as readable singular labels; unknown names are humanized. */
+const ENTIDAD: Record<string, string> = {
+  documentos: "Documento",
+  tramites: "Trámite",
+  usuarios: "Usuario",
+  dictamenes: "Dictamen",
+  solicitudes_arco: "Solicitud ARCO",
+  notificaciones: "Notificación",
+  asignaciones: "Asignación",
+};
+
+const entidadLabel = (entidad: string) => {
+  const known = ENTIDAD[entidad];
+  if (known) return known;
+  const text = entidad.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const MAX_DETALLE = 200;
+
+/** Decoded payload as key/value pairs, cut once the text reaches 200 characters (as before). */
+function detallePairs(detalle: unknown): { key: string | null; value: string }[] {
+  let data: unknown = detalle;
+  if (typeof detalle === "string") {
+    try {
+      data = JSON.parse(detalle);
+    } catch {
+      return [{ key: null, value: detalle.substring(0, MAX_DETALLE) }];
+    }
+  }
+  const entries: [string | null, unknown][] =
+    data !== null && typeof data === "object" && !Array.isArray(data)
+      ? Object.entries(data as Record<string, unknown>)
+      : [[null, data]];
+  const pairs: { key: string | null; value: string }[] = [];
+  let used = 0;
+  for (const [key, raw] of entries) {
+    if (used >= MAX_DETALLE) break;
+    const value = typeof raw === "string" ? raw : JSON.stringify(raw);
+    const room = MAX_DETALLE - used;
+    const cut = value.length > room - (key?.length ?? 0) - 2 ? value.substring(0, Math.max(room - (key?.length ?? 0) - 2, 1)) : value;
+    pairs.push({ key, value: cut });
+    used += (key?.length ?? 0) + 2 + cut.length;
+  }
+  return pairs;
+}
+
+/** Words never split mid-token (a date or matrícula stays whole); only very long tokens may break. */
+function Valor({ text }: { text: string }) {
+  return (
+    <span className="font-mono">
+      {text.split(" ").map((token, i) => (
+        <span key={i} className={token.length > 36 ? "[overflow-wrap:anywhere]" : "whitespace-nowrap"}>
+          {i > 0 ? " " : ""}
+          {token}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 
 export default function AdminBitacora({ rows, total, page, totalPages }: Props) {
   const [loading, setLoading] = useState(false);
@@ -41,78 +99,69 @@ export default function AdminBitacora({ rows, total, page, totalPages }: Props) 
     });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)] content-start gap-4 px-4 py-6 sm:px-8">
       <Head title="Bitácora" />
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Bitácora</h1>
-        <p className="text-muted-foreground font-body text-sm">Registro de auditoría del sistema</p>
+        <h1 className="text-2xl font-extrabold">Bitácora</h1>
+        <p className="tnum text-sm text-muted-foreground">Registro de auditoría del sistema · {total} {total === 1 ? "registro" : "registros"}</p>
       </div>
 
-      <Card className="border-border">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="font-display text-base">
-              <span className="flex items-center gap-2">
-                <History className="w-4 h-4 text-navy" />
-                {total} registros
-              </span>
-            </CardTitle>
+      <section className="min-w-0 overflow-hidden rounded-lg border bg-card text-card-foreground" aria-label="Registros de auditoría">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-14 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Cargando registros...
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
-          ) : rows.length === 0 ? (
-            <p className="text-center py-8 text-sm text-muted-foreground">No hay registros en la bitácora.</p>
-          ) : (
-            <div className="space-y-1 max-h-[600px] overflow-y-auto">
-              {rows.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/30 border-b border-gray-100 last:border-0"
-                >
-                  <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-navy" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold">{entry.accion}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {entry.entidad}
-                        {entry.entidad_id ? ` #${entry.entidad_id}` : ""}
-                      </span>
-                    </div>
-                    {entry.detalle != null && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5 font-mono break-all">
-                        {detalleText(entry.detalle).substring(0, 200)}
-                      </p>
-                    )}
-                    <p className="text-[9px] text-muted-foreground mt-1">
-                      {entry.usuario_nombre || "Sistema"}
-                      {entry.ip_origen ? ` · IP: ${entry.ip_origen}` : ""}
-                      {" · "}{new Date(entry.fecha).toLocaleString("es-MX")}
-                    </p>
-                  </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+            <History className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-semibold">No hay registros en la bitácora.</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Las acciones de usuarios y del sistema, como emitir dictámenes o revisar documentos, quedan registradas aquí.
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y">
+            {rows.map((entry) => (
+              <li key={entry.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                  <p className="text-sm font-semibold">
+                    {entry.accion}
+                    <span className="tnum ml-2 text-xs font-normal text-muted-foreground">
+                      {entidadLabel(entry.entidad)}
+                      {entry.entidad_id ? ` #${entry.entidad_id}` : ""}
+                    </span>
+                  </p>
+                  <p className="tnum text-xs text-muted-foreground">{new Date(entry.fecha).toLocaleString("es-MX")}</p>
                 </div>
-              ))}
-            </div>
-          )}
+                {entry.detalle != null && (
+                  <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                    {detallePairs(entry.detalle).map((p, i) => (
+                      <div key={i} className="min-w-0">
+                        {p.key !== null && <dt className="inline text-muted-foreground">{p.key}: </dt>}
+                        <dd className="inline"><Valor text={p.value} /></dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                <p className="tnum mt-1 text-xs text-muted-foreground">
+                  {entry.usuario_nombre || "Sistema"}
+                  {entry.ip_origen ? ` · IP: ${entry.ip_origen}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <span className="text-xs text-muted-foreground">
-                Página {page} de {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => goTo(page - 1)}>
-                  Anterior
-                </Button>
-                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => goTo(page + 1)}>
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {totalPages > 1 && (
+        <nav className="flex items-center justify-between gap-3" aria-label="Paginación">
+          <span className="tnum text-xs text-muted-foreground">Página {page} de {totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => goTo(page - 1)}>Anterior</Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => goTo(page + 1)}>Siguiente</Button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

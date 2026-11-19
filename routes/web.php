@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\SolicitudArcoController as AdminSolicitudArcoCont
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Asesor\ExpedienteController as AsesorExpedienteController;
 use App\Http\Controllers\Asesor\DashboardController as AsesorDashboardController;
+use App\Http\Controllers\Asesor\DocumentoController as AsesorDocumentoController;
 use App\Http\Controllers\Asesor\DocumentoReviewController as AsesorDocumentoReviewController;
 use App\Http\Controllers\Estudiante\DictamenController as EstudianteDictamenController;
 use App\Http\Controllers\Estudiante\DocumentoController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Public\NormativaController;
 use App\Http\Controllers\Public\RequisitoFotografiaController;
 use App\Http\Controllers\SolicitudArcoController;
 use App\Services\Admin\CatalogoService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -57,6 +59,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', AsesorDashboardController::class)->name('home');
         Route::get('/expedientes/{tramite}', [AsesorExpedienteController::class, 'show'])
             ->whereNumber('tramite')->name('expedientes.show');
+        Route::scopeBindings()->get('/tramites/{tramite}/documentos/{documento}', [AsesorDocumentoController::class, 'show'])
+            ->whereNumber(['tramite', 'documento'])->name('tramites.documentos.show');
         Route::put('/documentos/{documento}/aprobar', [AsesorDocumentoReviewController::class, 'approve'])
             ->whereNumber('documento')->name('documentos.aprobar');
         Route::put('/documentos/{documento}/rechazar', [AsesorDocumentoReviewController::class, 'reject'])
@@ -147,3 +151,13 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// Unknown browser URLs render the 404 page inside the web middleware stack, so the shared `auth`
+// prop exists for signed-in users. JSON clients keep the plain JSON 404.
+Route::fallback(function (Request $request) {
+    if ($request->expectsJson() || $request->is('api/*')) {
+        abort(404);
+    }
+
+    return Inertia::render('NotFound')->toResponse($request)->setStatusCode(404);
+});

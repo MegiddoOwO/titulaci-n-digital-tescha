@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Head, useForm } from "@inertiajs/react";
-import { Eye, EyeOff, GraduationCap, Mail, X, Send, ArrowLeft } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { LampBadge } from "@/components/ui/lamp";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import logo from "@/assets/tescha-logo.svg";
-import heroImage from "@/assets/banner-tescha.jpeg";
+import PublicShell from "@/components/layout/PublicShell";
 
 interface Contacto {
   id: number;
@@ -24,41 +31,23 @@ interface LoginProps {
   contactos: Contacto[];
 }
 
+const linkButton =
+  "rounded-sm font-semibold text-foreground underline underline-offset-4 decoration-muted-foreground/60 hover:decoration-foreground";
+
 const Login = ({ status, bloqueado, contactos }: LoginProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
-  const { toast } = useToast();
 
   const loginForm = useForm({ numero_control: "", password: "" });
   const forgotForm = useForm({ numero_control: "" });
-  const loading = loginForm.processing;
-  const forgotLoading = forgotForm.processing;
-  const numeroControl = loginForm.data.numero_control;
-  const password = loginForm.data.password;
-  const forgotNumeroControl = forgotForm.data.numero_control;
-  const setNumeroControl = (v: string) => loginForm.setData("numero_control", v);
-  const setPassword = (v: string) => loginForm.setData("password", v);
-  const setForgotNumeroControl = (v: string) => forgotForm.setData("numero_control", v);
 
-  const handleForgotPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    forgotForm.post("/forgot-password", {
-      preserveScroll: true,
-      onSuccess: (page) => {
-        setForgotSent(true);
-        toast({ title: "Solicitud enviada", description: (page.props.status as string | null) ?? undefined });
-      },
-      onError: (errors) => {
-        toast({
-          title: "Error",
-          description: errors.numero_control || "Error al enviar solicitud.",
-          className: "bg-destructive text-destructive-foreground",
-        });
-      },
-    });
-  };
+  // The server redirects here after a successful password reset.
+  const [resetNotice] = useState(Boolean(status));
+
+  const loginError = loginForm.errors.numero_control || loginForm.errors.password;
+  const forgotError = forgotForm.errors.numero_control || (forgotForm.hasErrors ? "Error al enviar solicitud." : undefined);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,243 +56,224 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
     });
   };
 
-  // The server redirects here after a successful password reset (legacy showed an in-page panel).
-  useEffect(() => {
-    if (status && !forgotSent) {
-      toast({ title: "Contraseña restablecida", description: "Ya puedes iniciar sesión con tu nueva contraseña." });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // The lockout flag arrives with the redirect as the `bloqueado` page prop, so the toast is raised
-  // once the new props are rendered.
-  const loginErrors = loginForm.errors;
-  useEffect(() => {
-    const message = loginErrors.numero_control || loginErrors.password;
-    if (!message) return;
-    toast({
-      title: bloqueado ? "Cuenta bloqueada" : "Error de autenticación",
-      description: message,
-      className: "bg-destructive text-destructive-foreground border-destructive-foreground/20",
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    forgotForm.post("/forgot-password", {
+      preserveScroll: true,
+      onSuccess: () => setForgotSent(true),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loginErrors]);
+  };
+
+  const openForgot = () => {
+    forgotForm.reset();
+    forgotForm.clearErrors();
+    setForgotSent(false);
+    setShowForgotModal(true);
+  };
 
   return (
-    <div 
-      className="min-h-screen flex relative bg-cover bg-center"
-      style={{ backgroundImage: `url(${heroImage})` }}
-    >
+    <PublicShell widthClass="max-w-5xl">
       <Head title="Iniciar Sesión" />
-      {/* Oscurecedor/Filtro corporativo para la imagen de fondo */}
-      <div className="absolute inset-0 bg-primary/90 backdrop-blur-sm z-0"></div>
 
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeToggle />
-      </div>
-      <div className="relative z-10 w-full flex">
-        {/* Left - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative overflow-hidden">
-          {/* Decorative glow */}
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl pointer-events-none"></div>
-          
-          <div className="max-w-md text-center relative z-10">
-            <div className="p-4 bg-white/5 rounded-3xl backdrop-blur-sm border border-white/10 inline-block mb-8 shadow-xl">
-                <img src={logo} alt="Escudo del Tecnológico de Estudios Superiores de Chalco" className="h-28 w-28 mx-auto drop-shadow-md hover:scale-105 transition-transform duration-500" />
-            </div>
-            
-            <h1 className="font-display text-4xl lg:text-5xl font-bold text-primary-foreground mb-6 drop-shadow-sm leading-tight">
-              Sistema de Titulación <span className="text-accent font-light">ISC</span>
-            </h1>
-            <p className="text-primary-foreground/80 font-body text-lg leading-relaxed mb-10">
-              Plataforma digital interactiva para la gestión integral del proceso de titulación del Tecnológico de Estudios Superiores de Chalco.
-            </p>
-            
-            <div className="inline-flex items-center justify-center gap-3 text-accent bg-accent/10 border border-accent/20 px-6 py-3 rounded-full shadow-inner">
-              <GraduationCap className="w-5 h-5" />
-              <span className="font-body text-sm font-semibold tracking-wide uppercase">Ingeniería en Sistemas Computacionales</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right - Form */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/50 p-10 transform transition-all hover:-translate-y-1 hover:shadow-[0_25px_50px_rgba(0,0,0,0.4)]">
-            <div className="lg:hidden flex items-center gap-3 mb-8 bg-primary/5 p-3 rounded-xl border border-primary/10">
-            <img src={logo} alt="TESCHA" className="h-10 w-10" />
-            <div>
-              <p className="font-body text-sm font-semibold text-foreground">TESCHA</p>
-              <p className="font-body text-xs text-muted-foreground">Sistema de Titulación</p>
-            </div>
-          </div>
-
-          <h2 className="font-display text-2xl font-bold text-foreground mb-2">Iniciar Sesión</h2>
-          <p className="text-muted-foreground font-body text-sm mb-8">
-            Ingresa tus credenciales institucionales para acceder al sistema.
+      <div className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-8 md:px-6 md:py-14 lg:min-h-[calc(100dvh-7.5rem)] lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-center lg:gap-16">
+        <section className="hidden lg:block" aria-label="Sobre el sistema">
+          <span className="mb-6 flex h-20 w-20 items-center justify-center rounded-[10px] border border-border bg-white p-2.5">
+            <img src={logo} alt="Escudo del Tecnológico de Estudios Superiores de Chalco" className="h-full w-full object-contain" />
+          </span>
+          <p className="max-w-[16ch] text-4xl font-extrabold leading-[1.1] tracking-tight">Sistema de Titulación ISC</p>
+          <p className="mt-5 max-w-[46ch] text-base leading-7 text-muted-foreground">
+            Plataforma digital para la gestión integral del proceso de titulación del Tecnológico de Estudios Superiores de Chalco.
           </p>
+          <p className="mt-6 text-sm font-semibold">Ingeniería en Sistemas Computacionales</p>
+        </section>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+        <section className="mx-auto w-full max-w-md rounded-[10px] border border-border bg-card p-5 text-card-foreground sm:p-8 lg:mx-0 lg:max-w-none" aria-labelledby="login-titulo">
+          <h1 id="login-titulo" className="text-2xl font-extrabold tracking-tight">
+            Iniciar Sesión
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Ingresa tus credenciales institucionales para acceder al sistema.</p>
+
+          {resetNotice && !loginError && (
+            <div role="status" className="mt-5 rounded-md border border-border bg-muted p-3">
+              <LampBadge state="verde" label="Contraseña restablecida" />
+              <p className="mt-1.5 text-sm text-muted-foreground">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="mt-6 space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="numero-control" className="font-body text-sm font-medium">Número de Control</Label>
+              <Label htmlFor="numero-control">Número de Control</Label>
               <Input
                 id="numero-control"
                 type="text"
+                autoComplete="username"
+                autoCapitalize="off"
+                spellCheck={false}
                 placeholder="2021-0001"
-                value={numeroControl}
-                onChange={(e) => setNumeroControl(e.target.value)}
+                value={loginForm.data.numero_control}
+                onChange={(e) => loginForm.setData("numero_control", e.target.value)}
                 required
-                className="h-11"
+                aria-invalid={loginError ? true : undefined}
+                aria-describedby={loginError ? "login-error" : undefined}
+                className="h-11 text-base"
               />
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="font-body text-sm font-medium">Contraseña</Label>
-                <button type="button" onClick={() => { setForgotNumeroControl(""); setForgotSent(false); setShowForgotModal(true); }} className="text-accent font-body text-xs hover:underline">
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>
+              <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={loginForm.data.password}
+                  onChange={(e) => loginForm.setData("password", e.target.value)}
                   required
-                  className="h-11 pr-10"
+                  aria-invalid={loginError ? true : undefined}
+                  aria-describedby={loginError ? "login-error" : undefined}
+                  className="h-11 pr-12 text-base"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-pressed={showPassword}
+                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                 </button>
               </div>
+              <p className="text-sm">
+                <button type="button" onClick={openForgot} className={`${linkButton} min-h-[44px] sm:min-h-0`}>
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </p>
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-primary text-primary-foreground hover:bg-navy-light font-semibold" disabled={loading}>
-              {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+            {loginError && (
+              <div
+                id="login-error"
+                role="alert"
+                className="flex gap-2.5 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-foreground"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold text-destructive">{bloqueado ? "Cuenta bloqueada" : "Error de autenticación"}</p>
+                  <p className="mt-0.5">{loginError}</p>
+                  {bloqueado && <p className="mt-1.5">Si olvidaste tu contraseña, restablécela con «¿Olvidaste tu contraseña?».</p>}
+                </div>
+              </div>
+            )}
+
+            <Button type="submit" className="h-11 w-full text-base font-semibold" disabled={loginForm.processing}>
+              {loginForm.processing ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground font-body text-sm">
-              ¿No tienes cuenta?{" "}
-              <button
-                type="button"
-                onClick={() => setShowRegistroModal(true)}
-                className="text-accent font-medium hover:underline bg-transparent border-0 cursor-pointer"
-              >
-                Solicita tu acceso aquí
-              </button>
-            </p>
-          </div>
-        </div>
+          <p className="mt-6 text-sm text-muted-foreground">
+            ¿No tienes cuenta?{" "}
+            <button type="button" onClick={() => setShowRegistroModal(true)} className={`${linkButton} min-h-[44px] sm:min-h-0`}>
+              Solicita tu acceso aquí
+            </button>
+          </p>
+        </section>
       </div>
-       
-      {/* Modal de registro */}
-      {showRegistroModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-            <div className="bg-[#56212f] p-5 text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-6 h-6 text-[#BC955B]" />
-                <div>
-                  <h2 className="font-display text-lg font-bold">¿Cómo obtener acceso?</h2>
-                  <p className="text-white/70 text-xs">Registro gestionado por la institución</p>
-                </div>
+
+      <Dialog open={showRegistroModal} onOpenChange={setShowRegistroModal}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-xl font-extrabold">¿Cómo obtener acceso?</DialogTitle>
+            <DialogDescription>Registro gestionado por la institución</DialogDescription>
+          </DialogHeader>
+
+          <p className="text-sm leading-6">
+            El registro en el sistema es <strong>exclusivamente institucional</strong>. Para solicitar tu alta, envía un correo a alguno de los
+            siguientes contactos incluyendo tu <strong>número de control</strong> y <strong>nombre completo</strong>.
+          </p>
+
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {contactos.map((c) => (
+              <li key={c.id} className="p-3">
+                <p className="text-sm font-semibold">{c.nombre}</p>
+                <p className="text-sm text-muted-foreground">
+                  {c.cargo} — {c.departamento}
+                </p>
+                {c.email && (
+                  <a
+                    href={`mailto:${c.email}?subject=Solicitud de alta - SCA-ISC&body=Estimado/a, solicito mi alta en el Sistema de Titulación.%0D%0A%0D%0ANúmero de control: %0D%0ANombre completo: %0D%0A`}
+                    className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 break-all rounded-sm text-sm font-semibold underline underline-offset-4 sm:min-h-0"
+                  >
+                    <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {c.email}
+                  </a>
+                )}
+                {c.extension && <p className="tnum text-xs text-muted-foreground">Ext. {c.extension}</p>}
+              </li>
+            ))}
+          </ul>
+
+          <p className="rounded-md bg-muted p-3 text-sm leading-6">
+            <strong>Importante:</strong> Solo el personal autorizado (Control Escolar y Jefatura de División) puede dar de alta nuevos usuarios en la
+            plataforma.
+          </p>
+
+          <DialogClose asChild>
+            <Button className="h-11 w-full font-semibold">Entendido</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-xl font-extrabold">Recuperar contraseña</DialogTitle>
+            <DialogDescription>
+              {forgotSent ? "Revisa tu correo institucional." : "Ingresa tu número de control. Te enviaremos un enlace para restablecer tu contraseña."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotSent ? (
+            <div role="status" className="space-y-4">
+              <div className="rounded-md border border-border bg-muted p-3">
+                <LampBadge state="verde" label="Solicitud enviada" />
+                <p className="mt-1.5 text-sm text-muted-foreground">Si el número de control existe, recibirás un correo con instrucciones.</p>
               </div>
-              <button onClick={() => setShowRegistroModal(false)} className="text-white/60 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600">
-                El registro en el sistema es <strong>exclusivamente institucional</strong>. Para solicitar tu alta,
-                envía un correo a alguno de los siguientes contactos incluyendo tu <strong>número de control</strong> y <strong>nombre completo</strong>.
-              </p>
-
-              <div className="space-y-3">
-                {contactos.map((c) => (
-                  <div key={c.id} className="p-3 bg-gray-50 rounded-lg border flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#56212f]/10 text-[#56212f] flex items-center justify-center font-bold text-sm flex-shrink-0">
-                      {c.nombre.split(" ").filter((w: string) => w.length > 1).slice(0, 2).map((w: string) => w[0]).join("")}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-gray-700">{c.nombre}</p>
-                      <p className="text-xs text-gray-500">{c.cargo} — {c.departamento}</p>
-                      {c.email && (
-                        <a href={`mailto:${c.email}?subject=Solicitud de alta - SCA-ISC&body=Estimado/a, solicito mi alta en el Sistema de Titulación.%0D%0A%0D%0ANúmero de control: %0D%0ANombre completo: %0D%0A`}
-                          className="text-xs text-[#8a2036] hover:underline font-semibold flex items-center gap-1 mt-1">
-                          <Mail className="w-3 h-3" /> {c.email}
-                        </a>
-                      )}
-                      {c.extension && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">Ext. {c.extension}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-                <strong>Importante:</strong> Solo el personal autorizado (Control Escolar y Jefatura de División) puede dar de alta nuevos usuarios en la plataforma.
-              </div>
-
-              <Button
-                onClick={() => setShowRegistroModal(false)}
-                className="w-full bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold"
-              >
-                Entendido
+              <Button onClick={() => setShowForgotModal(false)} className="h-11 w-full font-semibold">
+                Cerrar
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-lg font-bold">Recuperar contraseña</h3>
-              <button onClick={() => setShowForgotModal(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {forgotSent ? (
-              <div className="text-center py-6">
-                <Send className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-                <p className="text-sm font-medium">Solicitud enviada</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Si el número de control existe, recibirás un correo con instrucciones.
-                </p>
-                <Button onClick={() => setShowForgotModal(false)} className="mt-4 w-full bg-[#56212f] hover:bg-[#8a2036] text-white">
-                  Cerrar
-                </Button>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-numero-control">Número de Control</Label>
+                <Input
+                  id="forgot-numero-control"
+                  value={forgotForm.data.numero_control}
+                  onChange={(e) => forgotForm.setData("numero_control", e.target.value)}
+                  required
+                  autoComplete="username"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder="Ej: 202324055"
+                  aria-invalid={forgotError ? true : undefined}
+                  aria-describedby={forgotError ? "forgot-error" : undefined}
+                  className="h-11 text-base"
+                />
               </div>
-            ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Ingresa tu número de control. Te enviaremos un enlace para restablecer tu contraseña.
+              {forgotError && (
+                <p id="forgot-error" role="alert" className="flex gap-2 text-sm font-medium text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {forgotError}
                 </p>
-                <div>
-                  <label className="text-xs font-medium">Número de Control</label>
-                  <Input value={forgotNumeroControl} onChange={e => setForgotNumeroControl(e.target.value)} required placeholder="Ej: 202324055" className="h-10" />
-                </div>
-                <Button type="submit" disabled={forgotLoading} className="w-full bg-[#56212f] hover:bg-[#8a2036] text-white font-semibold">
-                  {forgotLoading ? "Enviando..." : "Enviar enlace"}
-                </Button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-    </div>
-  </div>
+              )}
+              <Button type="submit" disabled={forgotForm.processing} className="h-11 w-full font-semibold">
+                {forgotForm.processing ? "Enviando..." : "Enviar enlace"}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </PublicShell>
   );
 };
 
