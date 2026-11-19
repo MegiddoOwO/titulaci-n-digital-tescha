@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /** Inline `**bold**` only; the normativa text uses nothing else inline. */
 function inline(text: string): ReactNode {
@@ -76,9 +77,16 @@ export function NormaTexto({ contenido, repeatedHeadings }: Props) {
         i++;
       }
       const [head, ...body] = rows;
+      if (!head) continue;
       blocks.push(
-        <div key={key++} className="mt-5 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[28rem] border-collapse text-left text-sm">
+        <div
+          key={key++}
+          role="region"
+          tabIndex={0}
+          aria-label={`Tabla: ${head.join(", ")}`}
+          className="mt-5 overflow-x-auto rounded-lg border border-border"
+        >
+          <table className={cn("w-full border-collapse text-left text-sm", head.length > 3 && "min-w-[32rem]")}>
             <thead>
               <tr className="border-b border-border bg-muted">
                 {head.map((c, ci) => (

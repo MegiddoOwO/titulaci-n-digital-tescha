@@ -80,14 +80,14 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
           <span className="mb-6 flex h-20 w-20 items-center justify-center rounded-[10px] border border-border bg-white p-2.5">
             <img src={logo} alt="Escudo del Tecnológico de Estudios Superiores de Chalco" className="h-full w-full object-contain" />
           </span>
-          <h2 className="max-w-[16ch] text-4xl font-extrabold leading-[1.1] tracking-tight">Sistema de Titulación ISC</h2>
+          <p className="max-w-[16ch] text-4xl font-extrabold leading-[1.1] tracking-tight">Sistema de Titulación ISC</p>
           <p className="mt-5 max-w-[46ch] text-base leading-7 text-muted-foreground">
             Plataforma digital para la gestión integral del proceso de titulación del Tecnológico de Estudios Superiores de Chalco.
           </p>
           <p className="mt-6 text-sm font-semibold">Ingeniería en Sistemas Computacionales</p>
         </section>
 
-        <section className="w-full rounded-[10px] border border-border bg-card p-5 text-card-foreground sm:p-8" aria-labelledby="login-titulo">
+        <section className="mx-auto w-full max-w-md rounded-[10px] border border-border bg-card p-5 text-card-foreground sm:p-8 lg:mx-0 lg:max-w-none" aria-labelledby="login-titulo">
           <h1 id="login-titulo" className="text-2xl font-extrabold tracking-tight">
             Iniciar Sesión
           </h1>
@@ -161,6 +161,7 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
                 <div>
                   <p className="font-semibold text-destructive">{bloqueado ? "Cuenta bloqueada" : "Error de autenticación"}</p>
                   <p className="mt-0.5">{loginError}</p>
+                  {bloqueado && <p className="mt-1.5">Si olvidaste tu contraseña, restablécela con «¿Olvidaste tu contraseña?».</p>}
                 </div>
               </div>
             )}
@@ -181,7 +182,7 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
 
       <Dialog open={showRegistroModal} onOpenChange={setShowRegistroModal}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
+          <DialogHeader className="text-left">
             <DialogTitle className="text-xl font-extrabold">¿Cómo obtener acceso?</DialogTitle>
             <DialogDescription>Registro gestionado por la institución</DialogDescription>
           </DialogHeader>
@@ -224,7 +225,7 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
 
       <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+          <DialogHeader className="text-left">
             <DialogTitle className="text-xl font-extrabold">Recuperar contraseña</DialogTitle>
             <DialogDescription>
               {forgotSent ? "Revisa tu correo institucional." : "Ingresa tu número de control. Te enviaremos un enlace para restablecer tu contraseña."}

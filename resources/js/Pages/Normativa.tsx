@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,6 +33,8 @@ const Normativa = ({ normativa, modalidadId: activeModalidad }: Props) => {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<number | null>(hashId);
   const [indexOpen, setIndexOpen] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const focusTitle = useRef(false);
 
   // The filter is a server-side query: each change is an Inertia visit (state and scroll kept).
   const setModalidadId = (value: string) => {
@@ -64,10 +66,23 @@ const Normativa = ({ normativa, modalidadId: activeModalidad }: Props) => {
     setIndexOpen(false);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#norma-${id}`);
     window.scrollTo({ top: 0 });
+    focusTitle.current = true;
   };
 
+  // After a pick, keyboard and screen reader users land on the new norma's title.
   useEffect(() => {
-    const onHash = () => setSelected(hashId());
+    if (focusTitle.current) {
+      focusTitle.current = false;
+      titleRef.current?.focus({ preventScroll: true });
+    }
+  }, [current?.id]);
+
+  useEffect(() => {
+    // Only `#norma-<id>` changes the selection; other hashes (the skip link) leave it alone.
+    const onHash = () => {
+      const id = hashId();
+      if (id !== null) setSelected(id);
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -131,14 +146,11 @@ const Normativa = ({ normativa, modalidadId: activeModalidad }: Props) => {
         <div className="mt-8 grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-14">
           {/* Contents: collapsed on phones, a quiet sticky list on desktop. */}
           <nav aria-label="Normas" className="lg:sticky lg:top-6 lg:self-start">
-            <div className="hidden space-y-5 lg:block">
+            <div className="space-y-4 lg:space-y-5">
               {filter}
-              {list}
-            </div>
-            <div className="space-y-4 lg:hidden">
-              {filter}
+              <div className="hidden lg:block">{list}</div>
               {current && (
-                <div className="rounded-[10px] border border-border bg-card">
+                <div className="rounded-[10px] border border-border bg-card lg:hidden">
                   <button
                     type="button"
                     onClick={() => setIndexOpen(!indexOpen)}
@@ -164,14 +176,16 @@ const Normativa = ({ normativa, modalidadId: activeModalidad }: Props) => {
             </div>
           </nav>
 
-          <article className="min-w-0" aria-live="polite" aria-busy={loading}>
+          <article className="min-w-0" aria-busy={loading}>
             {loading ? (
-              <p className="py-12 text-muted-foreground">Cargando normativa...</p>
+              <p role="status" className="py-12 text-muted-foreground">Cargando normativa...</p>
             ) : !current ? (
               <p className="py-12 text-muted-foreground">No hay normas publicadas para esta modalidad.</p>
             ) : (
               <>
-                <h2 className="max-w-[28ch] text-2xl font-extrabold leading-tight tracking-tight md:text-3xl">{current.titulo}</h2>
+                <h2 ref={titleRef} tabIndex={-1} className="max-w-[28ch] text-2xl font-extrabold leading-tight tracking-tight outline-none md:text-3xl">
+                  {current.titulo}
+                </h2>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {[current.categoria, current.modalidad_nombre ?? "Aplica a todas las modalidades"].filter(Boolean).join(" · ")}
                 </p>

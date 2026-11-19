@@ -52,11 +52,11 @@ export default function PublicShell({ children, back = { href: "/", label: "Inic
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             {back.label}
           </Link>
-          <ThemeToggle className="p-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          <ThemeToggle className="p-3.5 sm:p-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
         </div>
       </header>
 
-      <main id="contenido" className="min-w-0 flex-1">
+      <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 outline-none">
         {children}
       </main>
 

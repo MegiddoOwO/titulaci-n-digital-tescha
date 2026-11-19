@@ -23,6 +23,7 @@ use App\Http\Controllers\Public\NormativaController;
 use App\Http\Controllers\Public\RequisitoFotografiaController;
 use App\Http\Controllers\SolicitudArcoController;
 use App\Services\Admin\CatalogoService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -150,3 +151,13 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// Unknown browser URLs render the 404 page inside the web middleware stack, so the shared `auth`
+// prop exists for signed-in users. JSON clients keep the plain JSON 404.
+Route::fallback(function (Request $request) {
+    if ($request->expectsJson() || $request->is('api/*')) {
+        abort(404);
+    }
+
+    return Inertia::render('NotFound')->toResponse($request)->setStatusCode(404);
+});
