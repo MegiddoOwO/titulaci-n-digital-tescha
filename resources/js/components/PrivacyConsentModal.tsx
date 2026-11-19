@@ -24,7 +24,7 @@ export function PrivacyConsentModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
       <div className="w-full max-w-lg bg-card text-card-foreground rounded-[10px] shadow-2xl overflow-hidden animate-fade-in">
         <div className="bg-sidebar p-5 text-sidebar-foreground flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-sidebar-foreground" />
