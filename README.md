@@ -109,31 +109,50 @@ MAIL_FROM_NAME="SCA-TESCHA"
 
 Los documentos subidos usan el disco `uploads`, elegido con `UPLOADS_DISK` en `.env`:
 
-- `local` (por defecto): `storage/app/private/uploads/{tramite_id}/...`, igual que antes.
-- `s3`: cualquier servicio compatible con S3. Requiere `league/flysystem-aws-s3-v3` (ya incluido en `composer.json`).
+- `local` (por defecto): `storage/app/private/uploads/{tramite_id}/...`.
+- `s3`: cualquier servicio compatible con S3. **Se recomienda Cloudflare R2.** Usa `league/flysystem-aws-s3-v3` (ya incluido en `composer.json`).
+
+### Configurar Cloudflare R2
+
+1. En el panel de Cloudflare: **R2 > Create bucket**. Mantenlo **privado**: no actives la URL pública `r2.dev` ni un dominio público personalizado.
+2. **R2 > Manage API tokens > Create API token**. Permiso **Object Read & Write**, limitado a ese bucket.
+3. Copia el **Access Key ID** y el **Secret Access Key** (solo se muestran una vez) y tu **Account ID** (el endpoint S3 es `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`).
+4. Agrega a `.env` (deja `UPLOADS_DISK=local` hasta migrar los archivos existentes, paso 6):
 
 ```env
 UPLOADS_DISK=s3
-AWS_ACCESS_KEY_ID=<clave>
-AWS_SECRET_ACCESS_KEY=<secreto>
-AWS_DEFAULT_REGION=<region>
-AWS_BUCKET=<bucket>
-AWS_ENDPOINT=<endpoint, vacío en AWS S3>
-AWS_USE_PATH_STYLE_ENDPOINT=<true|false>
+AWS_ACCESS_KEY_ID=<access key id>
+AWS_SECRET_ACCESS_KEY=<secret access key>
+AWS_DEFAULT_REGION=auto
+AWS_BUCKET=<nombre del bucket>
+AWS_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+AWS_USE_PATH_STYLE_ENDPOINT=true
 ```
+
+5. Ejecuta `php artisan config:clear` y luego `php artisan sca:uploads-test`. Muestra la configuración efectiva (sin el secreto, la clave enmascarada y solo el host del endpoint) y prueba escribir, leer, comprobar y borrar un objeto temporal en `uploads/_healthcheck/`. Termina con código 1 si algo falla y traduce los errores comunes (firma inválida, clave inexistente, permisos, bucket inexistente, endpoint o red) a una pista concreta. Con `UPLOADS_DISK=local` solo prueba el disco local.
+6. Si ya hay archivos subidos, migra con la sección siguiente (respaldo, simulación y copia real).
+7. Cambia a `UPLOADS_DISK=s3`, ejecuta `php artisan config:clear` y prueba abrir un documento y descargar un expediente.
+
+Notas:
+
+- Si el bucket se creó con jurisdicción UE, el endpoint es `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com` (fuente: <https://developers.cloudflare.com/r2/reference/data-location/>); la jurisdicción no se puede cambiar después.
+- Checksums: el SDK de AWS (>= 3.337) envía sumas CRC32 por defecto y algunos servicios compatibles con S3 fallan con ellas. Por eso el disco usa `request_checksum_calculation` y `response_checksum_validation` en `when_required`. Pueden cambiarse con `AWS_REQUEST_CHECKSUM_CALCULATION` y `AWS_RESPONSE_CHECKSUM_VALIDATION` (`when_required` o `when_supported`).
+- La integración con R2 se verificó con el protocolo S3 contra MinIO, no con una cuenta real de R2; haz la prueba del paso 5 con tus credenciales antes de migrar.
+
+### Otros proveedores compatibles con S3
 
 | Proveedor | `AWS_ENDPOINT` | `AWS_DEFAULT_REGION` | Path style |
 |---|---|---|---|
-| AWS S3 | (vacío) | región del bucket, p. ej. `us-east-2` | `false` |
-| Cloudflare R2 | `https://<account>.r2.cloudflarestorage.com` | `auto` | `true` |
+| AWS S3 | (vacío) | región del bucket | `false` |
 | Backblaze B2 | `https://s3.<region>.backblazeb2.com` | `<region>` | `false` |
 | DigitalOcean Spaces | `https://<region>.digitaloceanspaces.com` | `<region>` | `false` |
 | MinIO | `http://<host>:9000` | `us-east-1` | `true` |
 
-Reglas:
+### Reglas y privacidad
 
 - El bucket debe ser **privado**. La aplicación nunca genera URLs públicas ni prefirmadas: cada archivo se sirve en streaming por la aplicación, solo después de pasar la política de acceso.
 - Respalda el bucket (versionado o réplica del proveedor) además de la base de datos.
+- Los documentos son datos personales de estudiantes. Antes de usar un proveedor externo, confirma con el área jurídica y de TI de la institución que el aviso de privacidad cubre el almacenamiento con un tercero.
 - Las pruebas automáticas nunca usan un bucket real.
 
 ### Migrar los archivos existentes a un bucket
