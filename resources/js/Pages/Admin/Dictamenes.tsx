@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { ClipboardCheck, Loader2 } from "lucide-react";
@@ -56,7 +57,7 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
                 <SelectContent>
                   {candidatos.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
-                      {c.numero_control} — {c.nombre_completo} ({c.porcentaje}%)
+                      {c.numero_control} — {c.nombre_completo} ({formatPercent(c.porcentaje)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -128,7 +129,7 @@ export default function AdminDictamenes({ candidatos }: { candidatos: Expediente
                         </span>
                         <span className="flex shrink-0 flex-col items-end gap-0.5">
                           <StatusBadge kind="tramite" status={c.estatus} semaforo={c.color_semaforo} />
-                          <span className="tnum text-xs text-muted-foreground">{c.porcentaje}%</span>
+                          <span className="tnum text-xs text-muted-foreground">{formatPercent(c.porcentaje)}</span>
                         </span>
                       </span>
                       <Progress value={c.porcentaje} className="mt-2 h-1" aria-label={`Avance de ${c.nombre_completo}`} />

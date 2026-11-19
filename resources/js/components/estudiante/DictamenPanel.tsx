@@ -7,14 +7,10 @@ import type { DictamenInfo } from "@/types/tramite";
 export function DictamenPanel({ dictamen }: { dictamen: DictamenInfo | null }) {
   if (!dictamen) {
     return (
-      <section aria-labelledby="dictamen-titulo" className="rounded-lg border bg-card px-4 py-3.5">
-        <h2 id="dictamen-titulo" className="text-sm font-extrabold">
-          Dictamen
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Aún no se emite. Estará disponible cuando el comité termine la revisión de tu expediente.
-        </p>
-      </section>
+      <p className="rounded-lg border bg-card px-4 py-2.5 text-sm">
+        <span className="font-extrabold">Dictamen:</span> <span className="text-muted-foreground">aún no se emite.</span>
+        <span className="hidden text-muted-foreground sm:inline"> Estará disponible cuando el comité termine la revisión de tu expediente.</span>
+      </p>
     );
   }
 

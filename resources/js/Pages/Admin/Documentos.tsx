@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { useEffect, useRef, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { FileText, Search } from "lucide-react";
@@ -103,7 +104,7 @@ export default function AdminDocumentos({
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">
                       <StatusBadge kind="tramite" status={exp.estatus} semaforo={exp.color_semaforo} />
-                      <span className="tnum text-xs text-muted-foreground">{exp.porcentaje}%</span>
+                      <span className="tnum text-xs text-muted-foreground">{formatPercent(exp.porcentaje)}</span>
                     </span>
                   </button>
                 </li>

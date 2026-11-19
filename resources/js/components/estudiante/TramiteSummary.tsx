@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { Progress } from "@/components/ui/progress";
 import { LampHousing, toLampState } from "@/components/ui/lamp";
 import { estatusLabel } from "@/components/ui/status-badge";
@@ -27,7 +28,7 @@ export function TramiteSummary({ tramite, state }: { tramite: TramiteData; state
         </p>
 
         <p className="tnum mt-1 text-[34px] font-extrabold leading-none">
-          {progreso.porcentaje}%
+          {formatPercent(progreso.porcentaje)}
           <span className="ml-2 text-sm font-semibold text-muted-foreground">
             {progreso.aprobados} de {progreso.total} aprobados
           </span>
@@ -36,7 +37,7 @@ export function TramiteSummary({ tramite, state }: { tramite: TramiteData; state
           value={progreso.porcentaje}
           className="mt-3 h-2"
           aria-label="Avance de tu trámite"
-          aria-valuetext={`${progreso.porcentaje}%, ${progreso.aprobados} de ${progreso.total} documentos aprobados`}
+          aria-valuetext={`${formatPercent(progreso.porcentaje)}, ${progreso.aprobados} de ${progreso.total} documentos aprobados`}
         />
 
         <p className="mt-3 text-sm leading-snug">{siguientePaso(tramite, proximo)}</p>

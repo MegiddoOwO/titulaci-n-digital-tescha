@@ -51,7 +51,7 @@ function RailContent({ config, onNavigate, bell }: { config: RailConfig; onNavig
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-3 text-sm md:py-2 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                     active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground",
                   )}
                 >
@@ -70,12 +70,12 @@ function RailContent({ config, onNavigate, bell }: { config: RailConfig; onNavig
             <p className="truncate text-sm font-semibold text-sidebar-accent-foreground">{usuario?.nombre || config.userFallback}</p>
             <p className="truncate text-xs text-sidebar-foreground/80">{usuario?.email}</p>
           </div>
-          <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          <ThemeToggle className="p-3 text-sidebar-foreground md:p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
           <Link
             href="/logout"
             method="post"
             as="button"
-            className="rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="rounded-md p-3 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:p-2"
             title="Cerrar sesión"
             aria-label="Cerrar sesión"
           >
@@ -128,7 +128,7 @@ export default function AppShellRail({ children, ...config }: RailConfig & { chi
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-md p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  className="rounded-md p-3 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   aria-label={`Abrir menú de ${config.roleLabel}`}
                 >
                   <Menu className="h-5 w-5" aria-hidden="true" />

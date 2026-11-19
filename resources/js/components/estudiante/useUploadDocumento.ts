@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { useForm } from "@inertiajs/react";
-import { useToast } from "@/hooks/use-toast";
 import type { DocumentoInfo } from "@/types/tramite";
 
 /**
  * Upload of one document through Inertia (multipart `POST /tramites/{tramite}/documentos`).
  * Server messages (422 validation or business guards, in Spanish) are kept per document type so
- * they can be shown next to the row, and also raised as a toast. The success toast comes from the
+ * they can be shown next to the row (and in the summary card); there is no error toast. The success toast comes from the
  * `flash.success` message that the shared shell already shows.
  */
 export function useUploadDocumento(tramiteId: number) {
   const form = useForm<{ archivo: File | null; tipo_documento_id: number }>({ archivo: null, tipo_documento_id: 0 });
   const [activeTipo, setActiveTipo] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<number, string>>({});
-  const { toast } = useToast();
 
   const setError = (tipoId: number, message: string | null) =>
     setErrors((prev) => {
@@ -35,11 +33,6 @@ export function useUploadDocumento(tramiteId: number) {
       onError: (errs) => {
         const message = Object.values(errs)[0] || "Error al subir documento";
         setError(tipoId, message);
-        toast({
-          title: `No se pudo subir "${doc.tipo_documento_nombre}"`,
-          description: message,
-          className: "bg-destructive text-destructive-foreground",
-        });
       },
       onFinish: () => setActiveTipo(null),
     });

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Loader2, Upload } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { acceptDe } from "@/components/estudiante/helpers";
 import type { UploadState } from "@/components/estudiante/useUploadDocumento";
@@ -43,10 +44,14 @@ export function UploadControl({ doc, state, label, primary = false, className }:
       <Button
         type="button"
         variant={primary ? "default" : "outline"}
-        className={className}
-        disabled={state.uploading}
+        className={cn("aria-disabled:cursor-not-allowed aria-disabled:opacity-50", className)}
+        // aria-disabled (not disabled) so keyboard focus stays on the button while the upload runs.
+        aria-disabled={state.uploading || undefined}
+        aria-busy={busy || undefined}
         aria-label={`${text}: ${doc.tipo_documento_nombre}`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => {
+          if (!state.uploading) inputRef.current?.click();
+        }}
       >
         {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
         <span className="tnum">{busy ? `Subiendo${state.progress !== null ? ` ${state.progress}%` : "…"}` : text}</span>

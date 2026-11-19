@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Head } from "@inertiajs/react";
 import { ChevronRight, Search, Users } from "lucide-react";
@@ -174,10 +175,10 @@ export default function AsesorHome({ estudiantes, revision, carga }: PageProps<P
           onChange={setFiltro}
           options={[
             { value: "todos", label: "Todos" },
-            { value: "pendientes", label: "Con pendientes de revisión" },
-            { value: "rechazos", label: "Con rechazos" },
+            { value: "pendientes", label: "Con pendientes de revisión", short: "Pendientes" },
+            { value: "rechazos", label: "Con rechazos", short: "Rechazos" },
           ]}
-          className="flex-wrap [&>button]:px-2.5 sm:[&>button]:px-3"
+          className="grid grid-cols-3 sm:flex [&>button]:px-2.5 sm:[&>button]:px-3"
         />
       </div>
 
@@ -223,7 +224,7 @@ export default function AsesorHome({ estudiantes, revision, carga }: PageProps<P
                   <TableCell className="hidden py-2.5 md:table-cell">
                     <div className="flex items-center gap-2">
                       <Progress value={f.porcentaje} className="h-1.5 flex-1" aria-label={`Avance de ${f.nombre_completo}`} />
-                      <span className="tnum w-9 text-right text-xs text-muted-foreground">{Math.round(f.porcentaje)}%</span>
+                      <span className="tnum w-9 text-right text-xs text-muted-foreground">{formatPercent(f.porcentaje)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="hidden py-2.5 md:table-cell">
@@ -251,7 +252,7 @@ export default function AsesorHome({ estudiantes, revision, carga }: PageProps<P
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9 md:hidden"
+                      className="h-11 w-11 md:hidden"
                       aria-label={`Abrir expediente de ${f.nombre_completo}`}
                       onClick={(e) => { e.stopPropagation(); open(f.tramite_id); }}
                     >

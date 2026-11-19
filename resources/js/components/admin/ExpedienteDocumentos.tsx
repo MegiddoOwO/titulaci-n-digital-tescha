@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -52,7 +53,7 @@ export function ExpedienteDocumentos({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <div className="flex min-w-[140px] flex-1 items-center gap-2">
               <Progress value={detalle.progreso.porcentaje} className="h-1.5 flex-1" aria-label="Avance del expediente" />
-              <span className="tnum text-xs font-semibold text-muted-foreground">{detalle.progreso.porcentaje}%</span>
+              <span className="tnum text-xs font-semibold text-muted-foreground">{formatPercent(detalle.progreso.porcentaje)}</span>
             </div>
             <span className="tnum text-xs text-muted-foreground">
               {detalle.progreso.aprobados} de {detalle.progreso.total} aprobados
@@ -103,12 +104,12 @@ export function ExpedienteDocumentos({
                   <div className="sm:mr-1 sm:w-[104px] sm:shrink-0 sm:[&>span]:w-full">
                     <StatusBadge kind="documento" status={doc.estatus} />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:flex-nowrap sm:gap-2">
                   {reviewable && (doc.estatus === "cargado" || doc.estatus === "en_revision") && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 px-2.5 text-xs"
+                      className="h-11 gap-1.5 px-3.5 text-sm sm:h-8 sm:px-2.5 sm:text-xs"
                       onClick={() => onApprove(doc.id!)}
                       disabled={pending}
                       aria-label={`Aprobar ${doc.tipo_documento_nombre}`}
@@ -121,7 +122,7 @@ export function ExpedienteDocumentos({
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 px-2.5 text-xs text-state-red hover:text-state-red"
+                      className="h-11 gap-1.5 px-3.5 text-sm text-state-red hover:text-state-red sm:h-8 sm:px-2.5 sm:text-xs"
                       onClick={() => onReject(doc.id!)}
                       disabled={pending}
                       aria-label={`Rechazar ${doc.tipo_documento_nombre}`}
@@ -130,8 +131,9 @@ export function ExpedienteDocumentos({
                       Rechazar
                     </Button>
                   )}
-                  {doc.id && (
-                    <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2.5 text-xs" asChild>
+                  {/* fecha_subida is what the row shows as "Subido"; without it nothing was uploaded and the file route would 404. */}
+                  {doc.id && doc.fecha_subida && (
+                    <Button size="sm" variant="ghost" className="h-11 gap-1.5 px-3 text-sm sm:h-8 sm:px-2.5 sm:text-xs" asChild>
                       <a
                         href={documentoHref(detalle.id, doc.id)}
                         target="_blank"

@@ -1,3 +1,4 @@
+import { formatPercent } from "@/lib/format";
 import { useEffect, useRef, useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Search, ChevronRight, Download, Pencil, Ban, RotateCcw, FileArchive, FileText, FolderOpen } from "lucide-react";
@@ -267,7 +268,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
                     <TableCell className="hidden py-2.5 md:table-cell">
                       <div className="flex items-center gap-2">
                         <Progress value={exp.porcentaje} className="h-1.5 flex-1" aria-label={`Avance de ${exp.nombre_completo}`} />
-                        <span className="tnum w-9 text-right text-xs text-muted-foreground">{exp.porcentaje}%</span>
+                        <span className="tnum w-9 text-right text-xs text-muted-foreground">{formatPercent(exp.porcentaje)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="hidden py-2.5 md:table-cell">

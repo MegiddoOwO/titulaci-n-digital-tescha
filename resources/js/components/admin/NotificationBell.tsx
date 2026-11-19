@@ -12,7 +12,7 @@ export function NotificationBell({ notificaciones, noLeidas, marcarTodas }: Pick
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="relative rounded-md p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="relative rounded-md p-3 text-sidebar-foreground md:p-2 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           aria-label={noLeidas > 0 ? `Notificaciones: ${noLeidas} sin leer` : "Notificaciones: sin novedades"}
         >
           <Bell className="h-4 w-4" aria-hidden="true" />
