@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\NotificacionMail;
 use App\Models\Notificacion;
 use App\Models\Usuario;
+use App\Support\MailFailure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -13,7 +14,7 @@ use Throwable;
  * Port of NotificacionService.create (server/src/infrastructure/services/NotificacionService.ts).
  *
  * Stores the in-app row and, for `tipo` email|ambos, also e-mails the user. A mail failure is
- * reported but never fails the caller (Express logs and swallows it).
+ * logged (recipient domain only) but never fails the caller (Express logs and swallows it).
  */
 class NotificacionService
 {
@@ -36,6 +37,8 @@ class NotificacionService
 
     private function sendEmail(int $usuarioId, string $titulo, string $mensaje): void
     {
+        $email = null;
+
         try {
             $usuario = Usuario::find($usuarioId);
 
@@ -43,9 +46,11 @@ class NotificacionService
                 return;
             }
 
-            Mail::to($usuario->email)->send(new NotificacionMail($usuario->nombre, $titulo, $mensaje));
+            $email = $usuario->email;
+
+            Mail::to($email)->send(new NotificacionMail($usuario->nombre, $titulo, $mensaje));
         } catch (Throwable $e) {
-            report($e);
+            MailFailure::log($e, $email, 'notificacion');
         }
     }
 

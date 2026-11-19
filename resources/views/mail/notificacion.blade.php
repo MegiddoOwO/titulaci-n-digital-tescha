@@ -1,7 +1,8 @@
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
-    <h2 style="color:#8A2036">SCA-TESCHA</h2>
-    <p>Hola {{ $nombre }},</p>
-    <p>{{ $mensaje }}</p>
-    <hr style="border-color:#efe1ca">
-    <p style="color:#666;font-size:12px">Sistema de Control y Administración de Titulación</p>
-</div>
+@extends('mail.layout')
+@section('title', $titulo)
+@section('preheader', $mensaje)
+@section('content')
+<p style="margin:0 0 16px 0;">Hola {{ $nombre }},</p>
+<h1 style="margin:0 0 12px 0;font-family:Helvetica,Arial,sans-serif;font-size:22px;line-height:28px;font-weight:700;color:#1F2328;">{{ $titulo }}</h1>
+<p style="margin:0;white-space:pre-line;">{{ $mensaje }}</p>
+@endsection

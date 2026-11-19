@@ -8,6 +8,9 @@ use App\Models\Tramite;
 use App\Policies\DocumentoPolicy;
 use App\Policies\TramitePolicy;
 use App\Services\DompdfDictamenPdfRenderer;
+use App\Listeners\RedirectOutgoingMail;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Tramite::class, TramitePolicy::class);
         Gate::policy(Documento::class, DocumentoPolicy::class);
+
+        Event::listen(MessageSending::class, RedirectOutgoingMail::class);
 
         Vite::prefetch(concurrency: 3);
     }

@@ -45,7 +45,7 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            'timeout' => (int) (env('MAIL_TIMEOUT') ?: 10),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
@@ -111,8 +111,21 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'address' => env('MAIL_FROM_ADDRESS') ?: 'no-reply@sca-tescha.test',
+        'name' => env('MAIL_FROM_NAME') ?: 'SCA-TESCHA',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redirect All Mail (demo safety)
+    |--------------------------------------------------------------------------
+    |
+    | When set to a valid address, EVERY outgoing message is delivered to it
+    | instead of the real recipient (see App\Listeners\RedirectOutgoingMail).
+    | Leave it unset in production.
+    |
+    */
+
+    'always_to' => env('MAIL_ALWAYS_TO') ?: null,
 
 ];

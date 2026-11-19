@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Mail\ResetPasswordMail;
 use App\Models\Usuario;
+use App\Support\MailFailure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
+use Throwable;
 
 class PasswordResetLinkController extends Controller
 {
@@ -43,9 +44,14 @@ class PasswordResetLinkController extends Controller
                 'reset_expira' => DB::raw('DATE_ADD(NOW(), INTERVAL 1 HOUR)'),
             ]);
 
-            Mail::to($usuario->email)->send(
-                new ResetPasswordMail($usuario->nombre, route('password.reset', ['token' => $token]))
-            );
+            // A delivery failure must not change the answer (it would reveal that the account exists).
+            try {
+                Mail::to($usuario->email)->send(
+                    new ResetPasswordMail($usuario->nombre, route('password.reset', ['token' => $token]))
+                );
+            } catch (Throwable $e) {
+                MailFailure::log($e, $usuario->email, 'password-reset');
+            }
         }
 
         // Same answer whether or not the account exists.
