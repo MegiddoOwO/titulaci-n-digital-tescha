@@ -1,17 +1,9 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "@inertiajs/react";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/tescha-logo.svg";
 import { cn } from "@/lib/utils";
-
-/** Opts the document into the dark tokens while a public page is mounted (see app.css). */
-function useTableroDark() {
-  useEffect(() => {
-    document.documentElement.classList.add("tablero-dark");
-    return () => document.documentElement.classList.remove("tablero-dark");
-  }, []);
-}
 
 interface PublicShellProps {
   children: ReactNode;
@@ -26,7 +18,6 @@ interface PublicShellProps {
  * graphite top bar with crest and product name, a way back and the theme toggle. No rail.
  */
 export default function PublicShell({ children, back = { href: "/", label: "Inicio" }, widthClass = "max-w-5xl" }: PublicShellProps) {
-  useTableroDark();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">

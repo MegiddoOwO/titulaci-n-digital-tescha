@@ -57,10 +57,6 @@
     --chart-grid: 216 15% 90%;
 
     /* Legacy semantic tokens used by unported pages, mapped onto the new system. */
-    --gold: 217 11% 38%;
-    --gold-light: 216 15% 92%;
-    --navy: 214 16% 14%;
-    --navy-light: 217 11% 32%;
     --success: 138 62% 25%;
     --warning: 38 100% 27%;
     --info: 214 16% 14%;
@@ -75,15 +71,8 @@
     --sidebar-ring: 0 0% 100%;
   }
 
-  /*
-   * Dark tokens are opt-in per surface: `.dark.tablero-dark` is set on <html> by AdminLayout
-   * (useTableroDark), so EVERY admin page gets them, redesigned or not. Admin pages that still
-   * carry old palette classes received minimal token swaps (bg-card, text-foreground, ...) so they
-   * stay legible. Student, asesor and public pages are not opted in and keep light tokens in dark
-   * mode, as before the redesign. When R4-R5 land, change this selector to plain `.dark` and drop
-   * useTableroDark.
-   */
-  .dark.tablero-dark {
+  /* Dark tokens: next-themes puts `.dark` on <html> (app.tsx, storageKey sca_theme). */
+  .dark {
     --background: 214 17% 8%;
     --foreground: 216 15% 92%;
 
@@ -124,10 +113,6 @@
     --chart-3: 215 9% 48%;
     --chart-grid: 214 11% 18%;
 
-    --gold: 215 11% 68%;
-    --gold-light: 214 13% 20%;
-    --navy: 216 15% 92%;
-    --navy-light: 215 11% 75%;
     --success: 135 50% 55%;
     --warning: 42 89% 60%;
     --info: 216 15% 85%;
@@ -153,7 +138,7 @@
     color-scheme: light;
   }
 
-  .dark.tablero-dark {
+  .dark {
     color-scheme: dark;
   }
 

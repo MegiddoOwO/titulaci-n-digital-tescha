@@ -87,14 +87,6 @@ function RailContent({ config, onNavigate, bell }: { config: RailConfig; onNavig
   );
 }
 
-/** Opts the document into the dark tokens while a ported surface is mounted (see app.css). */
-function useTableroDark() {
-  useEffect(() => {
-    document.documentElement.classList.add("tablero-dark");
-    return () => document.documentElement.classList.remove("tablero-dark");
-  }, []);
-}
-
 /**
  * Role-agnostic Tablero shell: graphite rail on desktop, top bar with a drawer on phones, working
  * notification bell, theme toggle and logout. Admin and asesor layouts only pass their nav items.
@@ -104,7 +96,6 @@ export default function AppShellRail({ children, ...config }: RailConfig & { chi
   const { notificaciones, noLeidas, marcarTodas } = useNotificaciones();
   const bell = <NotificationBell notificaciones={notificaciones} noLeidas={noLeidas} marcarTodas={marcarTodas} />;
   const { url } = usePage();
-  useTableroDark();
 
   // Close the phone drawer after any navigation.
   useEffect(() => setOpen(false), [url]);

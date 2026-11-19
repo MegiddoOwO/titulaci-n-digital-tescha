@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Head, Link } from "@inertiajs/react";
 import { ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -7,14 +7,6 @@ import { cn } from "@/lib/utils";
 import campus from "@/assets/banner-tescha.jpeg";
 import logo from "@/assets/tescha-logo.svg";
 import sgcLogo from "@/assets/logo.svg";
-
-/** Opts the document into the dark tokens while the landing is mounted (see app.css). */
-function useTableroDark() {
-  useEffect(() => {
-    document.documentElement.classList.add("tablero-dark");
-    return () => document.documentElement.classList.remove("tablero-dark");
-  }, []);
-}
 
 type DocEstatus = "pendiente" | "cargado" | "en revisión" | "aprobado" | "rechazado";
 
@@ -187,7 +179,6 @@ const secondaryLink =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-input px-5 text-base font-semibold text-foreground transition-colors hover:bg-secondary";
 
 const Landing = () => {
-  useTableroDark();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
