@@ -31,7 +31,7 @@ class TramiteFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        Storage::fake('uploads');
     }
 
     private function student(string $numero = '2021-0001'): Usuario
@@ -164,7 +164,7 @@ class TramiteFlowTest extends TestCase
         $this->assertStringStartsWith("uploads/{$tramite->id}/", $doc->archivo_url);
         $this->assertStringEndsWith('_Mi_carta__1_.pdf', $doc->archivo_url);
         $this->assertNotNull($doc->fecha_subida);
-        Storage::disk('local')->assertExists($doc->archivo_url);
+        Storage::disk('uploads')->assertExists($doc->archivo_url);
 
         $history = HistorialEstado::where('documento_id', $doc->id)->firstOrFail();
         $this->assertSame('cargado', $history->estado_nuevo);
@@ -213,7 +213,7 @@ class TramiteFlowTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('errors.archivo.0', 'Formato no permitido. Solo se aceptan: PDF.');
 
-        $this->assertSame(0, count(Storage::disk('local')->allFiles()));
+        $this->assertSame(0, count(Storage::disk('uploads')->allFiles()));
     }
 
     public function test_upload_rejects_corrupt_pdf(): void
@@ -234,7 +234,7 @@ class TramiteFlowTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('errors.archivo.0', fn ($m) => str_starts_with($m, 'El archivo excede el límite de 10.00 MB.'));
 
-        $this->assertSame(0, count(Storage::disk('local')->allFiles()));
+        $this->assertSame(0, count(Storage::disk('uploads')->allFiles()));
     }
 
     public function test_upload_requires_file_and_type(): void
@@ -272,7 +272,7 @@ class TramiteFlowTest extends TestCase
 
         $this->assertSame($before->estatus, $before->fresh()->estatus);
         $this->assertSame($before->archivo_url, $before->fresh()->archivo_url);
-        $this->assertSame(0, count(Storage::disk('local')->allFiles()));
+        $this->assertSame(0, count(Storage::disk('uploads')->allFiles()));
     }
 
     public function test_resubmission_after_rejection(): void
@@ -287,7 +287,7 @@ class TramiteFlowTest extends TestCase
         $doc->refresh();
         $this->assertSame('cargado', $doc->estatus);
         $this->assertNull($doc->motivo_rechazo);
-        Storage::disk('local')->assertExists($doc->archivo_url);
+        Storage::disk('uploads')->assertExists($doc->archivo_url);
         $this->assertSame(1, HistorialEstado::where('documento_id', $doc->id)->where('estado_nuevo', 'cargado')->count());
     }
 
@@ -298,7 +298,7 @@ class TramiteFlowTest extends TestCase
         $stranger = $this->student('2021-0002');
         $doc = Documento::where('tramite_id', $tramite->id)->where('tipo_documento_id', 4)->firstOrFail();
         $doc->update(['archivo_url' => "uploads/{$tramite->id}/x.pdf", 'archivo_nombre' => 'x.pdf']);
-        Storage::disk('local')->put($doc->archivo_url, self::PDF);
+        Storage::disk('uploads')->put($doc->archivo_url, self::PDF);
 
         $this->upload($stranger, $tramite, self::TIPO_PENDING)->assertForbidden();
         $this->actingAs($stranger)->get("/tramites/{$tramite->id}/documentos/{$doc->id}")->assertForbidden();
@@ -311,7 +311,7 @@ class TramiteFlowTest extends TestCase
         $tramite = $this->tramiteOf($user);
         $doc = Documento::where('tramite_id', $tramite->id)->where('tipo_documento_id', 4)->firstOrFail();
         $doc->update(['archivo_url' => "uploads/{$tramite->id}/x.pdf", 'archivo_nombre' => 'Pago.pdf']);
-        Storage::disk('local')->put($doc->archivo_url, self::PDF);
+        Storage::disk('uploads')->put($doc->archivo_url, self::PDF);
 
         $response = $this->actingAs($user)->get("/tramites/{$tramite->id}/documentos/{$doc->id}");
 
@@ -326,7 +326,7 @@ class TramiteFlowTest extends TestCase
         $tramite = $this->tramiteOf($user);
         $doc = Documento::where('tramite_id', $tramite->id)->where('tipo_documento_id', 4)->firstOrFail();
         $doc->update(['archivo_url' => '1700000000000_legacy.pdf', 'archivo_nombre' => 'legacy.pdf']);
-        Storage::disk('local')->put('uploads/1700000000000_legacy.pdf', self::PDF);
+        Storage::disk('uploads')->put('uploads/1700000000000_legacy.pdf', self::PDF);
 
         $this->actingAs($user)->get("/tramites/{$tramite->id}/documentos/{$doc->id}")->assertOk();
     }

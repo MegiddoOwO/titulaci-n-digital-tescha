@@ -20,6 +20,12 @@ abstract class TestCase extends BaseTestCase
             'session.driver' => 'array',
             'mail.default' => 'array',
         ]);
+        // Tests never hit a real bucket: force the local uploads disk unless the opt-in flag is set.
+        if (! env('SCA_TEST_REAL_S3')) {
+            config(['filesystems.disks.uploads' => [
+                'driver' => 'local', 'root' => storage_path('app/private'), 'throw' => true,
+            ]]);
+        }
         $this->app['cache']->setDefaultDriver('array');
 
         // Safety net: tests must never touch the live `sca_tescha` database.

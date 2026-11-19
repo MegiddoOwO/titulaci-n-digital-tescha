@@ -105,11 +105,51 @@ MAIL_FROM_NAME="SCA-TESCHA"
 
 **Entregabilidad en producción:** configura SPF y DKIM (y DMARC) en el dominio remitente; sin ellos los correos suelen caer en spam.
 
+## Almacenamiento de archivos
+
+Los documentos subidos usan el disco `uploads`, elegido con `UPLOADS_DISK` en `.env`:
+
+- `local` (por defecto): `storage/app/private/uploads/{tramite_id}/...`, igual que antes.
+- `s3`: cualquier servicio compatible con S3. Requiere `league/flysystem-aws-s3-v3` (ya incluido en `composer.json`).
+
+```env
+UPLOADS_DISK=s3
+AWS_ACCESS_KEY_ID=<clave>
+AWS_SECRET_ACCESS_KEY=<secreto>
+AWS_DEFAULT_REGION=<region>
+AWS_BUCKET=<bucket>
+AWS_ENDPOINT=<endpoint, vacío en AWS S3>
+AWS_USE_PATH_STYLE_ENDPOINT=<true|false>
+```
+
+| Proveedor | `AWS_ENDPOINT` | `AWS_DEFAULT_REGION` | Path style |
+|---|---|---|---|
+| AWS S3 | (vacío) | región del bucket, p. ej. `us-east-2` | `false` |
+| Cloudflare R2 | `https://<account>.r2.cloudflarestorage.com` | `auto` | `true` |
+| Backblaze B2 | `https://s3.<region>.backblazeb2.com` | `<region>` | `false` |
+| DigitalOcean Spaces | `https://<region>.digitaloceanspaces.com` | `<region>` | `false` |
+| MinIO | `http://<host>:9000` | `us-east-1` | `true` |
+
+Reglas:
+
+- El bucket debe ser **privado**. La aplicación nunca genera URLs públicas ni prefirmadas: cada archivo se sirve en streaming por la aplicación, solo después de pasar la política de acceso.
+- Respalda el bucket (versionado o réplica del proveedor) además de la base de datos.
+- Las pruebas automáticas nunca usan un bucket real.
+
+### Migrar los archivos existentes a un bucket
+
+1. Haz un respaldo de la base de datos y de `storage/app/private`.
+2. Configura las variables del bucket pero deja `UPLOADS_DISK=local`; luego ejecuta `php artisan config:clear`.
+3. Simula: `php artisan sca:uploads-copy --from=local --to=s3 --dry-run`. Para copiar al disco configurado como `uploads` omite `--to` (con `UPLOADS_DISK=s3`).
+4. Copia: `php artisan sca:uploads-copy --from=local --to=s3`. Omite los archivos ya presentes con el mismo tamaño, verifica el tamaño tras copiar e informa copiados, omitidos, faltantes y fallidos (código de salida 1 si algo falló).
+5. Cambia a `UPLOADS_DISK=s3` y prueba abrir un documento y descargar un expediente.
+6. Conserva `storage/app/private/uploads` hasta confirmar. Solo si lo deseas, `--delete-source` borra cada origen únicamente tras una copia verificada.
+
 ## Antes de producción
 
 - `APP_DEBUG=false` y un `APP_KEY` propio.
 - HTTPS, SMTP real (ver [Correo](#correo)) y contraseñas distintas a las de demostración.
-- Respaldos de la base de datos **y** de `storage/app/private` (documentos subidos).
+- Respaldos de la base de datos **y** de los documentos subidos (`storage/app/private` o el bucket, ver [Almacenamiento de archivos](#almacenamiento-de-archivos)).
 - Límites de subida de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento.
 
 ## Historial

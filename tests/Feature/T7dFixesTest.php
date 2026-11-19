@@ -25,7 +25,7 @@ class T7dFixesTest extends TestCase
 
     public function test_ini_size_error_returns_clear_422_on_archivo(): void
     {
-        Storage::fake('local');
+        Storage::fake('uploads');
         $student = $this->user('2021-0001');
         $tramite = Tramite::where('usuario_id', $student->id)->where('activo', 1)->firstOrFail();
         $tmp = tempnam(sys_get_temp_dir(), 'up');

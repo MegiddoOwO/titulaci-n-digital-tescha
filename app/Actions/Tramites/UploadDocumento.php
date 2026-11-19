@@ -7,9 +7,9 @@ use App\Models\HistorialEstado;
 use App\Models\TipoDocumento;
 use App\Models\Tramite;
 use App\Models\Usuario;
+use App\Support\Uploads;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -18,15 +18,13 @@ use Throwable;
  *
  * Storage path mapping: Express stored the bare file name (`<epoch_ms>_<sanitized>`) in
  * `documentos.archivo_url`, relative to `server/uploads/`. Laravel stores
- * `uploads/{tramite_id}/<epoch_ms>_<sanitized>` relative to the private `local` disk
- * (storage/app/private). Legacy values without a slash are resolved to `uploads/<name>` by
+ * `uploads/{tramite_id}/<epoch_ms>_<sanitized>` relative to the `uploads` disk
+ * (local storage/app/private or an S3-compatible bucket). Legacy values without a slash are resolved to `uploads/<name>` by
  * DocumentoController, so the cutover only has to copy server/uploads/* into
  * storage/app/private/uploads/.
  */
 class UploadDocumento
 {
-    public const DISK = 'local';
-
     private const ALLOWED_MIMES = [
         'PDF' => ['application/pdf'],
         'JPEG' => ['image/jpeg'],
@@ -71,7 +69,7 @@ class UploadDocumento
 
                 $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
                 $filename = (int) (microtime(true) * 1000).'_'.$safeName;
-                $path = Storage::disk(self::DISK)->putFileAs("uploads/{$tramite->id}", $file, $filename);
+                $path = Uploads::disk()->putFileAs("uploads/{$tramite->id}", $file, $filename);
 
                 if ($path === false) {
                     $this->fail('archivo', 'No se pudo guardar el archivo.');
@@ -113,7 +111,7 @@ class UploadDocumento
             });
         } catch (Throwable $e) {
             if ($path) {
-                Storage::disk(self::DISK)->delete($path);
+                Uploads::disk()->delete($path);
             }
             throw $e;
         }
