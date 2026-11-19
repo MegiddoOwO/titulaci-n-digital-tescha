@@ -8,6 +8,19 @@
 
         <title inertia>Sistema de Titulación ISC</title>
 
+        {{-- Apply the stored theme before first paint so dark users do not see a light flash.
+             next-themes (storageKey "sca_theme", class attribute) takes over once the JS mounts. --}}
+        <script>
+            (function () {
+                try {
+                    if (localStorage.getItem('sca_theme') === 'dark') {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.style.colorScheme = 'dark';
+                    }
+                } catch (e) {}
+            })();
+        </script>
+
         <link rel="icon" type="image/svg+xml" href="/favicon.svg">
         <link rel="shortcut icon" href="/favicon.ico">
 
