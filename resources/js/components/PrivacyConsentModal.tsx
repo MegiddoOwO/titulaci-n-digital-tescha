@@ -9,7 +9,8 @@ export function PrivacyConsentModal() {
   const { auth } = usePage<PageProps>().props;
   const [loading, setLoading] = useState(false);
 
-  if (!auth.user || auth.consentimiento) return null;
+  // Unknown URLs render the 404 page without the shared props, so `auth` can be absent.
+  if (!auth?.user || auth.consentimiento) return null;
 
   const handleAceptar = async () => {
     setLoading(true);
