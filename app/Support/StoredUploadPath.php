@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Resolves `documentos.archivo_url` to a path on the private `local` disk.
+ * Resolves `documentos.archivo_url` to a path on the `uploads` disk.
  *
  * New uploads store `uploads/{tramite_id}/<file>`; legacy Express values are a bare file name
  * that lived in server/uploads and is expected at `uploads/<file>` after the cutover copy.

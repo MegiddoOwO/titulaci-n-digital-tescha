@@ -126,15 +126,15 @@ class CrossCuttingServicesTest extends TestCase
 
     public function test_zip_contains_existing_files_and_skips_missing(): void
     {
-        Storage::fake('local');
+        Storage::fake('uploads');
         $ids = Documento::where('tramite_id', 1)->pluck('id')->all();
         $this->assertGreaterThanOrEqual(3, count($ids));
 
         Documento::where('tramite_id', 1)->update(['archivo_url' => 'uploads/1/missing.pdf']);
         Documento::whereKey($ids[0])->update(['archivo_url' => 'uploads/1/one.pdf']);
         Documento::whereKey($ids[1])->update(['archivo_url' => 'legacy_two.pdf']);
-        Storage::disk('local')->put('uploads/1/one.pdf', 'ONE');
-        Storage::disk('local')->put('uploads/legacy_two.pdf', 'TWO');
+        Storage::disk('uploads')->put('uploads/1/one.pdf', 'ONE');
+        Storage::disk('uploads')->put('uploads/legacy_two.pdf', 'TWO');
 
         $response = $this->actingAs($this->user('ADM-0001'))->get('/admin/expedientes/1/descargar')->assertOk();
         $this->assertSame('application/zip', $response->headers->get('Content-Type'));
@@ -151,7 +151,7 @@ class CrossCuttingServicesTest extends TestCase
 
     public function test_zip_with_all_files_missing_is_empty_and_without_documents_404(): void
     {
-        Storage::fake('local');
+        Storage::fake('uploads');
         $admin = $this->user('ADM-0001');
         Documento::where('tramite_id', 1)->update(['archivo_url' => 'uploads/1/missing.pdf']);
 

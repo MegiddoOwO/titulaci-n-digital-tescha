@@ -355,7 +355,9 @@ Los mensajes de validación están en español y conservan los textos del sistem
 
 ### 4.7 Archivos y almacenamiento
 
-- Los documentos se guardan en el disco privado `local` (`storage/app/private`), **nunca en `public/`**. Solo se sirven por controlador, con autorización.
+- Los documentos se guardan en el disco `uploads` (`App\Support\Uploads::disk()`), elegido con `UPLOADS_DISK`: `local` (por defecto, `storage/app/private`, privado) o `s3` (cualquier servicio compatible con S3: AWS, Cloudflare R2, Backblaze B2, DigitalOcean Spaces, MinIO; paquete `league/flysystem-aws-s3-v3`). **Nunca en `public/`** y nunca con URLs públicas o prefirmadas: solo se sirven por controlador, con autorización, en streaming (`InlineDocumentResponse`). El ZIP de expediente copia cada objeto por flujo a un temporal antes de comprimirlo y lo borra después.
+- `php artisan sca:uploads-copy {--from=local} {--to=} {--dry-run} {--delete-source}` copia los archivos referenciados por `documentos.archivo_url` entre discos (omite los ya presentes con el mismo tamaño, verifica el tamaño, nunca borra el origen salvo `--delete-source` tras verificar; sale con 1 si algo falló).
+- Las pruebas fuerzan el disco `uploads` local; `tests/Feature/RealS3ProtocolTest.php` es opt-in (`SCA_TEST_REAL_S3=1` con un MinIO desechable) y se omite por defecto.
 - Convención de ruta: `uploads/{tramite_id}/<epoch_ms>_<nombre_sanitizado>`; el nombre se limpia con `[^a-zA-Z0-9._-]` a `_`. `documentos.archivo_url` guarda esa ruta relativa y `archivo_nombre` el nombre original.
 - `StoredUploadPath::resolve()` rechaza rutas con `..` o absolutas, y trata un nombre sin `/` como `uploads/<nombre>` (compatibilidad con valores heredados).
 - **Visualización**: `GET /tramites/{tramite}/documentos/{documento}` (estudiante) y `GET /admin/tramites/{tramite}/documentos/{documento}` (administrativo) usan el mismo controlador; responden en línea con `Content-Type` según la extensión (`pdf`, `jpg`, `jpeg`, `png`, `webp`) y `scopeBindings` garantiza que el documento pertenezca al trámite. Un asesor no tiene ruta para abrir archivos.
@@ -788,6 +790,9 @@ Detalles relevantes:
 | `LOGIN_MAX_ATTEMPTS`, `LOGIN_BLOCK_MINUTES` | Bloqueo de cuenta (5 y 15) |
 | `BCRYPT_ROUNDS`, `HASH_VERIFY` | Hash de contraseñas |
 | `FILESYSTEM_DISK` | Disco por defecto (`local`, privado) |
+| `UPLOADS_DISK` | Disco de los documentos subidos: `local` (por defecto) o `s3` |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET` | Credenciales y bucket cuando `UPLOADS_DISK=s3` (bucket privado) |
+| `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | Endpoint de servicios compatibles (R2: `https://<account>.r2.cloudflarestorage.com`, región `auto`, path style `true`; vacío en AWS S3) |
 
 El archivo `.env` no se versiona.
 
@@ -797,7 +802,7 @@ El archivo `.env` no se versiona.
 - HTTPS delante de la aplicación.
 - SMTP real (`MAIL_*`); con el mailer `log` los correos no llegan a nadie.
 - Sustituir las contraseñas de demostración y retirar o desactivar los usuarios de ejemplo.
-- Respaldos de la base de datos **y** de `storage/app/private` (documentos subidos): ambos son necesarios para recuperar un expediente.
+- Respaldos de la base de datos **y** de los documentos subidos (`storage/app/private` o el bucket): ambos son necesarios para recuperar un expediente.
 - Límites de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento y que el tope de 20 MB.
 - `php artisan config:cache`, `route:cache` y `npm run build` en el despliegue.
 - Sesión: `file` basta en un solo servidor; con varias instancias, usar `database` (o `redis`) y una caché compartida para que los contadores de límite de tasa sean coherentes. Para `database` debe crearse la tabla de sesiones (no la incluye la migración base).
@@ -862,7 +867,7 @@ La versión anterior (SPA React + API Express con JWT) se conserva en la rama `l
 | Acceso a datos | `mysql2` con SQL directo | Eloquent y Query Builder |
 | Esquema | `database/schema.sql` y `seed.sql` | Migración base adoptable y seeders |
 | PDF | PDFKit | Dompdf mediante el contrato `DictamenPdfRenderer` |
-| Subidas | `multer` en `server/uploads` | Disco privado `storage/app/private/uploads/{tramite_id}` |
+| Subidas | `multer` en `server/uploads` | Disco `uploads` (local privado `storage/app/private/uploads/{tramite_id}` o bucket S3 privado) |
 | Correo | `nodemailer` | `Mail` de Laravel (`NotificacionMail`, `ResetPasswordMail`) |
 | Exportación | `.xlsx` y ZIP (`adm-zip`) | CSV y ZIP (`ZipArchive`) |
 | Pruebas | Vitest en el frontend | PHPUnit (172 pruebas) sobre `sca_tescha_test` |

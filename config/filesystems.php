@@ -1,5 +1,27 @@
 <?php
 
+$uploadsDisks = [
+    'local' => [
+        'driver' => 'local',
+        'root' => storage_path('app/private'),
+        'serve' => false,
+        'throw' => true,
+        'report' => false,
+    ],
+    's3' => [
+        'driver' => 's3',
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION'),
+        'bucket' => env('AWS_BUCKET'),
+        'endpoint' => env('AWS_ENDPOINT'),
+        'use_path_style_endpoint' => filter_var(env('AWS_USE_PATH_STYLE_ENDPOINT', false), FILTER_VALIDATE_BOOLEAN),
+        'visibility' => 'private',
+        'throw' => true,
+        'report' => false,
+    ],
+];
+
 return [
 
     /*
@@ -37,6 +59,10 @@ return [
             'throw' => false,
             'report' => false,
         ],
+
+        // Expediente uploads: UPLOADS_DISK=local (default, storage/app/private) or s3
+        // (any S3-compatible service). Always private; served only through the app.
+        'uploads' => $uploadsDisks[env('UPLOADS_DISK', 'local')] ?? $uploadsDisks['local'],
 
         'public' => [
             'driver' => 'local',

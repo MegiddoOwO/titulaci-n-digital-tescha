@@ -26,10 +26,10 @@ class AsesorDocumentoViewTest extends TestCase
 
     private function documentWithFile(int $tramiteId): Documento
     {
-        Storage::fake('local');
+        Storage::fake('uploads');
         $doc = Documento::where('tramite_id', $tramiteId)->where('estatus', 'cargado')->firstOrFail();
         $doc->update(['archivo_url' => "uploads/{$tramiteId}/x.pdf", 'archivo_nombre' => 'Pago.pdf']);
-        Storage::disk('local')->put($doc->archivo_url, self::PDF);
+        Storage::disk('uploads')->put($doc->archivo_url, self::PDF);
 
         return $doc;
     }

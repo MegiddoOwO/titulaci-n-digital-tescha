@@ -4,7 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\Documento;
 use App\Support\StoredUploadPath;
-use Illuminate\Support\Facades\Storage;
+use App\Support\Uploads;
 use ZipArchive;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -54,12 +54,13 @@ class ExpedienteExporter
 
         abort_if($docs->isEmpty(), 404, 'No hay documentos para descargar.');
 
-        $disk = Storage::disk('local');
+        $disk = Uploads::disk();
         $tmp = tempnam(sys_get_temp_dir(), 'exp');
         $zip = new ZipArchive;
         $zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE);
         $added = 0;
         $names = [];
+        $temps = [];
 
         foreach ($docs as $doc) {
             $path = StoredUploadPath::resolve($doc->archivo_url);
@@ -74,11 +75,26 @@ class ExpedienteExporter
             }
             $names[$name] = true;
 
-            $zip->addFile($disk->path($path), $name);
+            // Copy the object to a temp file by stream (works for local and S3, no whole-file reads).
+            $stream = $disk->readStream($path);
+            if (! is_resource($stream)) {
+                continue;
+            }
+            $copy = tempnam(sys_get_temp_dir(), 'expf');
+            $out = fopen($copy, 'wb');
+            stream_copy_to_stream($stream, $out);
+            fclose($out);
+            fclose($stream);
+
+            $temps[] = $copy;
+            $zip->addFile($copy, $name);
             $added++;
         }
 
         $zip->close();
+        foreach ($temps as $copy) {
+            @unlink($copy);
+        }
 
         if ($added === 0) {
             // ZipArchive writes nothing for an empty archive; Express answered an empty zip.

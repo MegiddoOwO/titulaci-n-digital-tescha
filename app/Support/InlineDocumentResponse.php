@@ -2,9 +2,7 @@
 
 namespace App\Support;
 
-use App\Actions\Tramites\UploadDocumento;
 use App\Models\Documento;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -26,7 +24,7 @@ final class InlineDocumentResponse
         abort_if(! $documento->archivo_url, 404, 'Documento no encontrado.');
 
         $path = StoredUploadPath::resolve($documento->archivo_url);
-        $disk = Storage::disk(UploadDocumento::DISK);
+        $disk = Uploads::disk();
 
         abort_unless($path && $disk->exists($path), 404, 'Archivo no encontrado en el servidor.');
 
