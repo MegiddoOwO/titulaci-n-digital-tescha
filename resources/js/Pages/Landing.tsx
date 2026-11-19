@@ -84,7 +84,7 @@ function SemaforoDemo() {
             aria-pressed={e.id === activo}
             onClick={() => setActivo(e.id)}
             className={cn(
-              "min-h-11 rounded-md px-1.5 text-[13px] font-semibold leading-tight transition-colors sm:px-3 sm:text-sm",
+              "min-h-11 rounded-md px-1 text-xs font-semibold leading-tight transition-colors sm:px-3 sm:text-sm",
               e.id === activo ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -109,8 +109,8 @@ function SemaforoDemo() {
           ))}
         </div>
 
-        <div className="min-w-0 flex-1" aria-live="polite">
-          <p className={cn("text-lg font-extrabold leading-tight", lampText[activo])}>
+        <div className="min-w-0 flex-1">
+          <p aria-live="polite" className={cn("text-lg font-extrabold leading-tight", lampText[activo])}>
             Semáforo {LAMP_NAME[activo]}
             <span className="block text-sm font-semibold">{LAMP_LABEL[activo]}</span>
           </p>
@@ -226,16 +226,16 @@ const Landing = () => {
 
       <main id="contenido" className="min-w-0 flex-1">
         {/* Portada */}
-        <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-10 md:px-6 md:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-20">
+        <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 md:gap-10 md:px-6 md:py-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-20">
           <div>
             <h1 className="max-w-[15ch] text-[2.5rem] font-extrabold leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl">
               Tu titulación, siempre a la vista
             </h1>
-            <p className="mt-5 max-w-[52ch] text-lg leading-8 text-muted-foreground">
+            <p className="mt-4 max-w-[52ch] text-base leading-7 text-muted-foreground md:mt-5 md:text-lg md:leading-8">
               El Sistema de Control y Administración de Titulación de Ingeniería en Sistemas Computacionales del TESCHA te muestra, en cada momento, qué documentos faltan, cuáles se revisan y cuáles ya
               están aprobados.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-row flex-wrap gap-3 md:mt-8">
               <Link href="/login" className={primaryLink}>
                 Iniciar sesión
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -244,7 +244,7 @@ const Landing = () => {
                 Ver normativa
               </Link>
             </div>
-            <p className="mt-5 max-w-[52ch] text-sm text-muted-foreground">
+            <p className="mt-4 md:mt-5 max-w-[52ch] text-sm text-muted-foreground">
               El acceso es institucional: tu alta la gestiona Control Escolar y entras con tu número de control.
             </p>
           </div>
@@ -255,7 +255,7 @@ const Landing = () => {
         {/* Qué hace */}
         <section aria-labelledby="que-hace" className="border-t border-border">
           <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 md:px-6 md:py-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-            <div>
+            <div className="lg:sticky lg:top-8 lg:self-start">
               <h2 id="que-hace" className="max-w-[14ch] text-3xl font-extrabold leading-tight tracking-tight md:text-4xl">
                 Qué hace el sistema por ti
               </h2>
@@ -275,15 +275,15 @@ const Landing = () => {
         </section>
 
         {/* Proceso */}
-        <section aria-labelledby="proceso" className="bg-sidebar text-sidebar-foreground [&_:focus-visible]:outline-[hsl(var(--sidebar-ring))]">
+        <section aria-labelledby="proceso" className="bg-sidebar text-sidebar-foreground dark:bg-sidebar-accent [&_:focus-visible]:outline-[hsl(var(--sidebar-ring))]">
           <div className="mx-auto w-full max-w-6xl px-4 py-14 md:px-6 md:py-20">
             <h2 id="proceso" className="text-3xl font-extrabold leading-tight tracking-tight text-sidebar-accent-foreground md:text-4xl">
               Proceso de titulación
             </h2>
             <p className="mt-4 max-w-[56ch] text-base leading-7">De la validación de tu estatus como egresado a la emisión de tu título, en cinco etapas.</p>
-            <ol className="mt-10 grid gap-0 border-t border-sidebar-border lg:grid-cols-5 lg:gap-6 lg:border-t-0">
+            <ol className="mt-10 grid gap-0 border-t border-sidebar-border dark:border-sidebar-foreground/25 lg:grid-cols-5 lg:gap-6 lg:border-t-0">
               {pasos.map((p, i) => (
-                <li key={p.titulo} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3 border-b border-sidebar-border py-5 lg:block lg:border-b-0 lg:border-t lg:pt-5">
+                <li key={p.titulo} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3 border-b border-sidebar-border dark:border-sidebar-foreground/25 py-5 lg:block lg:border-b-0 lg:border-t lg:pt-5">
                   <span className="tnum text-2xl font-extrabold leading-none text-sidebar-accent-foreground lg:block">{i + 1}</span>
                   <div className="lg:mt-4">
                     <h3 className="text-lg font-bold leading-snug text-sidebar-accent-foreground">{p.titulo}</h3>
@@ -297,11 +297,11 @@ const Landing = () => {
 
         {/* Cierre */}
         <section aria-labelledby="cierre" className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-14 md:px-6 md:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
-          <figure className="relative aspect-[1.333/1] w-full max-w-md overflow-hidden rounded-[10px] border border-border bg-card lg:order-2 lg:max-w-none">
+          <figure className="relative aspect-square w-full max-w-sm overflow-hidden rounded-[10px] border border-border bg-card lg:order-2 lg:max-w-none">
             <img
               src={campus}
               alt="Edificio José Ma. Morelos y Pavón del Tecnológico de Estudios Superiores de Chalco"
-              className="absolute left-[-38.6%] top-[-10.6%] h-auto w-[170%] max-w-none"
+              className="absolute left-[-114%] top-[-21%] h-auto w-[263%] max-w-none"
               loading="lazy"
             />
           </figure>
@@ -325,7 +325,7 @@ const Landing = () => {
         </section>
       </main>
 
-      <footer className="bg-sidebar text-sidebar-foreground">
+      <footer className="bg-sidebar text-sidebar-foreground dark:bg-sidebar-accent">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-white p-1.5">
