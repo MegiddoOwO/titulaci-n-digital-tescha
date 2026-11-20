@@ -535,7 +535,12 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
       </Dialog>
 
       <Dialog open={linkDialog !== null} onOpenChange={(open) => { if (!open) requestClose(); }}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => {
+          // Esc never closes the dialog silently: copied -> close; not copied -> ask; asking -> go back.
+          e.preventDefault();
+          if (copied) requestClose();
+          else setConfirmClose((asking) => !asking);
+        }}>
           <DialogHeader>
             <DialogTitle>{linkDialog?.reenviada ? "Invitación reenviada" : "Invitación creada"}</DialogTitle>
             <DialogDescription>Copia el enlace y envíalo a la persona.</DialogDescription>
