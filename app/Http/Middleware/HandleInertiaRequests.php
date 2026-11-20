@@ -36,6 +36,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 // One-time invitation link: only present on the response that created or resent it.
                 'invitacion_link' => fn () => $request->session()->get('invitacion_link'),
+                'invitacion_correo' => fn () => $request->session()->get('invitacion_correo'),
             ],
             'auth' => [
                 'user' => fn () => $request->user() ? [

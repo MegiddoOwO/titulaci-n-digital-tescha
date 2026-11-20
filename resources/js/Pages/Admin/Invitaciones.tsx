@@ -4,6 +4,7 @@ import { AlertCircle, Check, Copy, Loader2, MailPlus, RefreshCw, Search, UserPlu
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { LampBadge } from "@/components/ui/lamp";
 import { SegmentedControl, type SegmentedOption } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -93,6 +94,7 @@ interface LinkDialogState {
   link: string;
   email: string;
   reenviada: boolean;
+  correo: string;
 }
 
 export default function AdminInvitaciones({ invitaciones, total, page, totalPages, filters, opciones, asesores, expire_hours }: Props) {
@@ -103,19 +105,22 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
 
   const [showCreate, setShowCreate] = useState(false);
   const [asesor, setAsesor] = useState("none");
-  const [opcion, setOpcion] = useState(opciones[0] ? String(opciones[0].id) : "");
+  const [opcion, setOpcion] = useState("");
   const form = useForm({
     numero_control: "", rol: "estudiante" as Rol, email: "", nombre: "", apellido_paterno: "", apellido_materno: "", grado_academico: "",
   });
 
   // The one-time link lives only in this state: it goes away with the dialog or the page.
   const [linkDialog, setLinkDialog] = useState<LinkDialogState | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
+  const [confirmClose, setConfirmClose] = useState(false);
+  const copied = copyState === "ok";
   const linkInput = useRef<HTMLInputElement>(null);
 
   const [revokeTarget, setRevokeTarget] = useState<InvitacionRow | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [resendingId, setResendingId] = useState<number | null>(null);
+  const [resendTarget, setResendTarget] = useState<InvitacionRow | null>(null);
 
   const visit = (next: { search: string; estado: string; page: number }) => {
     router.get(
@@ -138,8 +143,9 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
   const openLink = (p: { props: unknown }, email: string, reenviada: boolean) => {
     const link = (p.props as PageProps).flash?.invitacion_link;
     if (link) {
-      setCopied(false);
-      setLinkDialog({ link, email, reenviada });
+      setCopyState("idle");
+      setConfirmClose(false);
+      setLinkDialog({ link, email, reenviada, correo: (p.props as PageProps).flash?.invitacion_correo ?? "" });
     }
   };
 
@@ -147,13 +153,18 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
     form.reset();
     form.clearErrors();
     setAsesor("none");
-    setOpcion(opciones[0] ? String(opciones[0].id) : "");
+    setOpcion("");
     setShowCreate(true);
   };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const email = form.data.email;
+    if (form.data.rol === "estudiante" && !opcion) {
+      form.clearErrors();
+      form.setError("opcion_titulacion_id" as never, "Elige la opción de titulación del estudiante.");
+      return;
+    }
     form.transform((d) => ({
       numero_control: d.numero_control,
       rol: d.rol,
@@ -180,11 +191,17 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
       preserveScroll: true,
       preserveState: true,
       onStart: () => setResendingId(row.id),
-      onFinish: () => setResendingId(null),
       onSuccess: (p) => openLink(p, row.email, true),
       onError: failure,
+      onFinish: () => {
+        setResendingId(null);
+        setResendTarget(null);
+      },
     });
   };
+
+  // A pending invitee may already hold the old link, so only an expired row resends without asking.
+  const askResend = (row: InvitacionRow) => (row.estado === "pendiente" ? setResendTarget(row) : handleResend(row));
 
   const handleRevoke = () => {
     if (!revokeTarget) return;
@@ -202,18 +219,45 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
 
   const copyLink = async () => {
     if (!linkDialog) return;
+    let ok = false;
     try {
       await navigator.clipboard.writeText(linkDialog.link);
+      ok = true;
     } catch {
-      // Insecure context or denied permission: select the text and use the legacy command.
+      // Insecure context or denied permission: select the text and try the legacy command.
       linkInput.current?.select();
-      document.execCommand("copy");
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
     }
-    setCopied(true);
+    setCopyState(ok ? "ok" : "fail");
   };
 
+  // The link is never shown again, so leaving without copying needs one explicit confirmation.
+  const requestClose = () => {
+    if (copied || confirmClose) {
+      setLinkDialog(null);
+      setConfirmClose(false);
+    } else {
+      setConfirmClose(true);
+    }
+  };
+
+  const correoTexto = (l: LinkDialogState) =>
+    l.correo === "enviado"
+      ? `Se envió por correo a ${l.email}.`
+      : l.correo === "fallido"
+        ? `No se pudo enviar el correo a ${l.email}. Comparte el enlace manualmente.`
+        : l.correo === "no_configurado"
+          ? "El correo del sistema no está configurado: comparte el enlace manualmente."
+          : "";
+
   const hasFilters = search.trim() !== "" || estado !== "todas";
-  const errorList = Object.values(form.errors);
+  const FIELD_KEYS = ["numero_control", "rol", "email", "nombre", "apellido_paterno", "apellido_materno", "grado_academico", "opcion_titulacion_id", "asesor_id"];
+  // The banner only carries errors that no field shows, so no message appears twice.
+  const errorList = Object.entries(form.errors).filter(([k]) => !FIELD_KEYS.includes(k)).map(([, v]) => v);
   const err = (k: keyof typeof form.data | "opcion_titulacion_id" | "asesor_id") => (form.errors as Record<string, string | undefined>)[k];
   const describe = (k: Parameters<typeof err>[0], id: string) => (err(k) ? `${id}-error` : undefined);
 
@@ -318,20 +362,22 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
                     <TableCell className="tnum hidden whitespace-nowrap py-2.5 text-sm text-muted-foreground lg:table-cell">{fechaTexto(i)}</TableCell>
                     <TableCell className="py-2.5 pr-3 align-top md:align-middle">
                       <div className="flex flex-nowrap items-center justify-end gap-0.5">
-                        {puedeReenviar && (
+                        {puedeReenviar ? (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-11 w-11 sm:h-9 sm:w-9"
-                            onClick={() => handleResend(i)}
+                            onClick={() => askResend(i)}
                             disabled={resendingId === i.id}
                             aria-label={`Reenviar invitación a ${nombre}`}
                             title="Reenviar (el enlace anterior deja de funcionar)"
                           >
                             {resendingId === i.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
                           </Button>
+                        ) : (
+                          <span aria-hidden="true" className="h-11 w-11 sm:h-9 sm:w-9" />
                         )}
-                        {puedeRevocar && (
+                        {puedeRevocar ? (
                           <Button
                             size="icon"
                             variant="ghost"
@@ -342,6 +388,8 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
                           >
                             <Ban aria-hidden="true" />
                           </Button>
+                        ) : (
+                          <span aria-hidden="true" className="h-11 w-11 sm:h-9 sm:w-9" />
                         )}
                       </div>
                     </TableCell>
@@ -442,9 +490,9 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
             </Field>
             {form.data.rol === "estudiante" && (
               <>
-                <Field id="inv-opcion" label="Opción de titulación" error={err("opcion_titulacion_id")}>
-                  <Select value={opcion} onValueChange={setOpcion}>
-                    <SelectTrigger id="inv-opcion"><SelectValue /></SelectTrigger>
+                <Field id="inv-opcion" label="Opción de titulación *" error={err("opcion_titulacion_id")}>
+                  <Select value={opcion} onValueChange={(v) => { setOpcion(v); form.clearErrors("opcion_titulacion_id" as never); }}>
+                    <SelectTrigger id="inv-opcion" aria-invalid={err("opcion_titulacion_id") ? true : undefined} aria-describedby={describe("opcion_titulacion_id", "inv-opcion")}><SelectValue placeholder="Elige una opción" /></SelectTrigger>
                     <SelectContent>
                       {opciones.map((o) => (
                         <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>
@@ -486,15 +534,20 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
         </DialogContent>
       </Dialog>
 
-      <Dialog open={linkDialog !== null} onOpenChange={(open) => { if (!open) setLinkDialog(null); }}>
-        <DialogContent>
+      <Dialog open={linkDialog !== null} onOpenChange={(open) => { if (!open) requestClose(); }}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{linkDialog?.reenviada ? "Invitación reenviada" : "Invitación creada"}</DialogTitle>
-            <DialogDescription>
-              Copia el enlace y envíalo a la persona. Cierra esta ventana solo cuando lo hayas guardado.
-            </DialogDescription>
+            <DialogDescription>Copia el enlace y envíalo a la persona.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted p-3">
+              <LampBadge state="ambar" label="Se muestra una sola vez" />
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                <strong className="font-semibold text-foreground">Este enlace se muestra una sola vez.</strong> Funciona una sola vez y vence en {expire_hours} horas.
+                {linkDialog?.reenviada && " El enlace anterior ya no funciona."}
+              </p>
+            </div>
             <div className="space-y-1.5">
               <label htmlFor="inv-enlace" className="text-xs font-semibold">Enlace de invitación</label>
               <Input
@@ -506,18 +559,54 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
                 className="tnum text-xs"
               />
             </div>
-            <Button type="button" onClick={copyLink} className="w-full gap-2">
-              {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-              {copied ? "Enlace copiado" : "Copiar enlace"}
-            </Button>
-            <p role="status" aria-live="polite" className="sr-only">{copied ? "Enlace copiado" : ""}</p>
-            <p className="text-sm text-muted-foreground">
-              Este enlace se muestra una sola vez. Funciona una sola vez y vence en {expire_hours} horas. Si el correo del sistema está configurado,
-              también se envió a {linkDialog?.email}.
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" onClick={copyLink} className="flex-1 gap-2">
+                {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                {copied ? "Enlace copiado" : "Copiar enlace"}
+              </Button>
+              <Button type="button" variant="outline" onClick={requestClose} className="sm:w-28">Listo</Button>
+            </div>
+            <p role="status" aria-live="polite" className={copyState === "fail" ? "text-sm font-medium text-destructive" : "sr-only"}>
+              {copyState === "ok" ? "Enlace copiado" : copyState === "fail" ? "No se pudo copiar: selecciona el enlace y cópialo manualmente." : ""}
             </p>
+            {confirmClose && (
+              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+                <p className="text-sm font-semibold text-destructive">¿Cerrar sin copiar?</p>
+                <p className="text-sm text-muted-foreground">El enlace no se vuelve a mostrar.</p>
+                <div className="mt-2.5 flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirmClose(false)}>Volver</Button>
+                  <Button type="button" variant="destructive" size="sm" onClick={requestClose}>Cerrar sin copiar</Button>
+                </div>
+              </div>
+            )}
+            {linkDialog && correoTexto(linkDialog) && <p className="text-sm text-muted-foreground">{correoTexto(linkDialog)}</p>}
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={resendTarget !== null} onOpenChange={(open) => { if (!open && resendingId === null) setResendTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reenviar invitación</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resendTarget?.nombre} {resendTarget?.apellido_paterno} puede tener ya el enlace anterior: dejará de funcionar y se generará uno nuevo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resendingId !== null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (resendTarget) handleResend(resendTarget);
+              }}
+              disabled={resendingId !== null}
+            >
+              {resendingId !== null ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+              Reenviar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={revokeTarget !== null} onOpenChange={(open) => { if (!open && !revoking) setRevokeTarget(null); }}>
         <AlertDialogContent>

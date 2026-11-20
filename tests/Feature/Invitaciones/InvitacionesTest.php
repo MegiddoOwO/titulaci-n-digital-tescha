@@ -36,6 +36,7 @@ class InvitacionesTest extends TestCase
             'apellido_paterno' => 'Invitada',
             'apellido_materno' => 'Prueba',
             'rol' => 'estudiante',
+            'opcion_titulacion_id' => 1,
         ];
     }
 
@@ -352,5 +353,43 @@ class InvitacionesTest extends TestCase
         config(['auth.invitations.expire_hours' => 24]);
         [$j] = $this->create();
         $this->assertEqualsWithDelta(24 * 3600, Invitacion::findOrFail($j['id'])->expira_en->timestamp - now()->timestamp, 5);
+    }
+
+    public function test_mail_outcome_is_reported_for_create_and_resend(): void
+    {
+        Mail::fake();
+        [$j] = $this->create();
+        $this->assertSame('no_configurado', $j['correo']);
+
+        config(['mail.default' => 'smtp']);
+        $sent = $this->actingAs($this->admin())->postJson('/admin/invitaciones', $this->payload([
+            'numero_control' => '2031-0010', 'email' => 'enviado@tescha.edu.mx',
+        ]))->assertCreated()->json();
+        $this->assertSame('enviado', $sent['correo']);
+
+        $this->actingAs($this->admin())->postJson("/admin/invitaciones/{$sent['id']}/reenviar")
+            ->assertOk()->assertJsonPath('correo', 'enviado');
+
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('smtp down'));
+        $this->actingAs($this->admin())->postJson('/admin/invitaciones', $this->payload([
+            'numero_control' => '2031-0011', 'email' => 'fallo@tescha.edu.mx',
+        ]))->assertCreated()->assertJsonPath('correo', 'fallido');
+    }
+
+    public function test_inertia_flash_carries_the_mail_outcome_once(): void
+    {
+        Mail::fake();
+        $this->actingAs($this->admin())->post('/admin/invitaciones', $this->payload())
+            ->assertSessionHas('invitacion_correo', 'no_configurado');
+    }
+
+    public function test_student_invitation_requires_an_explicit_titulacion_option(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->postJson('/admin/invitaciones', $this->payload(['opcion_titulacion_id' => null]))
+            ->assertStatus(422)->assertJsonValidationErrors('opcion_titulacion_id');
+        $this->actingAs($admin)->postJson('/admin/invitaciones', $this->payload([
+            'rol' => 'asesor', 'opcion_titulacion_id' => null,
+        ]))->assertCreated();
     }
 }

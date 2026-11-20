@@ -21,7 +21,7 @@ class CreateInvitacion
 
     /**
      * @param  array<string, mixed>  $data  validated input
-     * @return array{invitacion: Invitacion, link: string}
+     * @return array{invitacion: Invitacion, link: string, correo: string}
      */
     public function execute(array $data, Usuario $admin): array
     {
@@ -35,9 +35,9 @@ class CreateInvitacion
         ]);
 
         $link = route('invitacion.show', $token);
-        self::deliver($invitacion, $link);
+        $correo = self::deliver($invitacion, $link);
 
-        return ['invitacion' => $invitacion, 'link' => $link];
+        return ['invitacion' => $invitacion, 'link' => $link, 'correo' => $correo];
     }
 
     /**
@@ -86,12 +86,15 @@ class CreateInvitacion
             $errors['email'] = 'Ya existe un usuario con ese email.';
         }
 
-        $pending = Invitacion::vigente()
+        $pending = fn (string $column, string $value) => Invitacion::vigente()
             ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
-            ->where(fn ($q) => $q->where('numero_control', $numeroControl)->orWhere('email', $email))
+            ->where($column, $value)
             ->exists();
-        if ($pending) {
-            $errors['numero_control'] ??= 'Ya existe una invitación pendiente para ese número de control o email.';
+        if ($pending('numero_control', $numeroControl)) {
+            $errors['numero_control'] ??= 'Ya hay una invitación pendiente para ese número de control.';
+        }
+        if ($pending('email', $email)) {
+            $errors['email'] ??= 'Ya hay una invitación pendiente para ese correo.';
         }
 
         if ($errors) {
@@ -99,15 +102,29 @@ class CreateInvitacion
         }
     }
 
-    /** Mail failures never break the request: the admin still holds the link. */
-    public static function deliver(Invitacion $invitacion, string $link): void
+    public const CORREO_ENVIADO = 'enviado';
+    public const CORREO_FALLIDO = 'fallido';
+    public const CORREO_NO_CONFIGURADO = 'no_configurado';
+
+    /**
+     * Mail failures never break the request: the admin still holds the link.
+     *
+     * @return string one of the CORREO_* outcomes, so the UI can say what really happened
+     */
+    public static function deliver(Invitacion $invitacion, string $link): string
     {
+        $notConfigured = in_array(config('mail.default'), ['log', 'array'], true);
+
         try {
             Mail::to($invitacion->email)->send(new InvitacionMail(
                 $invitacion->nombre, $invitacion->rol, $invitacion->numero_control, $link, self::hours(),
             ));
         } catch (Throwable $e) {
             MailFailure::log($e, $invitacion->email, 'invitacion');
+
+            return self::CORREO_FALLIDO;
         }
+
+        return $notConfigured ? self::CORREO_NO_CONFIGURADO : self::CORREO_ENVIADO;
     }
 }

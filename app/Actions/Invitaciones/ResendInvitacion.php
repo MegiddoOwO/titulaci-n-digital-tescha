@@ -13,8 +13,8 @@ class ResendInvitacion
 {
     public function __construct(private readonly BitacoraService $bitacora) {}
 
-    /** @return string the new plain link (shown once) */
-    public function execute(Invitacion $invitacion, Usuario $admin): string
+    /** @return array{link: string, correo: string} the new plain link (shown once) and the mail outcome */
+    public function execute(Invitacion $invitacion, Usuario $admin): array
     {
         $token = bin2hex(random_bytes(32));
 
@@ -42,8 +42,6 @@ class ResendInvitacion
         });
 
         $link = route('invitacion.show', $token);
-        CreateInvitacion::deliver($invitacion, $link);
-
-        return $link;
+        return ['link' => $link, 'correo' => CreateInvitacion::deliver($invitacion, $link)];
     }
 }

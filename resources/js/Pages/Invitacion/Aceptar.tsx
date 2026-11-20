@@ -79,6 +79,8 @@ function PasswordField({
 
 export default function Aceptar({ valida, invitacion }: Props) {
   const form = useForm({ password: "", password_confirmation: "" });
+  // Both checks run before sending, so a short password and a mismatch show together.
+  const [localErrors, setLocalErrors] = useState<{ password?: string; confirm?: string }>({});
 
   // A used, expired or revoked link and a link rejected on submit share one generic answer.
   const invalidLink = !valida || !invitacion || Boolean((form.errors as Record<string, string>).token);
@@ -89,6 +91,11 @@ export default function Aceptar({ valida, invitacion }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const next: { password?: string; confirm?: string } = {};
+    if (form.data.password.length < 8) next.password = "La contraseña debe tener al menos 8 caracteres.";
+    if (form.data.password !== form.data.password_confirmation) next.confirm = "La confirmación de contraseña no coincide.";
+    setLocalErrors(next);
+    if (next.password || next.confirm) return;
     // The token is already in the URL this page was opened with.
     form.post(window.location.pathname, {
       onFinish: () => form.reset("password", "password_confirmation"),
@@ -105,7 +112,10 @@ export default function Aceptar({ valida, invitacion }: Props) {
               <h1 id="inv-titulo" className="text-2xl font-extrabold tracking-tight">
                 Enlace inválido o expirado
               </h1>
-              <p className="mt-2 text-sm text-muted-foreground">Pide una nueva invitación a Control Escolar.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Si ya creaste tu cuenta, inicia sesión con tu matrícula y la contraseña que elegiste.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">Si no, pide una nueva invitación a Control Escolar.</p>
               <Button asChild className="mt-6 h-11 w-full font-semibold">
                 <Link href="/login">Ir al inicio de sesión</Link>
               </Button>
@@ -115,7 +125,10 @@ export default function Aceptar({ valida, invitacion }: Props) {
               <h1 id="inv-titulo" className="text-2xl font-extrabold tracking-tight">
                 Te invitaron a SCA-TESCHA
               </h1>
-              <dl className="mt-3 space-y-0.5 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
+                SCA-TESCHA es el sistema de titulación del TESCHA. Elige una contraseña para activar tu cuenta; no se crea nada hasta que la envíes.
+              </p>
+              <dl className="mt-4 space-y-0.5 text-sm text-muted-foreground">
                 <div>
                   <dt className="sr-only">Nombre</dt>
                   <dd className="font-semibold text-foreground">{invitacion.nombre_completo || invitacion.nombre}</dd>
@@ -137,8 +150,8 @@ export default function Aceptar({ valida, invitacion }: Props) {
                   id="inv-password"
                   label="Contraseña"
                   value={form.data.password}
-                  onChange={(v) => form.setData("password", v)}
-                  error={mismatch ? undefined : passwordError}
+                  onChange={(v) => { setLocalErrors({}); form.setData("password", v); }}
+                  error={localErrors.password ?? (mismatch ? undefined : passwordError)}
                   describedBy="inv-password-ayuda"
                   hint="Mínimo 8 caracteres"
                 />
@@ -146,8 +159,8 @@ export default function Aceptar({ valida, invitacion }: Props) {
                   id="inv-confirmacion"
                   label="Confirmar contraseña"
                   value={form.data.password_confirmation}
-                  onChange={(v) => form.setData("password_confirmation", v)}
-                  error={mismatch ? passwordError : undefined}
+                  onChange={(v) => { setLocalErrors({}); form.setData("password_confirmation", v); }}
+                  error={localErrors.confirm ?? (mismatch ? passwordError : undefined)}
                   describedBy="inv-confirmacion-ayuda"
                 />
                 <Button type="submit" disabled={form.processing} className="h-11 w-full text-base font-semibold">

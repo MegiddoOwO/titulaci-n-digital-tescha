@@ -3,14 +3,15 @@ import { LampBadge, type LampState } from "@/components/ui/lamp";
 /**
  * Lamp semantics per kind (single definition; DESIGN.md records this rule):
  * - verde: nothing is owed (approved, completed, or no pending items).
- * - ambar: someone has work to do or is waiting (received, in review, in process, pending admin action).
+ * - ambar: someone has work to do or is waiting (received, in review, in process, pending admin action),
+ *   including a time-boxed wait on a person outside the admin (an invitation the invitee has not accepted).
  * - rojo: a rejection or refusal needs attention.
- * - off (unlit): the admin has nothing to act on yet (a document not uploaded) or the item is
- *   closed out of the flow (cancelled, inactive).
- * So "Pendiente" is unlit for a documento (the student owes the upload) and amber for an ARCO request
- * (the admin owes the answer). An invitación "Pendiente" is amber too (the invitee owes the
- * acceptance), "Aceptada" is green (nothing owed) and "Vencida" or "Revocada" are unlit (closed out).
- * "Activo" accounts carry no lamp at all, so a lit lamp never decorates
+ * - off (unlit): the admin has nothing to act on and nobody is on a clock (a document not uploaded, a
+ *   cancelled or inactive item, an invitation that expired or was revoked).
+ * So "Pendiente" is unlit for a documento (the student owes the upload, with no deadline running on the
+ * admin) and amber for an ARCO request (the admin owes the answer) and for an invitación (the invitee
+ * owes the acceptance before the link expires). "Aceptada" is green (nothing owed).
+  * "Activo" accounts carry no lamp at all, so a lit lamp never decorates
  * a normal row.
  *
  * The one status vocabulary for every role. A state is always a lamp on a dark housing plus its

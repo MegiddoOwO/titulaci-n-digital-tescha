@@ -44,17 +44,17 @@ class InvitacionController extends Controller
 
     public function store(StoreInvitacionRequest $request, CreateInvitacion $create): JsonResponse|RedirectResponse
     {
-        ['invitacion' => $invitacion, 'link' => $link] = $create->execute($request->validated(), $request->user());
+        ['invitacion' => $invitacion, 'link' => $link, 'correo' => $correo] = $create->execute($request->validated(), $request->user());
 
-        return $this->withLink($request, 'Invitación creada correctamente.', $link, $invitacion->id, 201);
+        return $this->withLink($request, 'Invitación creada correctamente.', $link, $correo, $invitacion->id, 201);
     }
 
     public function resend(Request $request, int $invitacion, ResendInvitacion $resend): JsonResponse|RedirectResponse
     {
         $model = Invitacion::find($invitacion) ?? abort(404, 'Invitación no encontrada.');
-        $link = $resend->execute($model, $request->user());
+        ['link' => $link, 'correo' => $correo] = $resend->execute($model, $request->user());
 
-        return $this->withLink($request, 'Invitación reenviada correctamente.', $link, $model->id);
+        return $this->withLink($request, 'Invitación reenviada correctamente.', $link, $correo, $model->id);
     }
 
     public function destroy(Request $request, int $invitacion, RevokeInvitacion $revoke): JsonResponse|RedirectResponse
@@ -65,12 +65,12 @@ class InvitacionController extends Controller
     }
 
     /** The plain link travels only in this response (JSON key or one-time flash). */
-    private function withLink(Request $request, string $message, string $link, int $id, int $status = 200): JsonResponse|RedirectResponse
+    private function withLink(Request $request, string $message, string $link, string $correo, int $id, int $status = 200): JsonResponse|RedirectResponse
     {
         if ($this->wantsPlainJson($request)) {
-            return response()->json(['message' => $message, 'id' => $id, 'link' => $link], $status);
+            return response()->json(['message' => $message, 'id' => $id, 'link' => $link, 'correo' => $correo], $status);
         }
 
-        return back()->with('success', $message)->with('invitacion_link', $link);
+        return back()->with('success', $message)->with('invitacion_link', $link)->with('invitacion_correo', $correo);
     }
 }
