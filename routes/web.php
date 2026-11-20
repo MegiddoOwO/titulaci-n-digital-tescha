@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DictamenController;
 use App\Http\Controllers\Admin\DocumentoReviewController as AdminDocumentoReviewController;
 use App\Http\Controllers\Admin\ExpedienteController;
 use App\Http\Controllers\Admin\InvitacionController;
+use App\Http\Controllers\Admin\InvitacionMasivaController;
 use App\Http\Controllers\Admin\SolicitudArcoController as AdminSolicitudArcoController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Asesor\ExpedienteController as AsesorExpedienteController;
@@ -125,6 +126,14 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/invitaciones', [InvitacionController::class, 'index'])->name('invitaciones.index');
         Route::post('/invitaciones', [InvitacionController::class, 'store'])->name('invitaciones.store');
+        Route::get('/invitaciones/plantilla.xlsx', [InvitacionMasivaController::class, 'plantillaXlsx'])
+            ->name('invitaciones.masiva.plantilla-xlsx');
+        Route::get('/invitaciones/plantilla.csv', [InvitacionMasivaController::class, 'plantillaCsv'])
+            ->name('invitaciones.masiva.plantilla-csv');
+        Route::post('/invitaciones/masiva/validar', [InvitacionMasivaController::class, 'validar'])
+            ->middleware('throttle:10,1,invitacion-masiva')->name('invitaciones.masiva.validar');
+        Route::post('/invitaciones/masiva/crear', [InvitacionMasivaController::class, 'crear'])
+            ->middleware('throttle:10,1,invitacion-masiva')->name('invitaciones.masiva.crear');
         Route::post('/invitaciones/{invitacion}/reenviar', [InvitacionController::class, 'resend'])
             ->whereNumber('invitacion')->name('invitaciones.reenviar');
         Route::delete('/invitaciones/{invitacion}', [InvitacionController::class, 'destroy'])
