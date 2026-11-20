@@ -123,4 +123,12 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    | Account invitations: single-use links created by an administrativo.
+    */
+
+    'invitations' => [
+        'expire_hours' => (int) env('INVITATION_EXPIRE_HOURS', 72),
+    ],
+
 ];

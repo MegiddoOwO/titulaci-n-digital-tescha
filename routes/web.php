@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CatalogoController;
 use App\Http\Controllers\Admin\DictamenController;
 use App\Http\Controllers\Admin\DocumentoReviewController as AdminDocumentoReviewController;
 use App\Http\Controllers\Admin\ExpedienteController;
+use App\Http\Controllers\Admin\InvitacionController;
 use App\Http\Controllers\Admin\SolicitudArcoController as AdminSolicitudArcoController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Asesor\ExpedienteController as AsesorExpedienteController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Estudiante\TramiteController;
 use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\PrivacidadController;
 use App\Http\Controllers\Public\DirectorioController;
+use App\Http\Controllers\Public\InvitacionController as InvitacionPublicaController;
 use App\Http\Controllers\Public\NormativaController;
 use App\Http\Controllers\Public\RequisitoFotografiaController;
 use App\Http\Controllers\SolicitudArcoController;
@@ -40,6 +42,11 @@ Route::get('/normativa/{id}', [NormativaController::class, 'show'])->whereNumber
 Route::get('/directorio', [DirectorioController::class, 'index'])->name('directorio.index');
 Route::get('/directorio/{id}', [DirectorioController::class, 'show'])->whereNumber('id')->name('directorio.show');
 Route::get('/requisitos-fotografia', RequisitoFotografiaController::class)->name('requisitos-fotografia');
+
+// Account invitations: public, single-use links (no state leak on invalid tokens).
+Route::get('/invitacion/{token}', [InvitacionPublicaController::class, 'show'])->name('invitacion.show');
+Route::post('/invitacion/{token}', [InvitacionPublicaController::class, 'store'])
+    ->middleware('throttle:10,1')->name('invitacion.aceptar');
 
 Route::middleware('auth')->group(function () {
     Route::middleware('role:estudiante')->group(function () {
@@ -115,6 +122,13 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('usuario')->name('usuarios.toggle');
         Route::delete('/usuarios/{usuario}', [UsuarioController::class, 'destroy'])
             ->whereNumber('usuario')->name('usuarios.destroy');
+
+        Route::get('/invitaciones', [InvitacionController::class, 'index'])->name('invitaciones.index');
+        Route::post('/invitaciones', [InvitacionController::class, 'store'])->name('invitaciones.store');
+        Route::post('/invitaciones/{invitacion}/reenviar', [InvitacionController::class, 'resend'])
+            ->whereNumber('invitacion')->name('invitaciones.reenviar');
+        Route::delete('/invitaciones/{invitacion}', [InvitacionController::class, 'destroy'])
+            ->whereNumber('invitacion')->name('invitaciones.destroy');
 
         // Pages; usuarios and bitacora render from their index actions (JSON for JSON clients).
         Route::get('/catalogos', [CatalogoController::class, 'page'])->name('catalogos.page');
