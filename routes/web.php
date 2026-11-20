@@ -46,7 +46,7 @@ Route::get('/requisitos-fotografia', RequisitoFotografiaController::class)->name
 // Account invitations: public, single-use links (no state leak on invalid tokens).
 Route::get('/invitacion/{token}', [InvitacionPublicaController::class, 'show'])->name('invitacion.show');
 Route::post('/invitacion/{token}', [InvitacionPublicaController::class, 'store'])
-    ->middleware('throttle:10,1')->name('invitacion.aceptar');
+    ->middleware('throttle:10,1,invitacion')->name('invitacion.aceptar');
 
 Route::middleware('auth')->group(function () {
     Route::middleware('role:estudiante')->group(function () {

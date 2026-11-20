@@ -8,7 +8,9 @@ import { LampBadge, type LampState } from "@/components/ui/lamp";
  * - off (unlit): the admin has nothing to act on yet (a document not uploaded) or the item is
  *   closed out of the flow (cancelled, inactive).
  * So "Pendiente" is unlit for a documento (the student owes the upload) and amber for an ARCO request
- * (the admin owes the answer). "Activo" accounts carry no lamp at all, so a lit lamp never decorates
+ * (the admin owes the answer). An invitación "Pendiente" is amber too (the invitee owes the
+ * acceptance), "Aceptada" is green (nothing owed) and "Vencida" or "Revocada" are unlit (closed out).
+ * "Activo" accounts carry no lamp at all, so a lit lamp never decorates
  * a normal row.
  *
  * The one status vocabulary for every role. A state is always a lamp on a dark housing plus its
@@ -47,7 +49,15 @@ const CUENTA: Record<string, { tone: Tone; label: string }> = {
   inactivo: { tone: "off", label: "Inactivo" },
 };
 
-const KINDS = { tramite: TRAMITE, documento: DOCUMENTO, arco: ARCO, cuenta: CUENTA };
+/** Invitations: waiting on the invitee is amber, accepted is green, expired or revoked is closed out. */
+const INVITACION: Record<string, { tone: Tone; label: string }> = {
+  pendiente: { tone: "ambar", label: "Pendiente" },
+  aceptada: { tone: "verde", label: "Aceptada" },
+  expirada: { tone: "off", label: "Vencida" },
+  revocada: { tone: "off", label: "Revocada" },
+};
+
+const KINDS = { tramite: TRAMITE, documento: DOCUMENTO, arco: ARCO, cuenta: CUENTA, invitacion: INVITACION };
 
 const SEMAFORO_NAME: Record<LampState, string> = { verde: "verde", ambar: "ámbar", rojo: "rojo" };
 
@@ -62,7 +72,7 @@ export function estatusLabel(kind: "tramite" | "documento", status: string): str
 }
 
 interface StatusBadgeProps {
-  kind: "tramite" | "documento" | "arco" | "cuenta";
+  kind: "tramite" | "documento" | "arco" | "cuenta" | "invitacion";
   status: string;
   /**
    * Trámite only: the semáforo computed by the database view for that trámite. When given, it picks

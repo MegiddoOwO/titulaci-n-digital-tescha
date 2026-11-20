@@ -36,6 +36,7 @@ class InvitacionController extends Controller
             'filters' => ['search' => $search ?? '', 'estado' => $estado ?? ''],
             'opciones' => $this->usuarios->opcionesTitulacion(),
             'asesores' => $this->usuarios->docentes(),
+            'expire_hours' => max(1, (int) config('auth.invitations.expire_hours', 72)),
         ];
 
         return $this->wantsPlainJson($request) ? response()->json($props) : Inertia::render('Admin/Invitaciones', $props);
