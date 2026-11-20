@@ -28,6 +28,7 @@ class InvitacionController extends Controller
             'valida' => true,
             'invitacion' => [
                 'nombre' => $invitacion->nombre,
+                'nombre_completo' => trim(implode(' ', array_filter([$invitacion->nombre, $invitacion->apellido_paterno, $invitacion->apellido_materno]))),
                 'rol' => $invitacion->rol,
                 'numero_control' => $invitacion->numero_control,
                 'expira_en' => $invitacion->expira_en->toIso8601String(),

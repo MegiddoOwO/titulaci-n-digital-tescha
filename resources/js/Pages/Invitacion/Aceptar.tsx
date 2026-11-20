@@ -8,6 +8,7 @@ import PublicShell from "@/components/layout/PublicShell";
 
 interface InvitacionResumen {
   nombre: string;
+  nombre_completo: string;
   rol: "estudiante" | "asesor" | "administrativo";
   numero_control: string;
   expira_en: string;
@@ -117,7 +118,7 @@ export default function Aceptar({ valida, invitacion }: Props) {
               <dl className="mt-3 space-y-0.5 text-sm text-muted-foreground">
                 <div>
                   <dt className="sr-only">Nombre</dt>
-                  <dd className="font-semibold text-foreground">{invitacion.nombre}</dd>
+                  <dd className="font-semibold text-foreground">{invitacion.nombre_completo || invitacion.nombre}</dd>
                 </div>
                 <div>
                   <dt className="sr-only">Cuenta</dt>

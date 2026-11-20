@@ -33,15 +33,16 @@ export default function PublicShell({ children, back = { href: "/", label: "Inic
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white p-1">
               <img src={logo} alt="" className="h-full w-full object-contain" />
             </span>
-            <span className="truncate text-[17px] font-extrabold text-sidebar-accent-foreground">SCA-TESCHA</span>
+            <span className="shrink-0 whitespace-nowrap text-[17px] font-extrabold text-sidebar-accent-foreground">SCA-TESCHA</span>
           </Link>
           <span className="flex-1" />
           <Link
             href={back.href}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label={back.label}
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {back.label}
+            <span className="sr-only sm:not-sr-only">{back.label}</span>
           </Link>
           <ThemeToggle className="p-3.5 sm:p-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
         </div>

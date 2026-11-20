@@ -173,7 +173,7 @@ class InvitacionesTest extends TestCase
         $this->get("/invitacion/{$token}")->assertInertia(fn (Assert $p) => $p
             ->component('Invitacion/Aceptar')->where('valida', true)
             ->where('invitacion.numero_control', '2031-0001')->where('invitacion.rol', 'estudiante')
-            ->has('invitacion.nombre')->has('invitacion.expira_en')->missing('invitacion.email'));
+            ->has('invitacion.nombre')->where('invitacion.nombre_completo', 'Nueva Invitada Prueba')->has('invitacion.expira_en')->missing('invitacion.email'));
 
         $this->accept($token)->assertRedirect('/login');
         $this->assertSame('Cuenta creada. Inicia sesión con tu número de control.', session('status'));
