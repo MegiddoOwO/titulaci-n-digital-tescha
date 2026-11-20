@@ -8,6 +8,7 @@ use App\Http\Requests\AceptarInvitacionRequest;
 use App\Models\Invitacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,6 +43,14 @@ class InvitacionController extends Controller
 
         if (! $usuario) {
             throw ValidationException::withMessages(['token' => self::INVALID]);
+        }
+
+        // The new account belongs to someone else: do not leave a different identity signed in
+        // in this browser (for example an administrator testing the link).
+        if (Auth::check()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
         }
 
         return redirect()->route('login')->with('status', 'Cuenta creada. Inicia sesión con tu número de control.');

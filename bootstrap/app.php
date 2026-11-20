@@ -20,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
         ]);
+
+        // A signed-in user opening a guest-only page (login) goes to THEIR panel; the framework
+        // default is /dashboard, which is student-only and answers 403 for every other role.
+        $middleware->redirectUsersTo(fn (Request $request) => $request->user()?->homePath() ?? '/');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Browser navigation to an unknown URL gets the (Inertia) 404 page, as the SPA did.
