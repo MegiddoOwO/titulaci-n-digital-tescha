@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { LayoutDashboard, Users, FolderOpen, FileText, ClipboardCheck, Library, Shield, History } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, FileText, ClipboardCheck, Library, Shield, History, MailPlus } from "lucide-react";
 import AppShellRail, { type RailItem } from "@/components/layout/AppShellRail";
 
 const menuItems: RailItem[] = [
@@ -8,6 +8,7 @@ const menuItems: RailItem[] = [
   { title: "Documentos", url: "/admin/documentos", icon: FileText },
   { title: "Dictámenes", url: "/admin/dictamenes", icon: ClipboardCheck },
   { title: "Usuarios", url: "/admin/usuarios", icon: Users },
+  { title: "Invitaciones", url: "/admin/invitaciones", icon: MailPlus },
   { title: "Catálogos", url: "/admin/catalogos", icon: Library },
   { title: "ARCO", url: "/admin/arco", icon: Shield },
   { title: "Bitácora", url: "/admin/bitacora", icon: History },

@@ -84,6 +84,8 @@ case "${1:-}" in
   up)
     start_db
     db -e "use \`$DB_NAME\`" 2>/dev/null || build_database
+    # Apply migrations added after the demo database was first built.
+    (cd "$ROOT" && DB_DATABASE="$DB_NAME" php artisan migrate --force)
     start_laravel
     echo "Open http://127.0.0.1:$PORT  (password for all demo users: Demo1234!)"
     echo "  estudiante 2021-0001 | asesor DOC-0001 | administrativo ADM-0001"

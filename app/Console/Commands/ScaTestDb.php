@@ -29,6 +29,6 @@ class ScaTestDb extends Command
 
         $this->info("Rebuilding [{$database}]...");
 
-        return $this->call('migrate:fresh', ['--seed' => true, '--force' => true]);
+        return $this->call('migrate:fresh', ['--seed' => true, '--force' => true, '--drop-views' => true]);
     }
 }

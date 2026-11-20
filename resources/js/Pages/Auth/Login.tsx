@@ -45,6 +45,8 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
 
   // The server redirects here after a successful password reset.
   const [resetNotice] = useState(Boolean(status));
+  // The same redirect also follows an accepted invitation.
+  const [cuentaCreada] = useState(Boolean(status?.startsWith("Cuenta creada")));
 
   const loginError = loginForm.errors.numero_control || loginForm.errors.password;
   const forgotError = forgotForm.errors.numero_control || (forgotForm.hasErrors ? "Error al enviar solicitud." : undefined);
@@ -95,8 +97,12 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
 
           {resetNotice && !loginError && (
             <div role="status" className="mt-5 rounded-md border border-border bg-muted p-3">
-              <LampBadge state="verde" label="Contraseña restablecida" />
-              <p className="mt-1.5 text-sm text-muted-foreground">Ya puedes iniciar sesión con tu nueva contraseña.</p>
+              <LampBadge state="verde" label={cuentaCreada ? "Cuenta creada" : "Contraseña restablecida"} />
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                {cuentaCreada
+                  ? "Inicia sesión con tu número de control y la contraseña que elegiste."
+                  : "Ya puedes iniciar sesión con tu nueva contraseña."}
+              </p>
             </div>
           )}
 

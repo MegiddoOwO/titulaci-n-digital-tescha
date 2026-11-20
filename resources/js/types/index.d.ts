@@ -17,5 +17,8 @@ export type PageProps<
     };
     flash: {
         success: string | null;
+        /** One-time invitation link, present only on the response that created or resent it. */
+        invitacion_link?: string | null;
+        invitacion_correo?: string | null;
     };
 };
