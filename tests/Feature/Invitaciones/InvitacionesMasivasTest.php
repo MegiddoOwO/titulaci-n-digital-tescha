@@ -365,6 +365,10 @@ class InvitacionesMasivasTest extends TestCase
         Mail::assertSentCount(3);
 
         foreach ($response->json('resultados') as $r) {
+            if ($r['correo_estado'] === 'enviado') {
+                $this->assertNull($r['link']);
+                continue;
+            }
             $token = basename($r['link']);
             $this->assertSame(64, strlen($token));
             $inv = Invitacion::findOrFail($r['id']);
@@ -468,6 +472,14 @@ class InvitacionesMasivasTest extends TestCase
 
         $summary = Bitacora::where('accion', 'invitaciones_carga_masiva')->firstOrFail();
         $this->assertSame(1, $summary->detalle['correo']['fallido']);
+
+        // Only rows whose mail was not delivered carry a link; delivered ones never do.
+        $links = array_column($response->json('resultados'), 'link');
+        $this->assertSame('fallido', $estados[1]);
+        $this->assertNotEmpty($links[1]);
+        foreach ([0, 2] as $i) {
+            $this->assertSame($estados[$i] === 'enviado', $links[$i] === null);
+        }
     }
 
     public function test_xlsx_upload_creates_invitations(): void

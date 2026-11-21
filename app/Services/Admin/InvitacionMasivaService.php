@@ -315,7 +315,8 @@ class InvitacionMasivaService
                 'numero_control' => $inv->numero_control,
                 'correo' => $inv->email,
                 'correo_estado' => $estado,
-                'link' => $link,
+                // Delivered by mail: the link is not needed again, so it never leaves the server.
+                'link' => $estado === CreateInvitacion::CORREO_ENVIADO ? null : $link,
             ];
         }
 

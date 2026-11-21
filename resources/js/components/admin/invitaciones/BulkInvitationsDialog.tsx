@@ -43,6 +43,8 @@ interface CreateResponse {
   omitidas: number;
   resultados: CreatedRow[];
   errores: RowError[];
+  /** Rows whose mail was not delivered at creation time; kept apart so the notice survives clearing the links. */
+  sinEntregar: number;
 }
 
 const ROL_LABEL: Record<string, string> = { estudiante: "Estudiante", asesor: "Asesor", administrativo: "Administrativo" };
@@ -71,14 +73,34 @@ function describeError(e: unknown): string {
   return "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
 }
 
+/**
+ * Wording for a failed create request. Only 422/429/401/403/419 are known not to have created anything;
+ * every other failure (network, 5xx, 413, 504) may have, so the admin must check the list before retrying.
+ */
+function describeCreateError(e: unknown): { message: string; uncertain: boolean } {
+  if (e instanceof HttpError && [401, 403, 419, 422, 429].includes(e.status)) {
+    return { message: describeError(e), uncertain: false };
+  }
+  return {
+    message:
+      "No se recibió respuesta del servidor. Algunas invitaciones pudieron crearse: revisa la lista antes de volver a intentarlo, porque los enlaces no se pueden recuperar.",
+    uncertain: true,
+  };
+}
+
 function ErrorTable({ errores, label }: { errores: RowError[]; label: string }) {
   const shown = errores.slice(0, MAX_ERROR_ROWS);
   const more = errores.length - shown.length;
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <div className="max-h-56 overflow-auto rounded-md border bg-card">
-        <Table aria-label={label}>
+      <div
+        role="region"
+        aria-label={label}
+        tabIndex={0}
+        className="max-h-64 overflow-auto rounded-md border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="h-10 w-16 px-3">Línea</TableHead>
@@ -117,11 +139,14 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<ValidationSummary | null>(null);
   const [omit, setOmit] = useState(false);
-  // Plain links live only here (rows already delivered by mail are stripped); closing the dialog clears them.
+  // Plain links live only here (rows already delivered by mail are stripped); closing the dialog clears them at once.
   const [result, setResult] = useState<CreateResponse | null>(null);
   const [downloaded, setDownloaded] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  // A failed create request may still have created invitations, so the list must reload on close.
+  const [staleList, setStaleList] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const resetPending = useRef(false);
 
   useEffect(() => {
     if (open) heading.current?.focus();
@@ -137,16 +162,32 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
     setResult(null);
     setDownloaded(false);
     setConfirmClose(false);
+    setStaleList(false);
+    resetPending.current = false;
   };
 
+  // The rest of the state resets only after the close animation, so the dialog never flashes back to step 1.
+  useEffect(() => {
+    if (open) {
+      if (resetPending.current) reset();
+      return;
+    }
+    if (!resetPending.current) return;
+    const timer = window.setTimeout(reset, 250);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
   const finish = () => {
-    const created = (result?.creadas ?? 0) > 0;
-    reset();
+    const created = (result?.creadas ?? 0) > 0 || staleList;
+    // Drop the plain links immediately; counts stay so the dialog looks unchanged while it fades out.
+    setResult((r) => (r ? { ...r, resultados: r.resultados.map((x) => ({ ...x, link: null })) } : r));
+    resetPending.current = true;
     onClose(created);
   };
 
   const pending = (result?.resultados ?? []).filter((r) => r.correo_estado !== "enviado" && r.link);
-  const needsDownload = pending.length > 0 && !downloaded;
+  const pendingCount = result?.sinEntregar ?? 0;
+  const needsDownload = pendingCount > 0 && !downloaded;
 
   // Links are never shown again, so leaving the result step without downloading asks exactly once.
   const requestClose = () => {
@@ -196,15 +237,15 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
       form.append("archivo", file);
       form.append("omitir_errores", summary.con_error > 0 ? "1" : "0");
       const data = await postForm<CreateResponse>("/admin/invitaciones/masiva/crear", form);
-      setResult({
-        ...data,
-        resultados: data.resultados.map((r) => ({ ...r, link: r.correo_estado === "enviado" ? null : r.link })),
-      });
+      const resultados = data.resultados.map((r) => ({ ...r, link: r.correo_estado === "enviado" ? null : r.link }));
+      setResult({ ...data, resultados, sinEntregar: resultados.filter((r) => r.link).length });
       setDownloaded(false);
       setConfirmClose(false);
       setStep("resultado");
     } catch (e) {
-      setError(describeError(e));
+      const { message, uncertain } = describeCreateError(e);
+      if (uncertain) setStaleList(true);
+      setError(message);
     } finally {
       setBusy(null);
     }
@@ -229,14 +270,28 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
     },
     { enviadas: 0, fallidas: 0, sinCorreo: 0 },
   );
+  // Plain text only: the single amber lamp of this step belongs to the one-time links notice.
+  const mailParts = [
+    mails.enviadas > 0 && `${mails.enviadas} ${mails.enviadas === 1 ? "enviada" : "enviadas"} por correo`,
+    mails.fallidas > 0 && `${mails.fallidas} sin enviar`,
+    mails.sinCorreo > 0 && `${mails.sinCorreo} sin correo configurado`,
+  ].filter(Boolean);
 
   const mustAcknowledge = (summary?.con_error ?? 0) > 0;
   const canCreate = !!summary && summary.validas > 0 && (!mustAcknowledge || omit);
+  const showHint = step === "revision" && !!summary && summary.validas > 0 && !canCreate && !busy;
+
+  const errorAlert = error && (
+    <p role="alert" className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-medium text-destructive">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      {error}
+    </p>
+  );
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
       <DialogContent
-        className="max-h-[90vh] max-w-2xl overflow-y-auto"
+        className="flex max-h-[calc(100dvh-1.5rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(90dvh,54rem)] dark:[color-scheme:dark]"
         onInteractOutside={(e) => { if (busy || step === "resultado") e.preventDefault(); }}
         onEscapeKeyDown={(e) => {
           if (busy) {
@@ -250,259 +305,267 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
         }}
         onOpenAutoFocus={(e) => { e.preventDefault(); heading.current?.focus(); }}
       >
-        <DialogHeader>
-          <DialogTitle>Carga masiva de invitaciones</DialogTitle>
-          <DialogDescription className="sr-only">Crea varias invitaciones a la vez desde un archivo Excel o CSV.</DialogDescription>
-        </DialogHeader>
+        <div className="shrink-0 space-y-3 px-4 pb-3 pt-5 sm:px-6 sm:pt-6">
+          <DialogHeader className="pr-8">
+            <DialogTitle>Carga masiva de invitaciones</DialogTitle>
+            <DialogDescription className="sr-only">Crea varias invitaciones a la vez desde un archivo Excel o CSV.</DialogDescription>
+          </DialogHeader>
 
-        <ol className="flex flex-wrap gap-x-5 gap-y-1 text-sm" aria-label="Pasos">
-          {STEPS.map((s, i) => (
-            <li
-              key={s.id}
-              aria-current={i === stepIndex ? "step" : undefined}
-              className={`flex items-center gap-1.5 ${i === stepIndex ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"}`}
-            >
-              <span
-                aria-hidden="true"
-                className={`tnum flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${i === stepIndex ? "bg-primary text-primary-foreground" : "border border-input"}`}
+          <ol className="flex flex-wrap gap-x-5 gap-y-1 text-sm" aria-label="Pasos">
+            {STEPS.map((s, i) => (
+              <li
+                key={s.id}
+                aria-current={i === stepIndex ? "step" : undefined}
+                className={`flex items-center gap-1.5 ${i === stepIndex ? "font-extrabold text-foreground" : "font-medium text-muted-foreground"}`}
               >
-                {i < stepIndex ? <Check className="h-3 w-3" /> : i + 1}
-              </span>
-              {s.label}
-              {i < stepIndex && <span className="sr-only"> (completado)</span>}
-              {i === stepIndex && <span className="sr-only"> (paso actual)</span>}
-            </li>
-          ))}
-        </ol>
-
-        {step === "archivo" && (
-          <div className="min-w-0 space-y-4">
-            <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 1: elige el archivo</h3>
-            <p className="text-sm text-muted-foreground">Crea varias invitaciones a la vez. El archivo se revisa completo antes de crear nada.</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild variant="outline" className="h-11 gap-2 sm:h-10">
-                <a href="/admin/invitaciones/plantilla.xlsx" download><Download aria-hidden="true" /> Descargar plantilla Excel (.xlsx)</a>
-              </Button>
-              <Button asChild variant="outline" className="h-11 gap-2 sm:h-10">
-                <a href="/admin/invitaciones/plantilla.csv" download><Download aria-hidden="true" /> Descargar plantilla CSV</a>
-              </Button>
-            </div>
-            <p className="tnum text-xs text-muted-foreground">Hasta {maxRows} filas por archivo, 2 MB como máximo. Formatos: .xlsx y .csv.</p>
-
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold">Archivo de invitaciones</p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  id="bulk-file"
-                  type="file"
-                  accept=".xlsx,.csv"
-                  onChange={pickFile}
-                  aria-describedby="bulk-file-name bulk-file-hint"
-                  className="peer sr-only"
-                />
-                <label
-                  htmlFor="bulk-file"
-                  className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 text-sm font-medium ring-offset-background hover:bg-accent hover:text-accent-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 sm:h-10"
+                <span
+                  aria-hidden="true"
+                  className={`tnum flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${i === stepIndex ? "bg-primary text-primary-foreground" : "border border-input"}`}
                 >
-                  <FileSpreadsheet className="h-4 w-4" aria-hidden="true" /> Elegir archivo
-                </label>
-                <span id="bulk-file-name" className="min-w-0 break-all text-sm">
-                  {file ? <><span className="font-semibold">{file.name}</span> <span className="tnum text-xs text-muted-foreground">({Math.max(1, Math.round(file.size / 1024))} KB)</span></> : <span className="text-muted-foreground">Ningún archivo elegido</span>}
+                  {i < stepIndex ? <Check className="h-3 w-3" /> : i + 1}
                 </span>
-              </div>
-              <p id="bulk-file-hint" className="sr-only">Acepta archivos .xlsx o .csv de hasta 2 MB.</p>
-            </div>
+                {s.label}
+                {i < stepIndex && <span className="sr-only"> (completado)</span>}
+                {i === stepIndex && <span className="sr-only"> (paso actual)</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
 
-            {error && (
-              <p role="alert" className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-medium text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {error}
-              </p>
-            )}
-
-            <Button
-              type="button"
-              onClick={review}
-              disabled={!file}
-              aria-disabled={busy ? true : undefined}
-              aria-busy={busy === "validando" ? true : undefined}
-              className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-            >
-              {busy === "validando" && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {busy === "validando" ? "Revisando archivo…" : "Revisar archivo"}
-            </Button>
-            <p role="status" aria-live="polite" className="sr-only">{busy === "validando" ? "Revisando archivo…" : ""}</p>
-          </div>
-        )}
-
-        {step === "revision" && summary && (
-          <div className="min-w-0 space-y-4" aria-busy={busy === "creando" ? true : undefined}>
-            <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 2: revisa antes de crear</h3>
-            <p className="tnum text-sm text-muted-foreground">
-              Se leyeron {plural(summary.total, "fila", "filas")} de <span className="break-all font-semibold text-foreground">{file?.name}</span>. Todavía no se creó nada.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border bg-card p-3">
-                <p className="tnum text-2xl font-extrabold leading-none">{summary.validas}</p>
-                <p className="mt-1.5 text-xs font-semibold">Filas válidas</p>
-              </div>
-              <div className="rounded-lg border bg-card p-3">
-                <p className="tnum text-2xl font-extrabold leading-none">{summary.con_error}</p>
-                <div className="mt-1.5">
-                  <LampBadge state={summary.con_error > 0 ? "rojo" : "off"} label="Filas con error" />
-                </div>
-              </div>
-            </div>
-
-            {summary.con_error > 0 && (
-              <section className="min-w-0 space-y-2" aria-label="Errores del archivo">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-xs font-extrabold">Errores por corregir</h4>
-                  <Button type="button" variant="outline" size="sm" className="h-11 gap-2 sm:h-9" onClick={() => downloadErrors(summary.errores, "errores-invitaciones.csv")}>
-                    <Download aria-hidden="true" /> Descargar errores (CSV)
-                  </Button>
-                </div>
-                <ErrorTable errores={summary.errores} label="Errores del archivo" />
-              </section>
-            )}
-
-            {summary.validas > 0 ? (
-              <section className="min-w-0 space-y-1.5" aria-label="Vista previa de filas válidas">
-                <h4 className="text-xs font-extrabold">Vista previa de filas válidas</h4>
-                <div className="overflow-hidden rounded-md border bg-card">
-                  <Table aria-label="Vista previa de filas válidas">
-                    <TableHeader>
-                      <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableHead className="h-10 px-3">Matrícula</TableHead>
-                        <TableHead className="h-10 px-3">Nombre</TableHead>
-                        <TableHead className="h-10 px-3">Rol</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {summary.filas_validas.slice(0, MAX_PREVIEW_ROWS).map((r) => (
-                        <TableRow key={r.linea}>
-                          <TableCell className="tnum whitespace-nowrap px-3 py-2 text-xs">{r.numero_control}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs">{r.nombre}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs">{ROL_LABEL[r.rol] ?? r.rol}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {summary.filas_validas.length > MAX_PREVIEW_ROWS && (
-                  <p className="tnum text-xs text-muted-foreground">y {summary.filas_validas.length - MAX_PREVIEW_ROWS} más.</p>
-                )}
-              </section>
-            ) : (
-              <p className="rounded-md border bg-muted p-3 text-sm">
-                <strong className="font-semibold">Ninguna fila es válida.</strong> No hay nada que crear: corrige el archivo con la lista de errores, vuelve y súbelo de nuevo.
-              </p>
-            )}
-
-            {mustAcknowledge && summary.validas > 0 && (
-              <label htmlFor="bulk-omit" className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border bg-card p-3 text-sm">
-                <input
-                  id="bulk-omit"
-                  type="checkbox"
-                  checked={omit}
-                  onChange={(e) => setOmit(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                />
-                <span>Entiendo que se omitirán {plural(summary.con_error, "fila", "filas")} con error</span>
-              </label>
-            )}
-
-            {error && (
-              <p role="alert" className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-medium text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {error}
-              </p>
-            )}
-            <p role="status" aria-live="polite" className={busy === "creando" ? "text-sm text-muted-foreground" : "sr-only"}>
-              {busy === "creando" ? "Creando invitaciones… Se envía un correo por cada una, puede tardar. No cierres esta ventana." : ""}
-            </p>
-
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                aria-disabled={busy ? true : undefined}
-                onClick={() => { if (busy) return; setStep("archivo"); setError(""); }}
-                className="h-11 sm:h-10"
-              >
-                Volver
-              </Button>
-              <Button
-                type="button"
-                onClick={create}
-                disabled={!canCreate && !busy}
-                aria-disabled={busy ? true : undefined}
-                className="h-11 gap-2 sm:h-10"
-              >
-                {busy === "creando" && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {busy === "creando" ? "Creando invitaciones…" : `Crear ${plural(summary.validas, "invitación", "invitaciones")}`}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === "resultado" && result && (
-          <div className="min-w-0 space-y-4">
-            <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 3: resultado</h3>
-            <p className="tnum text-sm">
-              <strong className="font-semibold">{plural(result.creadas, "invitación creada", "invitaciones creadas")}</strong>
-              {result.omitidas > 0 && <>, {plural(result.omitidas, "fila omitida", "filas omitidas")}</>}.
-            </p>
-
-            <ul className="tnum space-y-1.5" aria-label="Estado de los correos">
-              <li><LampBadge state={mails.enviadas > 0 ? "verde" : "off"} label={`${mails.enviadas} ${mails.enviadas === 1 ? "enviada" : "enviadas"} por correo`} /></li>
-              <li><LampBadge state={mails.fallidas > 0 ? "rojo" : "off"} label={`${mails.fallidas} no se ${mails.fallidas === 1 ? "pudo" : "pudieron"} enviar`} /></li>
-              <li><LampBadge state={mails.sinCorreo > 0 ? "ambar" : "off"} label={`${mails.sinCorreo} sin correo configurado`} /></li>
-            </ul>
-
-            {pending.length > 0 && (
-              <div className="space-y-3 rounded-md border border-border bg-muted p-3">
-                <LampBadge state="ambar" label="Se muestran una sola vez" />
-                <p className="text-sm text-muted-foreground">
-                  <strong className="font-semibold text-foreground">Estos enlaces se muestran una sola vez.</strong> Descarga el CSV con los enlaces de {plural(pending.length, "persona", "personas")} que no {pending.length === 1 ? "recibió" : "recibieron"} el correo y compártelos tú. Cada enlace funciona una sola vez y vence en {expireHours} horas.
-                </p>
-                <Button type="button" onClick={downloadLinks} className="h-11 w-full gap-2 sm:h-10 sm:w-auto">
-                  {downloaded ? <Check aria-hidden="true" /> : <Download aria-hidden="true" />}
-                  Descargar enlaces (CSV)
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-1 sm:px-6">
+          {step === "archivo" && (
+            <div className="min-w-0 space-y-4 pb-3">
+              <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 1: elige el archivo</h3>
+              <p className="text-sm text-muted-foreground">Crea varias invitaciones a la vez. El archivo se revisa completo antes de crear nada.</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button asChild variant="outline" className="h-11 gap-2 sm:h-10">
+                  <a href="/admin/invitaciones/plantilla.xlsx" download><Download aria-hidden="true" /> Descargar plantilla Excel (.xlsx)</a>
                 </Button>
-                <p role="status" aria-live="polite" className={downloaded ? "text-sm font-medium" : "sr-only"}>{downloaded ? "Enlaces descargados." : ""}</p>
+                <Button asChild variant="outline" className="h-11 gap-2 sm:h-10">
+                  <a href="/admin/invitaciones/plantilla.csv" download><Download aria-hidden="true" /> Descargar plantilla CSV</a>
+                </Button>
               </div>
-            )}
+              <p className="tnum text-xs text-muted-foreground">Hasta {maxRows} filas por archivo, 2 MB como máximo. Formatos: .xlsx y .csv.</p>
 
-            {result.errores.length > 0 && (
-              <section className="min-w-0 space-y-2" aria-label="Filas omitidas">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h4 className="text-xs font-extrabold">Filas que no se crearon</h4>
-                  <Button type="button" variant="outline" size="sm" className="h-11 gap-2 sm:h-9" onClick={() => downloadErrors(result.errores, "errores-invitaciones.csv")}>
-                    <Download aria-hidden="true" /> Descargar errores (CSV)
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold">Archivo de invitaciones</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    id="bulk-file"
+                    type="file"
+                    accept=".xlsx,.csv"
+                    onChange={pickFile}
+                    aria-describedby="bulk-file-name bulk-file-hint"
+                    className="peer sr-only"
+                  />
+                  <label
+                    htmlFor="bulk-file"
+                    className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 text-sm font-medium ring-offset-background hover:bg-accent hover:text-accent-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 sm:h-10"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" aria-hidden="true" /> Elegir archivo
+                  </label>
+                  <span id="bulk-file-name" className="min-w-0 break-all text-sm">
+                    {file ? <><span className="font-semibold">{file.name}</span> <span className="tnum text-xs text-muted-foreground">({Math.max(1, Math.round(file.size / 1024))} KB)</span></> : <span className="text-muted-foreground">Ningún archivo elegido</span>}
+                  </span>
+                </div>
+                <p id="bulk-file-hint" className="sr-only">Acepta archivos .xlsx o .csv de hasta 2 MB.</p>
+                <p role="status" aria-live="polite" className="sr-only">{file ? `Archivo seleccionado: ${file.name}` : ""}</p>
+              </div>
+
+              {errorAlert}
+              <p role="status" aria-live="polite" className="sr-only">{busy === "validando" ? "Revisando archivo…" : ""}</p>
+            </div>
+          )}
+
+          {step === "revision" && summary && (
+            <div className="min-w-0 space-y-4 pb-3" aria-busy={busy === "creando" ? true : undefined}>
+              <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 2: revisa antes de crear</h3>
+              <p className="tnum text-sm text-muted-foreground">
+                Se leyeron {plural(summary.total, "fila", "filas")} de <span className="break-all font-semibold text-foreground">{file?.name}</span>. Todavía no se creó nada.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="tnum text-2xl font-extrabold leading-none">{summary.validas}</p>
+                  <p className="mt-1.5 text-xs font-semibold">Filas válidas</p>
+                </div>
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="tnum text-2xl font-extrabold leading-none">{summary.con_error}</p>
+                  <div className="mt-1.5">
+                    <LampBadge state={summary.con_error > 0 ? "rojo" : "off"} label="Filas con error" />
+                  </div>
+                </div>
+              </div>
+
+              {summary.con_error > 0 && (
+                <section className="min-w-0 space-y-2" aria-label="Errores del archivo">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-extrabold">Errores por corregir</h4>
+                    <Button type="button" variant="outline" size="sm" className="h-11 gap-2 sm:h-9" onClick={() => downloadErrors(summary.errores, "errores-invitaciones.csv")}>
+                      <Download aria-hidden="true" /> Descargar errores (CSV)
+                    </Button>
+                  </div>
+                  <ErrorTable errores={summary.errores} label="Errores por corregir" />
+                </section>
+              )}
+
+              {summary.validas > 0 ? (
+                <section className="min-w-0 space-y-1.5" aria-label="Vista previa de filas válidas">
+                  <h4 className="text-xs font-extrabold">Vista previa de filas válidas</h4>
+                  <div className="overflow-hidden rounded-md border bg-card">
+                    <Table aria-label="Vista previa de filas válidas">
+                      <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableHead className="h-10 px-3">Matrícula</TableHead>
+                          <TableHead className="h-10 px-3">Nombre</TableHead>
+                          <TableHead className="h-10 px-3">Rol</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {summary.filas_validas.slice(0, MAX_PREVIEW_ROWS).map((r) => (
+                          <TableRow key={r.linea}>
+                            <TableCell className="tnum whitespace-nowrap px-3 py-2 text-xs">{r.numero_control}</TableCell>
+                            <TableCell className="px-3 py-2 text-xs">{r.nombre}</TableCell>
+                            <TableCell className="px-3 py-2 text-xs">{ROL_LABEL[r.rol] ?? r.rol}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {summary.filas_validas.length > MAX_PREVIEW_ROWS && (
+                    <p className="tnum text-xs text-muted-foreground">y {summary.filas_validas.length - MAX_PREVIEW_ROWS} más.</p>
+                  )}
+                </section>
+              ) : (
+                <p className="rounded-md border bg-muted p-3 text-sm">
+                  <strong className="font-semibold">Ninguna fila es válida.</strong> No hay nada que crear: corrige el archivo con la lista de errores, vuelve y súbelo de nuevo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {step === "resultado" && result && (
+            <div className="min-w-0 space-y-4 pb-3">
+              <h3 ref={heading} tabIndex={-1} className="text-sm font-extrabold outline-none">Paso 3: resultado</h3>
+              <p className="tnum text-sm">
+                <strong className="font-semibold">{plural(result.creadas, "invitación creada", "invitaciones creadas")}</strong>
+                {result.omitidas > 0 && <>, {plural(result.omitidas, "fila omitida", "filas omitidas")}</>}.
+              </p>
+
+              {mailParts.length > 0 && <p className="tnum text-sm text-muted-foreground">{mailParts.join(" · ")}</p>}
+
+              {pendingCount > 0 && (
+                <div className="space-y-3 rounded-md border border-border bg-muted p-3">
+                  <LampBadge state={downloaded ? "off" : "ambar"} label={downloaded ? "Enlaces descargados" : "Se muestran una sola vez"} />
+                  <p className="text-sm text-muted-foreground">
+                    <strong className="font-semibold text-foreground">Estos enlaces se muestran una sola vez.</strong> Descarga el CSV con los enlaces de {plural(pendingCount, "persona", "personas")} que no {pendingCount === 1 ? "recibió" : "recibieron"} el correo y compártelos tú. Cada enlace funciona una sola vez y vence en {expireHours} horas.
+                  </p>
+                  <p role="status" aria-live="polite" className={downloaded ? "text-sm font-medium" : "sr-only"}>{downloaded ? "Enlaces descargados." : ""}</p>
+                </div>
+              )}
+
+              {result.errores.length > 0 && (
+                <section className="min-w-0 space-y-2" aria-label="Filas omitidas">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-extrabold">Filas que no se crearon</h4>
+                    <Button type="button" variant="outline" size="sm" className="h-11 gap-2 sm:h-9" onClick={() => downloadErrors(result.errores, "errores-invitaciones.csv")}>
+                      <Download aria-hidden="true" /> Descargar errores (CSV)
+                    </Button>
+                  </div>
+                  <ErrorTable errores={result.errores} label="Filas que no se crearon" />
+                </section>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 space-y-3 border-t bg-background px-4 py-3 sm:px-6">
+          {step === "archivo" && (
+            <div className="flex sm:justify-end">
+              <Button
+                type="button"
+                onClick={review}
+                disabled={!file}
+                aria-disabled={busy ? true : undefined}
+                aria-busy={busy === "validando" ? true : undefined}
+                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+              >
+                {busy === "validando" && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {busy === "validando" ? "Revisando archivo…" : "Revisar archivo"}
+              </Button>
+            </div>
+          )}
+
+          {step === "revision" && summary && (
+            <>
+              {mustAcknowledge && summary.validas > 0 && (
+                <label htmlFor="bulk-omit" className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border bg-card p-3 text-sm">
+                  <input
+                    id="bulk-omit"
+                    type="checkbox"
+                    checked={omit}
+                    onChange={(e) => setOmit(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  />
+                  <span>Entiendo que se omitirán {plural(summary.con_error, "fila", "filas")} con error</span>
+                </label>
+              )}
+              {errorAlert}
+              <p role="status" aria-live="polite" className={busy === "creando" ? "text-sm text-muted-foreground" : "sr-only"}>
+                {busy === "creando" ? "Creando invitaciones… Se envía un correo por cada una, puede tardar. No cierres esta ventana." : ""}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                {showHint && <p id="bulk-create-hint" className="text-xs text-muted-foreground sm:mr-1">Marca la casilla para continuar.</p>}
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-disabled={busy ? true : undefined}
+                    onClick={() => { if (busy) return; setStep("archivo"); setError(""); }}
+                    className="h-11 sm:h-10"
+                  >
+                    Volver
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={create}
+                    disabled={!canCreate && !busy}
+                    aria-disabled={busy ? true : undefined}
+                    aria-describedby={showHint ? "bulk-create-hint" : undefined}
+                    className="h-11 gap-2 sm:h-10"
+                  >
+                    {busy === "creando" && <Loader2 className="animate-spin" aria-hidden="true" />}
+                    {busy === "creando" ? "Creando invitaciones…" : `Crear ${plural(summary.validas, "invitación", "invitaciones")}`}
                   </Button>
                 </div>
-                <ErrorTable errores={result.errores} label="Filas que no se crearon" />
-              </section>
-            )}
-
-            {confirmClose && (
-              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
-                <p className="text-sm font-semibold text-destructive">¿Cerrar sin descargar los enlaces?</p>
-                <p className="text-sm text-muted-foreground">No se vuelven a mostrar.</p>
-                <div className="mt-2.5 flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="h-11 sm:h-9" onClick={() => setConfirmClose(false)}>Volver</Button>
-                  <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" onClick={requestClose}>Cerrar sin descargar</Button>
-                </div>
               </div>
-            )}
+            </>
+          )}
 
-            <div className="flex sm:justify-end">
-              <Button type="button" variant={pending.length > 0 ? "outline" : "default"} onClick={requestClose} className="h-11 w-full sm:h-10 sm:w-28">Listo</Button>
-            </div>
-          </div>
-        )}
+          {step === "resultado" && result && (
+            <>
+              {confirmClose && (
+                <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
+                  <p className="text-sm font-semibold text-destructive">¿Cerrar sin descargar los enlaces?</p>
+                  <p className="text-sm text-muted-foreground">No se vuelven a mostrar.</p>
+                  <div className="mt-2.5 flex gap-2">
+                    <Button type="button" variant="outline" size="sm" className="h-11 sm:h-9" onClick={() => setConfirmClose(false)}>Volver</Button>
+                    <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" onClick={requestClose}>Cerrar sin descargar</Button>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                {pendingCount > 0 && (
+                  <Button type="button" variant={downloaded ? "outline" : "default"} onClick={downloadLinks} className="h-11 gap-2 sm:h-10">
+                    {downloaded ? <Check aria-hidden="true" /> : <Download aria-hidden="true" />}
+                    Descargar enlaces (CSV)
+                  </Button>
+                )}
+                <Button type="button" variant={needsDownload ? "outline" : "default"} onClick={requestClose} className="h-11 sm:h-10 sm:w-28">Listo</Button>
+              </div>
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
