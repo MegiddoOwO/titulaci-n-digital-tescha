@@ -33,5 +33,9 @@ RUN composer dump-autoload --no-dev --optimize --no-interaction \
 COPY docker/entrypoint.sh /usr/local/bin/sca-entrypoint
 RUN chmod +x /usr/local/bin/sca-entrypoint
 
+# Defaults that docker.env (compose env_file) can override.
+ENV APP_URL=http://127.0.0.1:8001 \
+    MAIL_MAILER=log
+
 EXPOSE 8001
 ENTRYPOINT ["sca-entrypoint"]

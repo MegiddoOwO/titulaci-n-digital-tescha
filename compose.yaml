@@ -30,7 +30,6 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: "false"
-      APP_URL: ${APP_URL:-http://127.0.0.1:8001}
       DB_CONNECTION: mariadb
       DB_HOST: db
       DB_PORT: "3306"
@@ -39,7 +38,6 @@ services:
       DB_PASSWORD: sca-demo
       SESSION_DRIVER: file
       CACHE_STORE: file
-      MAIL_MAILER: ${MAIL_MAILER:-log}
     volumes:
       - uploads:/var/www/html/storage/app
 
