@@ -43,6 +43,8 @@ class AsesorDocumentoViewTest extends TestCase
         $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
         $this->assertStringContainsString('inline', $response->headers->get('Content-Disposition'));
         $this->assertStringContainsString('Pago.pdf', $response->headers->get('Content-Disposition'));
+        $this->assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+        $this->assertSame('sandbox', $response->headers->get('Content-Security-Policy'));
     }
 
     public function test_unassigned_asesor_is_forbidden(): void

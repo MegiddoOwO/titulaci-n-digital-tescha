@@ -3,8 +3,14 @@
 set -euo pipefail
 cd /var/www/html
 
+# Without an APP_KEY, generate one once and keep it in the uploads volume so sessions and
+# encrypted data survive container restarts.
 if [[ -z "${APP_KEY:-}" ]]; then
-  APP_KEY="$(php artisan key:generate --show)"
+  key_file="storage/app/.app_key"
+  if [[ ! -s "$key_file" ]]; then
+    (umask 077 && php artisan key:generate --show > "$key_file")
+  fi
+  APP_KEY="$(tr -d '\n' < "$key_file")"
   export APP_KEY
 fi
 

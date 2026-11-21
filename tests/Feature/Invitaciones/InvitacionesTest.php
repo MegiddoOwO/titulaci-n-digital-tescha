@@ -269,10 +269,10 @@ class InvitacionesTest extends TestCase
     {
         Mail::fake();
         [$j, $token] = $this->create();
-        Usuario::create([
+        (new Usuario([
             'numero_control' => '2031-0001', 'email' => 'taken@tescha.edu.mx', 'password_hash' => Hash::make('x'),
-            'nombre' => 'X', 'apellido_paterno' => 'Y', 'rol' => 'estudiante',
-        ]);
+            'nombre' => 'X', 'apellido_paterno' => 'Y',
+        ]))->forceFill(['rol' => 'estudiante'])->save();
         $this->accept($token)->assertStatus(422);
         $this->assertNull(Invitacion::findOrFail($j['id'])->aceptada_en);
         $this->assertSame(1, Usuario::where('numero_control', '2031-0001')->count());

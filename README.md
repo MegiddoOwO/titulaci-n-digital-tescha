@@ -191,6 +191,8 @@ Para estos se usa `UPLOADS_DISK=s3`. Los nombres `AWS_*` son la convención del 
 ## Antes de producción
 
 - `APP_DEBUG=false` y un `APP_KEY` propio.
+- `SESSION_SECURE_COOKIE=true` (la cookie de sesión solo viaja por HTTPS).
+- La imagen Docker es solo de demostración: siembra credenciales públicas de demo y sirve con `php -S`; no la uses en producción.
 - HTTPS, SMTP real (ver [Correo](#correo)) y contraseñas distintas a las de demostración.
 - Respaldos de la base de datos **y** de los documentos subidos (`storage/app/private` o el bucket, ver [Almacenamiento de archivos](#almacenamiento-de-archivos)).
 - Límites de subida de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento.

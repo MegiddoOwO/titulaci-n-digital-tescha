@@ -246,10 +246,11 @@ class UsuarioCrudTest extends TestCase
     public function test_last_active_admin_cannot_be_deleted(): void
     {
         $admin = $this->admin();
-        $other = Usuario::create($this->payload([
-            'numero_control' => 'ADM-9999', 'email' => 'adm9999@tescha.edu.mx', 'rol' => 'administrativo',
-            'password_hash' => Hash::make('x'), 'activo' => 0,
+        $other = new Usuario($this->payload([
+            'numero_control' => 'ADM-9999', 'email' => 'adm9999@tescha.edu.mx',
+            'password_hash' => Hash::make('x'),
         ]));
+        $other->forceFill(['rol' => 'administrativo', 'activo' => 0])->save();
 
         Usuario::where('numero_control', 'ADM-0002')->update(['activo' => 0]);
 

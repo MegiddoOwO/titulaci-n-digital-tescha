@@ -33,7 +33,11 @@ final class InlineDocumentResponse
         return $disk->response(
             $path,
             $documento->archivo_nombre ?: basename($path),
-            ['Content-Type' => self::CONTENT_TYPES[$extension] ?? 'application/octet-stream'],
+            [
+                'Content-Type' => self::CONTENT_TYPES[$extension] ?? 'application/octet-stream',
+                'X-Content-Type-Options' => 'nosniff',
+                'Content-Security-Policy' => 'sandbox',
+            ],
             'inline',
         );
     }
