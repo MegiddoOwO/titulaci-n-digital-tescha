@@ -1,0 +1,48 @@
+# One-command demo: `docker compose up --build`  ->  http://127.0.0.1:8001
+# Optional overrides (mail, R2, ...) go in `docker.env`; see docker.env.example.
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: sca-demo-root
+      MARIADB_DATABASE: sca_tescha
+      MARIADB_USER: sca
+      MARIADB_PASSWORD: sca-demo
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${SCA_PORT:-8001}:8001"
+    env_file:
+      - path: docker.env
+        required: false
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://127.0.0.1:8001}
+      DB_CONNECTION: mariadb
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: sca_tescha
+      DB_USERNAME: sca
+      DB_PASSWORD: sca-demo
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+    volumes:
+      - uploads:/var/www/html/storage/app
+
+volumes:
+  db-data:
+  uploads:
