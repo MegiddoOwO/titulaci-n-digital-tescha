@@ -69,6 +69,20 @@ scripts/demo.sh reset-db --yes   # borra y recrea la base de demostración
 scripts/demo.sh test-db          # prepara la base de pruebas
 ```
 
+### Demo con Docker
+
+Solo requiere Docker. Levanta la app (PHP 8.4 con el servidor integrado) y MariaDB, migra y carga los datos de demostración en el primer arranque:
+
+```bash
+docker compose up --build   # http://127.0.0.1:8001
+docker compose down -v      # detiene y borra base de datos y archivos subidos
+```
+
+- Usuarios y contraseña: los mismos de la demo local (`Demo1234!`).
+- Si el puerto 8001 está ocupado (por ejemplo por `scripts/demo.sh`), usa `SCA_PORT=8002 docker compose up`.
+- El correo usa `MAIL_MAILER=log` por defecto. Para SMTP real u otros ajustes copia `docker.env.example` a `docker.env`.
+- Es solo para demostración, no para producción. Para compartirla, ejecuta `cloudflared tunnel --url http://127.0.0.1:8001` en el host.
+
 ## Pruebas
 
 Las pruebas corren solo contra la base `sca_tescha_test` (hay una protección que aborta si la base conectada tiene otro nombre) y usan `DatabaseTransactions`; nunca `RefreshDatabase`.
