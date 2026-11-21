@@ -4,7 +4,7 @@ Plataforma web para la gestión y seguimiento del proceso de titulación de los 
 
 ## Tecnologías
 
-- **Backend:** Laravel 13 (PHP 8.3 o superior), Eloquent, MariaDB/MySQL.
+- **Backend:** Laravel 13 (PHP 8.4 o superior), Eloquent, MariaDB/MySQL.
 - **Frontend:** React 18 + TypeScript servido con Inertia.js, Tailwind CSS 3 y shadcn/ui, compilado con Vite.
 - **PDF:** barryvdh/laravel-dompdf (dictámenes).
 - **Autenticación:** sesión de Laravel, con el número de control como identificador.
@@ -19,7 +19,7 @@ Plataforma web para la gestión y seguimiento del proceso de titulación de los 
 
 ## Requisitos
 
-- PHP 8.3+ con las extensiones `pdo_mysql`, `mbstring`, `xml`, `dom`, `zip`, `curl`, `fileinfo`, `openssl`, `tokenizer`, `ctype`, `bcmath`.
+- PHP 8.4+ con las extensiones `pdo_mysql`, `mbstring`, `xml`, `dom`, `zip`, `curl`, `fileinfo`, `openssl`, `tokenizer`, `ctype`, `bcmath`.
 - Composer 2, Node.js 22 y npm.
 - MariaDB o MySQL.
 
