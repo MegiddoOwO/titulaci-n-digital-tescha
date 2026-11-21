@@ -86,7 +86,7 @@ class ReplaceAsesorTest extends TestCase
             ->assertStatus(422);
 
         $inactive = $this->user('DOC-0004');
-        $inactive->update(['activo' => false]);
+        $inactive->forceFill(['activo' => false])->save();
         $this->actingAs($admin)->putJson('/admin/tramites/1/asesor', ['usuario_id' => $inactive->id])->assertStatus(422);
 
         $this->assertSame([10], $this->asesores(1));

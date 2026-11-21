@@ -26,19 +26,20 @@ class CreateUsuario
     public function execute(array $data): Usuario
     {
         return DB::transaction(function () use ($data) {
-            $usuario = Usuario::create([
+            $usuario = new Usuario([
                 'numero_control' => $data['numero_control'],
                 'email' => $data['email'],
                 'password_hash' => Hash::make($data['password']),
                 'nombre' => $data['nombre'],
                 'apellido_paterno' => $data['apellido_paterno'],
                 'apellido_materno' => $data['apellido_materno'] ?? null,
-                'rol' => $data['rol'],
                 'grado_academico' => $data['grado_academico'] ?? null,
                 'carga_maxima' => $data['rol'] === Usuario::ROL_ASESOR
                     ? ($data['carga_maxima'] ?? null) ?: CreateAsignacion::DEFAULT_MAX_LOAD
                     : null,
             ]);
+            $usuario->rol = $data['rol'];
+            $usuario->save();
 
             if ($data['rol'] === Usuario::ROL_ESTUDIANTE) {
                 $this->openTramite($usuario, $data);

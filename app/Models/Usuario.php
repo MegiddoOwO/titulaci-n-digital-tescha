@@ -15,8 +15,7 @@ class Usuario extends Authenticatable
 
     protected $fillable = [
         'numero_control', 'email', 'password_hash', 'nombre', 'apellido_paterno',
-        'apellido_materno', 'rol', 'activo', 'intentos_fallidos', 'bloqueado_hasta',
-        'grado_academico', 'carga_maxima', 'programa_academico', 'reset_token', 'reset_expira',
+        'apellido_materno', 'grado_academico', 'carga_maxima', 'programa_academico',
     ];
 
     protected $hidden = ['password_hash', 'reset_token'];
