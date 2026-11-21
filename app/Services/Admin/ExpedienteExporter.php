@@ -31,7 +31,7 @@ class ExpedienteExporter
             fputcsv($out, self::HEADERS);
 
             foreach ($rows as $e) {
-                fputcsv($out, [
+                fputcsv($out, array_map(self::neutralize(...), [
                     $e['numero_control'],
                     $e['nombre_completo'],
                     $e['opcion_titulacion'],
@@ -41,11 +41,23 @@ class ExpedienteExporter
                     $e['docs_rechazados'],
                     // toLocaleDateString('es-MX') => d/m/yyyy
                     date('j/n/Y', strtotime((string) $e['fecha_actualizacion'])),
-                ]);
+                ]));
             }
 
             fclose($out);
         }, 'expedientes.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Prevent spreadsheet formula injection: prefix risky leading characters with a single quote.
+     */
+    private static function neutralize(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 
     public function zip(int $tramiteId): BinaryFileResponse

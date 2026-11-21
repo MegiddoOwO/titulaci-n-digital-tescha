@@ -118,6 +118,16 @@ class CrossCuttingServicesTest extends TestCase
         $this->assertCount(2, array_filter(explode("\n", substr($searched, 3))));
     }
 
+    public function test_export_csv_neutralizes_spreadsheet_formulas(): void
+    {
+        Usuario::where('numero_control', '2021-0001')->update(['nombre' => '=HYPERLINK("http://evil.test","x")']);
+
+        $body = $this->actingAs($this->user('ADM-0001'))->get('/admin/expedientes/export')->streamedContent();
+
+        $this->assertStringContainsString("\"'=HYPERLINK(", $body);
+        $this->assertStringNotContainsString(',"=HYPERLINK(', $body);
+    }
+
     public function test_export_and_zip_require_administrativo(): void
     {
         $this->actingAs($this->user('2021-0001'))->get('/admin/expedientes/export')->assertForbidden();
