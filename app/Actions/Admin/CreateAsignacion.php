@@ -26,12 +26,15 @@ class CreateAsignacion
         ]);
     }
 
-    /** The load rule, shared with ReplaceAsesorAsignacion. */
-    public function assertWithinLoad(int $usuarioId): void
+    /**
+     * The load rule, shared with ReplaceAsesorAsignacion and the bulk invitation validator.
+     * `$pending` counts students already promised to this asesor but not assigned yet.
+     */
+    public function assertWithinLoad(int $usuarioId, int $pending = 0): void
     {
         $carga = VwCargaDocente::find($usuarioId);
 
-        if ($carga && $carga->carga_actual >= ($carga->carga_maxima ?: self::DEFAULT_MAX_LOAD)) {
+        if ($carga && $carga->carga_actual + $pending >= ($carga->carga_maxima ?: self::DEFAULT_MAX_LOAD)) {
             throw ValidationException::withMessages([
                 'usuario_id' => 'El docente ha alcanzado su carga máxima de asesorías.',
             ]);

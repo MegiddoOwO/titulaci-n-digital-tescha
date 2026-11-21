@@ -129,6 +129,7 @@ return [
 
     'invitations' => [
         'expire_hours' => (int) env('INVITATION_EXPIRE_HOURS', 72),
+        'bulk_max_rows' => (int) env('INVITATION_BULK_MAX_ROWS', 50),
     ],
 
 ];

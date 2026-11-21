@@ -149,7 +149,7 @@ class InvitacionesTest extends TestCase
         $this->actingAs($this->admin())->get('/admin/invitaciones')->assertInertia(fn (Assert $p) => $p
             ->component('Admin/Invitaciones')
             ->has('invitaciones', 2)->where('total', 2)->where('page', 1)->has('totalPages')
-            ->has('opciones')->has('asesores')->where('expire_hours', 72)
+            ->has('opciones')->has('asesores')->where('expire_hours', 72)->where('max_rows', 50)
             ->has('invitaciones.0', fn (Assert $r) => $r->hasAll([
                 'id', 'numero_control', 'email', 'nombre', 'apellido_paterno', 'apellido_materno', 'rol',
                 'opcion_titulacion_id', 'asesor_id', 'estado', 'creada_por', 'expira_en', 'aceptada_en',
