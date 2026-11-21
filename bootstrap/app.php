@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // Behind a TLS-terminating proxy (Cloudflare Tunnel) the app only sees plain HTTP from
+        // localhost; trust the forwarded headers so generated URLs and cookies use HTTPS.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
         ]);

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local demo runner: user-space MariaDB + Laravel served with `php -S`.
-# Usage: scripts/demo.sh up|down|status|reset-db --yes|test-db
+# Usage: scripts/demo.sh up|share|down|status|reset-db --yes|test-db
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,6 +90,14 @@ case "${1:-}" in
     echo "Open http://127.0.0.1:$PORT  (password for all demo users: Demo1234!)"
     echo "  estudiante 2021-0001 | asesor DOC-0001 | administrativo ADM-0001"
     ;;
+  share)
+    # Start everything, then expose the app through a free Cloudflare quick tunnel.
+    # The public URL changes on every run; Ctrl+C closes the tunnel (the app keeps running).
+    command -v cloudflared >/dev/null || { echo "cloudflared is not installed"; exit 1; }
+    "$0" up
+    echo "Opening the tunnel: look for the https://...trycloudflare.com URL below. Ctrl+C to close it."
+    cloudflared tunnel --url "http://127.0.0.1:$PORT"
+    ;;
   down)
     stop_laravel
     db -e "shutdown" 2>/dev/null && echo "db: stopped" || true
@@ -112,5 +120,5 @@ case "${1:-}" in
     db -e "create database if not exists sca_tescha_test character set utf8mb4 collate utf8mb4_unicode_ci"
     (cd "$ROOT" && DB_DATABASE=sca_tescha_test php artisan sca:test-db)
     ;;
-  *) echo "Usage: $0 up|down|status|reset-db --yes|test-db"; exit 1 ;;
+  *) echo "Usage: $0 up|share|down|status|reset-db --yes|test-db"; exit 1 ;;
 esac
