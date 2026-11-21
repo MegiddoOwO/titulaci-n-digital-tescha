@@ -144,10 +144,15 @@ class UploadDocumento
             $allowedMimes = [...$allowedMimes, ...(self::ALLOWED_MIMES[$format] ?? [])];
         }
 
+        // Fail closed: an unknown catalog format must never turn into "any MIME is fine".
+        if ($allowedMimes === []) {
+            $this->fail('archivo', 'El tipo de documento no tiene formatos permitidos válidos. Contacte a administración.');
+        }
+
         // Content-sniffed MIME type (stricter than Express, which trusted the client header).
         $mime = $file->getMimeType() ?? $file->getClientMimeType();
 
-        if ($allowedMimes && ! in_array($mime, $allowedMimes, true)) {
+        if (! in_array($mime, $allowedMimes, true)) {
             $this->fail('archivo', "Formato no permitido. Solo se aceptan: {$tipo->formato_permitido}.");
         }
 

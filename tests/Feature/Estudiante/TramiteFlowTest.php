@@ -216,6 +216,22 @@ class TramiteFlowTest extends TestCase
         $this->assertSame(0, count(Storage::disk('uploads')->allFiles()));
     }
 
+    public function test_upload_is_refused_when_the_catalog_formats_are_unknown(): void
+    {
+        $user = $this->student();
+        $tramite = $this->tramiteOf($user);
+        DB::table('tipos_documento')->where('id', self::TIPO_PENDING)->update(['formato_permitido' => 'XYZ']);
+
+        $this->upload($user, $tramite, self::TIPO_PENDING)
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.archivo.0', 'El tipo de documento no tiene formatos permitidos válidos. Contacte a administración.');
+
+        $this->assertSame(0, count(Storage::disk('uploads')->allFiles()));
+
+        DB::table('tipos_documento')->where('id', self::TIPO_PENDING)->update(['formato_permitido' => 'PDF']);
+        $this->upload($user, $tramite, self::TIPO_PENDING)->assertSuccessful();
+    }
+
     public function test_upload_rejects_corrupt_pdf(): void
     {
         $user = $this->student();
