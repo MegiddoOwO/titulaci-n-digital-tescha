@@ -49,4 +49,23 @@ class ThrottleIsolationTest extends TestCase
         $this->post(route('login'), ['numero_control' => 'ZZ-9999', 'password' => 'incorrecta'])
             ->assertStatus(302);
     }
+
+    public function test_reset_password_is_throttled_with_its_own_bucket(): void
+    {
+        $payload = [
+            'token' => str_repeat('c', 64),
+            'numero_control' => 'ZZ-9999',
+            'password' => 'Clave1234!',
+            'password_confirmation' => 'Clave1234!',
+        ];
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->post(route('password.store'), $payload);
+        }
+
+        $this->post(route('password.store'), $payload)->assertStatus(429);
+
+        $this->post(route('login'), ['numero_control' => 'ZZ-9999', 'password' => 'incorrecta'])
+            ->assertStatus(302);
+    }
 }
