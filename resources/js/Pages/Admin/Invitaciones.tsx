@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Head, router, useForm } from "@inertiajs/react";
-import { AlertCircle, Check, Copy, Loader2, MailPlus, RefreshCw, Search, UserPlus, Ban } from "lucide-react";
+import { AlertCircle, Check, Copy, FileSpreadsheet, Loader2, MailPlus, RefreshCw, Search, UserPlus, Ban } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -13,6 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { BulkInvitationsDialog } from "@/components/admin/invitaciones/BulkInvitationsDialog";
 import { adminLayout } from "@/components/admin/AdminLayout";
 import { useAdminToasts } from "@/components/admin/adminToasts";
 import type { PageProps } from "@/types";
@@ -50,6 +51,7 @@ interface Props {
   opciones: { id: number; nombre: string }[];
   asesores: Docente[];
   expire_hours: number;
+  max_rows: number;
 }
 
 const ROL_LABEL: Record<Rol, string> = {
@@ -97,13 +99,14 @@ interface LinkDialogState {
   correo: string;
 }
 
-export default function AdminInvitaciones({ invitaciones, total, page, totalPages, filters, opciones, asesores, expire_hours }: Props) {
+export default function AdminInvitaciones({ invitaciones, total, page, totalPages, filters, opciones, asesores, expire_hours, max_rows }: Props) {
   const { failure } = useAdminToasts();
   const [search, setSearch] = useState(filters.search);
   const [estado, setEstado] = useState(filters.estado || "todas");
   const [loading, setLoading] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
   const [asesor, setAsesor] = useState("none");
   const [opcion, setOpcion] = useState("");
   const form = useForm({
@@ -272,9 +275,14 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
             {hasFilters ? " con los filtros aplicados" : total === 1 ? " registrada" : " registradas"}
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <UserPlus aria-hidden="true" /> Nueva invitación
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setShowBulk(true)} className="h-11 gap-2 sm:h-10">
+            <FileSpreadsheet aria-hidden="true" /> Carga masiva
+          </Button>
+          <Button onClick={openCreate} className="h-11 gap-2 sm:h-10">
+            <UserPlus aria-hidden="true" /> Nueva invitación
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
@@ -410,6 +418,16 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
           </div>
         </nav>
       )}
+
+      <BulkInvitationsDialog
+        open={showBulk}
+        maxRows={max_rows}
+        expireHours={expire_hours}
+        onClose={(created) => {
+          setShowBulk(false);
+          if (created) router.reload({ only: ["invitaciones", "total", "page", "totalPages"] });
+        }}
+      />
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
