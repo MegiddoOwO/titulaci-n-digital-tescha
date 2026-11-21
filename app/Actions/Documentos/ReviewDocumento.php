@@ -2,6 +2,7 @@
 
 namespace App\Actions\Documentos;
 
+use App\Models\Dictamen;
 use App\Models\Documento;
 use App\Models\HistorialEstado;
 use App\Models\Tramite;
@@ -31,6 +32,8 @@ class ReviewDocumento
                     'documento' => 'Solo se pueden aprobar documentos que ya fueron subidos.',
                 ]);
             }
+
+            $this->assertNoDictamen($documento);
 
             $previous = $documento->estatus;
             $tipo = $documento->tipoDocumento()->value('nombre');
@@ -72,6 +75,15 @@ class ReviewDocumento
     public function reject(Documento $documento, Usuario $reviewer, string $motivo): Documento
     {
         return DB::transaction(function () use ($documento, $reviewer, $motivo) {
+            // Business rule: only documents that were actually uploaded can be rejected.
+            if (! in_array($documento->estatus, ['cargado', 'en_revision'], true)) {
+                throw ValidationException::withMessages([
+                    'documento' => 'Solo se pueden rechazar documentos que ya fueron subidos.',
+                ]);
+            }
+
+            $this->assertNoDictamen($documento);
+
             $previous = $documento->estatus;
             $tipo = $documento->tipoDocumento()->value('nombre');
 
@@ -109,6 +121,16 @@ class ReviewDocumento
 
             return $documento;
         });
+    }
+
+    /** A dictamen is final: the documents of its tramite can no longer be reviewed. */
+    private function assertNoDictamen(Documento $documento): void
+    {
+        if (Dictamen::where('tramite_id', $documento->tramite_id)->exists()) {
+            throw ValidationException::withMessages([
+                'documento' => 'El trámite ya tiene un dictamen emitido; sus documentos no se pueden revisar.',
+            ]);
+        }
     }
 
     private function studentId(Documento $documento): int

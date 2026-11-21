@@ -3,6 +3,7 @@
 namespace Tests\Feature\Asesor;
 
 use App\Models\Bitacora;
+use App\Models\Dictamen;
 use App\Models\Documento;
 use App\Models\HistorialEstado;
 use App\Models\Notificacion;
@@ -135,6 +136,45 @@ class AsesorFlowTest extends TestCase
     {
         $this->actingAs($this->user('DOC-0001'))->putJson('/asesor/documentos/999999/aprobar')
             ->assertNotFound()->assertJson(['message' => 'Documento no encontrado.']);
+    }
+
+    public function test_reject_only_applies_to_uploaded_documents(): void
+    {
+        $asesor = $this->user('DOC-0001');
+        $message = 'Solo se pueden rechazar documentos que ya fueron subidos.';
+
+        foreach (['aprobado', 'pendiente'] as $estatus) {
+            Documento::whereKey(self::DOC_OWN_A)->update(['estatus' => $estatus]);
+            $counts = [Bitacora::count(), HistorialEstado::count(), Notificacion::count()];
+
+            $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/rechazar', ['motivo' => 'x'])
+                ->assertStatus(422)
+                ->assertJsonPath('errors.documento.0', $message);
+
+            $this->assertSame($estatus, Documento::find(self::DOC_OWN_A)->estatus);
+            $this->assertSame($counts, [Bitacora::count(), HistorialEstado::count(), Notificacion::count()]);
+        }
+
+        Documento::whereKey(self::DOC_OWN_A)->update(['estatus' => 'cargado']);
+        $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/rechazar', ['motivo' => 'x'])->assertOk();
+        $this->assertSame('rechazado', Documento::find(self::DOC_OWN_A)->estatus);
+    }
+
+    public function test_review_is_refused_when_the_tramite_has_a_dictamen(): void
+    {
+        $asesor = $this->user('DOC-0001');
+        Dictamen::create([
+            'tramite_id' => 1, 'resultado' => 'aprobado', 'observaciones' => 'ok',
+            'emitido_por' => $this->user('ADM-0001')->id, 'fecha_emision' => now(),
+        ]);
+
+        $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/rechazar', ['motivo' => 'x'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.documento.0', 'El trámite ya tiene un dictamen emitido; sus documentos no se pueden revisar.');
+        $this->actingAs($asesor)->putJson('/asesor/documentos/'.self::DOC_OWN_A.'/aprobar')
+            ->assertStatus(422);
+
+        $this->assertSame('cargado', Documento::find(self::DOC_OWN_A)->estatus);
     }
 
     public function test_asesor_cannot_approve_a_never_uploaded_document(): void
