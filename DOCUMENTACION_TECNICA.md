@@ -392,10 +392,20 @@ Los mensajes de validación están en español y conservan los textos del sistem
 |---|---|
 | `POST /login` | `throttle:30,15` (30 por 15 minutos) |
 | `POST /forgot-password` | `throttle:10,1` (10 por minuto) |
+| `POST /invitacion/{token}` | `throttle:10,1` (10 por minuto) |
+| `POST /admin/invitaciones/masiva/{validar,crear}` | `throttle:10,1` (10 por minuto) |
 
-No hay otros límites de tasa. La protección CSRF de `web` aplica a todas las mutaciones.
+Cada ruta usa su propio contador (prefijos `login`, `forgot-password`, `invitacion`, `invitacion-masiva`) para que no se compartan intentos entre rutas; hay una prueba de aislamiento (`ThrottleIsolationTest`). No hay otros límites de tasa. La protección CSRF de `web` aplica a todas las mutaciones.
 
-### 4.12 Otras utilidades
+### 4.12 Invitaciones
+
+- **Individual**: el administrativo crea una invitación (`POST /admin/invitaciones`, acción `CreateInvitacion`). El token (64 hex) se guarda solo como SHA-256 en la tabla `invitaciones`; el enlace en claro se devuelve **una vez**. Vigencia 72 h (`INVITATION_EXPIRE_HOURS`), un solo uso (`lockForUpdate` y actualización condicional). `AcceptInvitacion` crea la cuenta con `CreateUsuario`; si había otra sesión abierta en el navegador, se cierra. Reenviar genera un enlace nuevo e invalida el anterior; revocar lo cancela. El resultado del correo es `enviado`, `fallido` o `no_configurado`.
+- **Carga masiva** (`Admin/InvitacionMasivaController`, `Services/Admin/InvitacionMasivaService`): se sube un `.xlsx` o `.csv` (máx. 2 MB y `INVITATION_BULK_MAX_ROWS` filas, 50 por defecto). El CSV acepta `,` o `;`, UTF-8 con o sin BOM y Windows-1252; todas las celdas se leen como texto (las matrículas no pierden ceros). Columnas: `numero_control`, `correo`, `nombre`, `apellido_paterno`, `apellido_materno`, `rol`, `opcion_titulacion` (nombre del catálogo, obligatoria para estudiantes), `asesor` (número de control, opcional) y `grado_academico`.
+- **Dos pasos sin estado en el servidor**: `POST /admin/invitaciones/masiva/validar` revisa todo y **no escribe**; `POST .../crear` vuelve a recibir el mismo archivo, lo revalida y crea solo las filas válidas (con `omitir_errores=true` si hay errores; si no, responde 422 y no crea nada). Cada invitación pasa por `CreateInvitacion` (bitácora por fila) más una entrada resumen `invitaciones_carga_masiva`. El enlace solo viaja en la respuesta de `crear` y es `null` para las filas cuyo correo sí salió; nunca se guarda ni se registra en el log.
+- **Plantillas**: `GET /admin/invitaciones/plantilla.xlsx` (hojas Invitaciones, Instrucciones y Catálogos con las opciones y los asesores con su carga) y `plantilla.csv`. La lectura y escritura de Excel usa `openspout/openspout`.
+- **Interfaz**: `components/admin/invitaciones/BulkInvitationsDialog.tsx` (pasos Archivo, Revisión y Resultado). Los enlaces viven solo en el estado del componente; el CSV de enlaces (solo filas sin correo entregado) se genera en el navegador con escape de fórmulas. Pruebas en `tests/Feature/Invitaciones/`.
+
+### 4.13 Otras utilidades
 
 - Mail y vistas: `resources/views/mail/{layout,notificacion,reset-password,test}.blade.php` y `mail/text/*`.
 - `Support\StoredUploadPath` y `Support\ServerUploadLimit` están descritos en 4.7.

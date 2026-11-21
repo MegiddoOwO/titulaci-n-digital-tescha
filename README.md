@@ -105,6 +105,12 @@ MAIL_FROM_NAME="SCA-TESCHA"
 
 **Entregabilidad en producción:** configura SPF y DKIM (y DMARC) en el dominio remitente; sin ellos los correos suelen caer en spam.
 
+## Invitaciones
+
+El administrativo crea cuentas con enlaces de un solo uso y 72 horas de vigencia, desde **Invitaciones** en el menú. El enlace se muestra una sola vez; con correo configurado también se envía a la persona. Si el correo no está configurado, se comparte a mano.
+
+**Carga masiva:** el botón **Carga masiva** permite descargar una plantilla (Excel o CSV), subirla llena y revisar los errores fila por fila antes de crear nada. Máximo 50 filas por archivo (`INVITATION_BULK_MAX_ROWS`). Las filas con error se omiten solo si se confirma. Los enlaces de quienes no recibieron el correo se pueden descargar en un CSV una única vez: quien lo tenga puede crear esas cuentas, así que hay que entregarlo con cuidado.
+
 ## Almacenamiento de archivos
 
 Los documentos subidos usan el disco `uploads`, elegido con `UPLOADS_DISK` en `.env`:
