@@ -37,6 +37,7 @@ interface InvitacionRow {
 
 interface Docente {
   id: number;
+  numero_control?: string;
   nombre_completo: string;
   carga_actual: number;
   carga_maxima: number | null;
@@ -422,6 +423,8 @@ export default function AdminInvitaciones({ invitaciones, total, page, totalPage
       <BulkInvitationsDialog
         open={showBulk}
         maxRows={max_rows}
+        opciones={opciones}
+        asesores={asesores}
         expireHours={expire_hours}
         onClose={(created) => {
           setShowBulk(false);

@@ -382,6 +382,13 @@ class InvitacionMasivaService
         return $path;
     }
 
+    private function exampleRow(): string
+    {
+        $opcion = DB::table('opciones_titulacion')->where('activo', 1)->orderBy('nombre')->value('nombre') ?? 'Tesis profesional';
+
+        return implode(',', ['2024-0123', 'ana.lopez@tescha.edu.mx', 'Ana', 'López', 'Ruiz', 'estudiante', str_contains($opcion, ',') ? '"'.$opcion.'"' : $opcion, 'DOC-0001', '']);
+    }
+
     /** @return array<int, array<int, string>> */
     private function instructions(): array
     {
@@ -401,6 +408,11 @@ class InvitacionMasivaService
             ['10. Los enlaces de invitación se muestran una sola vez al crear; guárdalos entonces.'],
             [''],
             ['Columnas obligatorias: numero_control, correo, nombre, apellido_paterno, rol (y opcion_titulacion si el rol es estudiante).'],
+            [''],
+            ['Ejemplo de una fila completa (solo es un ejemplo: no está incluida en la plantilla):'],
+            [$this->exampleRow()],
+            [''],
+            ['También puedes ver esta guía dentro de la pantalla Carga masiva.'],
         ];
     }
 }

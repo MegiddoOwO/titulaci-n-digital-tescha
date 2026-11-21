@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HttpError, postForm } from "@/lib/http";
 import { downloadText, toCsv } from "./csv";
+import { BulkFillGuide } from "./BulkFillGuide";
 
 type Step = "archivo" | "revision" | "resultado";
 
@@ -127,12 +128,14 @@ function ErrorTable({ errores, label }: { errores: RowError[]; label: string }) 
 interface Props {
   open: boolean;
   maxRows: number;
+  opciones: { id: number; nombre: string }[];
+  asesores: { id: number; numero_control?: string; nombre_completo: string; carga_actual: number; carga_maxima: number | null }[];
   expireHours: number;
   /** Called once when the dialog closes; `created` tells the page to reload its list. */
   onClose: (created: boolean) => void;
 }
 
-export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: Props) {
+export function BulkInvitationsDialog({ open, maxRows, opciones, asesores, expireHours, onClose }: Props) {
   const [step, setStep] = useState<Step>("archivo");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState<"validando" | "creando" | null>(null);
@@ -346,6 +349,8 @@ export function BulkInvitationsDialog({ open, maxRows, expireHours, onClose }: P
                 </Button>
               </div>
               <p className="tnum text-xs text-muted-foreground">Hasta {maxRows} filas por archivo, 2 MB como máximo. Formatos: .xlsx y .csv.</p>
+
+              <BulkFillGuide maxRows={maxRows} opciones={opciones} asesores={asesores} />
 
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold">Archivo de invitaciones</p>
