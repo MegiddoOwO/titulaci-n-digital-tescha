@@ -175,6 +175,19 @@ class TramiteFlowTest extends TestCase
         $this->assertSame($before, [Bitacora::count(), Notificacion::count()]);
     }
 
+    public function test_upload_history_shows_bytes_for_files_under_one_kilobyte(): void
+    {
+        $user = $this->student();
+        $tramite = $this->tramiteOf($user);
+
+        $response = $this->upload($user, $tramite, self::TIPO_PENDING, $this->pdf('tiny.pdf'));
+
+        $response->assertOk();
+        $comentario = HistorialEstado::where('documento_id', $response->json('documento_id'))->firstOrFail()->comentario;
+        $this->assertStringEndsWith('('.strlen(self::PDF).' B)', $comentario);
+        $this->assertStringNotContainsString('0 KB', $comentario);
+    }
+
     public function test_upload_via_inertia_redirects_back_with_flash(): void
     {
         $user = $this->student();

@@ -99,10 +99,10 @@ class UploadDocumento
                     'estado_anterior' => null,
                     'estado_nuevo' => 'cargado',
                     'comentario' => sprintf(
-                        'Documento "%s" subido: %s (%d KB)',
+                        'Documento "%s" subido: %s (%s)',
                         $tipo->nombre,
                         $originalName,
-                        round($size / 1024),
+                        $size < 1024 ? $size.' B' : round($size / 1024).' KB',
                     ),
                     'usuario_id' => $user->id,
                 ]);

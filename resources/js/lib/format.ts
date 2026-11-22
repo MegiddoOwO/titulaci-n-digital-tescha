@@ -19,3 +19,12 @@ export function formatDateTime(value: string | number | Date | null | undefined)
   if (!date) return "";
   return `${date}, ${new Date(value as string | number | Date).toLocaleTimeString("es-MX")}`;
 }
+
+/** Display-only: "JPEG,PNG" becomes "JPEG, PNG". */
+export function formatList(value: string | null | undefined): string {
+  return (value ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(", ");
+}

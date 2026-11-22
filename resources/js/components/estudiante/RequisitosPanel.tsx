@@ -1,3 +1,4 @@
+import { formatList } from "@/lib/format";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { megas } from "@/components/estudiante/helpers";
 import type { DocumentoInfo } from "@/types/tramite";
@@ -86,7 +87,7 @@ export function RequisitosPanel({ documentos, opcion }: { documentos: DocumentoI
                     {d.tipo_documento_nombre}
                     {d.tipo_documento_obligatorio === 1 && <span className="block text-xs text-muted-foreground">Obligatorio</span>}
                   </TableCell>
-                  <TableCell>{d.formato_permitido}</TableCell>
+                  <TableCell>{formatList(d.formato_permitido)}</TableCell>
                   <TableCell className="tnum text-right">{megas(d.tamaño_max_mb)} MB</TableCell>
                 </TableRow>
               ))}

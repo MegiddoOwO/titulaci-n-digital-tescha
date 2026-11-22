@@ -1,3 +1,4 @@
+import { formatList } from "@/lib/format";
 import { AlertCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -18,7 +19,7 @@ function DocumentRow({ doc, tramiteId, state }: { doc: DocumentoInfo; tramiteId:
         <div className="min-w-0">
           <h3 className="text-sm font-semibold leading-snug">{doc.tipo_documento_nombre}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {doc.tipo_documento_obligatorio === 1 ? "Obligatorio" : "Opcional"} · {doc.formato_permitido} · máx.{" "}
+            {doc.tipo_documento_obligatorio === 1 ? "Obligatorio" : "Opcional"} · {formatList(doc.formato_permitido)} · máx.{" "}
             <span className="tnum">{megas(doc.tamaño_max_mb)} MB</span>
           </p>
         </div>
