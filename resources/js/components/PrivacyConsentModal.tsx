@@ -25,11 +25,15 @@ export function PrivacyConsentModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-lg bg-card text-card-foreground rounded-[10px] shadow-2xl overflow-hidden animate-fade-in">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="privacy-consent-title"
+        className="w-full max-w-lg bg-card text-card-foreground rounded-[10px] shadow-2xl overflow-hidden animate-fade-in">
         <div className="bg-sidebar p-5 text-sidebar-foreground flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-sidebar-foreground" />
           <div>
-            <h2 className="font-display text-lg font-bold">Aviso de Privacidad</h2>
+            <h2 id="privacy-consent-title" className="font-display text-lg font-bold">Aviso de Privacidad</h2>
             <p className="text-sidebar-foreground/70 text-xs">Ley General de Protección de Datos Personales</p>
           </div>
         </div>
