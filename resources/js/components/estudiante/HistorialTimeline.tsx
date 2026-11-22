@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/format";
 import { Deferred } from "@inertiajs/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -17,7 +18,7 @@ function Entries({ historial }: { historial?: HistorialEntry[] }) {
             <StatusBadge kind="documento" status={entry.estado_nuevo} />
             {entry.comentario && <p className="break-words text-sm leading-snug">{entry.comentario}</p>}
             <p className="tnum text-xs text-muted-foreground">
-              {new Date(entry.fecha).toLocaleString("es-MX")}
+              {formatDateTime(entry.fecha)}
               {entry.usuario_nombre ? ` · ${entry.usuario_nombre}` : ""}
             </p>
           </li>

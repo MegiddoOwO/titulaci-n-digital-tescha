@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/format";
 import { Bell } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export function NotificationBell({ notificaciones, noLeidas, marcarTodas }: Pick
                   {n.titulo}
                 </p>
                 <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{n.mensaje}</p>
-                <p className="tnum mt-1 text-[11px] text-muted-foreground">{new Date(n.created_at).toLocaleString("es-MX")}</p>
+                <p className="tnum mt-1 text-[11px] text-muted-foreground">{formatDateTime(n.created_at)}</p>
               </li>
             ))
           )}

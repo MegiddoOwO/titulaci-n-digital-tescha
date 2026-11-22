@@ -1,3 +1,4 @@
+import { formatDate, formatDateTime } from "@/lib/format";
 import { useRef, useState } from "react";
 import { Head, router, useForm } from "@inertiajs/react";
 import { AlertCircle, Check, Copy, FileSpreadsheet, Loader2, MailPlus, RefreshCw, Search, UserPlus, Ban } from "lucide-react";
@@ -74,10 +75,10 @@ const dateTimeFmt = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "s
 
 /** The date that matters for each state, as written text ("Vence ...", "Aceptada ...", "Revocada ..."). */
 function fechaTexto(i: InvitacionRow): string {
-  if (i.estado === "aceptada" && i.aceptada_en) return `Aceptada el ${dateFmt.format(new Date(i.aceptada_en))}`;
-  if (i.estado === "revocada" && i.revocada_en) return `Revocada el ${dateFmt.format(new Date(i.revocada_en))}`;
-  if (i.estado === "expirada" && i.expira_en) return `Venció el ${dateFmt.format(new Date(i.expira_en))}`;
-  if (i.expira_en) return `Vence el ${dateTimeFmt.format(new Date(i.expira_en))}`;
+  if (i.estado === "aceptada" && i.aceptada_en) return `Aceptada el ${formatDate(i.aceptada_en)}`;
+  if (i.estado === "revocada" && i.revocada_en) return `Revocada el ${formatDate(i.revocada_en)}`;
+  if (i.estado === "expirada" && i.expira_en) return `Venció el ${formatDate(i.expira_en)}`;
+  if (i.expira_en) return `Vence el ${formatDateTime(i.expira_en)}`;
   return "";
 }
 
