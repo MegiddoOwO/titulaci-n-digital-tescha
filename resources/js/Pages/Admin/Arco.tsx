@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Shield, CheckCircle2, Ban, ChevronRight, Loader2 } from "lucide-react";
@@ -86,12 +87,12 @@ export default function AdminARCO({ solicitudes }: { solicitudes: SolicitudArco[
                     <p className="text-sm font-semibold leading-snug">{s.nombre_completo}</p>
                     <p className="tnum text-xs text-muted-foreground">
                       {s.numero_control}
-                      <span className="md:hidden"> · {capitalize(s.tipo)} · {new Date(s.fecha_solicitud).toLocaleDateString("es-MX")}</span>
+                      <span className="md:hidden"> · {capitalize(s.tipo)} · {formatDate(s.fecha_solicitud)}</span>
                     </p>
                   </TableCell>
                   <TableCell className="hidden py-2.5 text-sm md:table-cell">{capitalize(s.tipo)}</TableCell>
                   <TableCell className="tnum hidden py-2.5 text-sm text-muted-foreground md:table-cell">
-                    {new Date(s.fecha_solicitud).toLocaleDateString("es-MX")}
+                    {formatDate(s.fecha_solicitud)}
                   </TableCell>
                   <TableCell className="py-2.5">
                     <StatusBadge kind="arco" status={s.estado} />

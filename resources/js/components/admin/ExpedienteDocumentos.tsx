@@ -1,4 +1,4 @@
-import { formatPercent } from "@/lib/format";
+import { formatDate, formatList, formatPercent } from "@/lib/format";
 import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -88,13 +88,13 @@ export function ExpedienteDocumentos({
                   <p className="text-xs text-muted-foreground">
                     {doc.fecha_subida ? (
                       <>
-                        Subido: <span className="tnum">{new Date(doc.fecha_subida).toLocaleDateString("es-MX")}</span>
+                        Subido: <span className="tnum">{formatDate(doc.fecha_subida)}</span>
                         {doc.archivo_nombre ? ` · ${doc.archivo_nombre}` : ""}
                       </>
                     ) : (
                       "No subido aún"
                     )}
-                    {showFormat && doc.formato_permitido ? ` · ${doc.formato_permitido}` : ""}
+                    {showFormat && doc.formato_permitido ? ` · ` : ""}
                   </p>
                   {doc.estatus === "rechazado" && doc.motivo_rechazo && (
                     <p className="mt-0.5 text-xs font-semibold text-state-red">Motivo: {doc.motivo_rechazo}</p>

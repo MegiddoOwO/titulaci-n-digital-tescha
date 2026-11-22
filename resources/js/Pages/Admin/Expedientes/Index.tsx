@@ -213,7 +213,7 @@ export default function AdminExpedientes({ expedientes, total, page, totalPages,
         <Button variant="outline" className="gap-1.5" asChild>
           <a href={`/admin/expedientes/export${exportQs.size ? `?${exportQs}` : ""}`}>
             <Download aria-hidden="true" />
-            Exportar Excel
+            Exportar CSV
           </a>
         </Button>
       </div>

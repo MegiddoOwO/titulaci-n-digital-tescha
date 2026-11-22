@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import type { DocumentoInfo, TramiteData } from "@/types/tramite";
 
 /** The server accepts uploads for these states (approved and in-review documents are locked). */
@@ -19,7 +20,7 @@ export function acceptDe(formato: string): string {
     .join(",");
 }
 
-export const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString("es-MX");
+export const fechaCorta = (iso: string) => formatDate(iso);
 
 /** One sentence that answers "what do I do next?" for the current state of the trámite. */
 export function siguientePaso(tramite: TramiteData, proximo: DocumentoInfo | null): string {

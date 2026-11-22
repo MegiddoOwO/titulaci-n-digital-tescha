@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Loader2, History } from "lucide-react";
@@ -131,7 +132,7 @@ export default function AdminBitacora({ rows, total, page, totalPages }: Props) 
                       {entry.entidad_id ? ` #${entry.entidad_id}` : ""}
                     </span>
                   </p>
-                  <p className="tnum text-xs text-muted-foreground">{new Date(entry.fecha).toLocaleString("es-MX")}</p>
+                  <p className="tnum text-xs text-muted-foreground">{formatDateTime(entry.fecha)}</p>
                 </div>
                 {entry.detalle != null && (
                   <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">

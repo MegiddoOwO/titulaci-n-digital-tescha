@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format";
 import { useState } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Loader2, Plus, Pencil, Power, PowerOff, BookOpen, Building2, FileCheck, FileText, Inbox } from "lucide-react";
@@ -76,7 +77,7 @@ const TABS: Tab[] = [
 const cell = (item: Item, tab: Tab, key: string) => {
   const value = item[key];
   if (key === "fecha_limite") {
-    return value ? new Date(value + "T00:00:00").toLocaleDateString("es-MX") : "Sin fecha";
+    return value ? formatDate(value + "T00:00:00") : "Sin fecha";
   }
   return value ?? "";
 };
