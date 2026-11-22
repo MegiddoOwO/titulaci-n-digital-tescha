@@ -53,6 +53,19 @@ class AdminTableroTest extends TestCase
         $this->actingAs($admin)->getJson('/admin')->assertOk()->assertJsonMissingPath('tablero');
     }
 
+    public function test_pendientes_revision_counts_only_uploaded_documents(): void
+    {
+        $ids = Documento::query()->orderBy('id')->limit(6)->pluck('id');
+        $this->assertCount(6, $ids);
+        Documento::query()->update(['estatus' => 'aprobado']);
+        foreach (['pendiente', 'pendiente', 'cargado', 'en_revision', 'rechazado', 'aprobado'] as $i => $estatus) {
+            Documento::whereKey($ids[$i])->update(['estatus' => $estatus]);
+        }
+
+        $this->actingAs($this->user('ADM-0001'))->getJson('/admin/stats')->assertOk()
+            ->assertJsonPath('pendientes_revision', 2);
+    }
+
     public function test_weekly_series_buckets_reviews_and_fills_empty_weeks_with_zero(): void
     {
         $now = CarbonImmutable::parse('2026-11-18 10:00:00');

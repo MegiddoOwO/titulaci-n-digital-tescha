@@ -20,7 +20,7 @@ class StoreUsuarioRequest extends FormRequest
         return [
             'numero_control' => ['required', 'string', 'max:20', 'unique:usuarios,numero_control'],
             'email' => ['required', 'string', 'email', 'max:120', 'unique:usuarios,email'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8'],
             'nombre' => ['required', 'string', 'max:80'],
             'apellido_paterno' => ['required', 'string', 'max:80'],
             'apellido_materno' => ['nullable', 'string', 'max:80'],
@@ -38,6 +38,7 @@ class StoreUsuarioRequest extends FormRequest
             'numero_control.required' => self::REQUIRED,
             'email.required' => self::REQUIRED,
             'password.required' => self::REQUIRED,
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
             'nombre.required' => self::REQUIRED,
             'apellido_paterno.required' => self::REQUIRED,
             'rol.required' => self::REQUIRED,
