@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Hash;
  */
 class LoginAttemptService
 {
-    public const MSG_INVALID = 'Número de control o contraseña incorrectos.';
+    public const MSG_INVALID = 'Credenciales incorrectas.';
     public const MSG_LOCKED = 'Cuenta bloqueada por seguridad. Intente de nuevo más tarde.';
 
     /**
@@ -34,26 +34,37 @@ class LoginAttemptService
         }
 
         if (! Hash::check($password, (string) $usuario->password_hash)) {
-            Usuario::whereKey($usuario->id)->increment('intentos_fallidos');
-            $attempts = (int) Usuario::whereKey($usuario->id)->value('intentos_fallidos');
-
-            if ($attempts >= $max) {
-                Usuario::whereKey($usuario->id)->update([
-                    'bloqueado_hasta' => DB::raw('DATE_ADD(NOW(), INTERVAL '.$minutes.' MINUTE)'),
-                ]);
-
+            if ($this->registerFailure($usuario->id, $max, $minutes)) {
                 return $this->fail(
                     "Cuenta bloqueada por seguridad ({$minutes} min). Demasiados intentos fallidos.",
                     locked: true,
                 );
             }
 
-            return $this->fail(self::MSG_INVALID.' Intentos restantes: '.($max - $attempts).'.');
+            return $this->fail(self::MSG_INVALID);
         }
 
         $this->resetAttempts($usuario->id);
 
         return ['user' => $usuario, 'error' => null, 'locked' => false];
+    }
+
+    /**
+     * Atomically counts one failure and arms the lock when the threshold is reached.
+     * bloqueado_hasta is assigned before the counter so it sees the pre-increment value
+     * (MySQL/MariaDB evaluate SET assignments left to right). Returns whether the account is now locked.
+     */
+    private function registerFailure(int $id, int $max, int $minutes): bool
+    {
+        DB::update(
+            'UPDATE usuarios SET
+                bloqueado_hasta = IF(intentos_fallidos + 1 >= ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), bloqueado_hasta),
+                intentos_fallidos = intentos_fallidos + 1
+             WHERE id = ?',
+            [$max, $minutes, $id],
+        );
+
+        return Usuario::whereKey($id)->where('bloqueado_hasta', '>', DB::raw('NOW()'))->exists();
     }
 
     private function isLocked(Usuario $usuario): bool
