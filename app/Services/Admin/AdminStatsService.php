@@ -26,7 +26,7 @@ class AdminStatsService
 
         return [
             'total_activos' => Tramite::where('activo', 1)->count(),
-            'pendientes_revision' => Documento::whereIn('estatus', ['cargado', 'pendiente', 'en_revision'])->count(),
+            'pendientes_revision' => Documento::whereIn('estatus', ['cargado', 'en_revision'])->count(),
             'dictamenes_emitidos' => Dictamen::count(),
             'en_proceso' => $count('en_proceso') + $count('en_revision'),
             'por_estatus' => [
