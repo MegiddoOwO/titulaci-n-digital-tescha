@@ -41,12 +41,13 @@ class AuthFlowTest extends TestCase
         }
     }
 
-    public function test_wrong_password_reports_remaining_attempts(): void
+    public function test_wrong_password_returns_uniform_message_without_counter(): void
     {
         $user = $this->userWithRole('estudiante');
 
         $this->post('/login', ['numero_control' => $user->numero_control, 'password' => 'bad'])
-            ->assertSessionHasErrors(['numero_control' => 'Número de control o contraseña incorrectos. Intentos restantes: 4.']);
+            ->assertSessionHasErrors(['numero_control' => 'Credenciales incorrectas.'])
+            ->assertSessionHas('bloqueado', false);
 
         $this->assertGuest();
         $this->assertSame(1, $user->fresh()->intentos_fallidos);
@@ -55,7 +56,30 @@ class AuthFlowTest extends TestCase
     public function test_unknown_user_gets_generic_error(): void
     {
         $this->post('/login', ['numero_control' => 'NOPE-999', 'password' => 'x'])
-            ->assertSessionHasErrors(['numero_control' => 'Número de control o contraseña incorrectos.']);
+            ->assertSessionHasErrors(['numero_control' => 'Credenciales incorrectas.'])
+            ->assertSessionHas('bloqueado', false);
+    }
+
+    public function test_failed_login_is_identical_for_existing_and_unknown_users(): void
+    {
+        $user = $this->userWithRole('estudiante');
+
+        $known = $this->post('/login', ['numero_control' => $user->numero_control, 'password' => 'bad']);
+        $unknown = $this->post('/login', ['numero_control' => 'NOPE-999', 'password' => 'bad']);
+
+        $this->assertSame($known->getStatusCode(), $unknown->getStatusCode());
+        $known->assertSessionHasErrors(['numero_control' => 'Credenciales incorrectas.']);
+        $unknown->assertSessionHasErrors(['numero_control' => 'Credenciales incorrectas.']);
+        $this->assertStringNotContainsStringIgnoringCase('restantes', $known->getSession()->get('errors')->first('numero_control'));
+    }
+
+    public function test_unknown_user_is_never_told_it_is_locked(): void
+    {
+        for ($i = 0; $i < 7; $i++) {
+            $this->post('/login', ['numero_control' => 'NOPE-999', 'password' => 'bad'])
+                ->assertSessionHasErrors(['numero_control' => 'Credenciales incorrectas.'])
+                ->assertSessionHas('bloqueado', false);
+        }
     }
 
     public function test_missing_fields_are_rejected(): void
