@@ -183,6 +183,40 @@ class UsuarioCrudTest extends TestCase
         $this->assertSame($hash, $student->fresh()->password_hash);
     }
 
+    public function test_create_rejects_a_short_password(): void
+    {
+        $before = Usuario::count();
+
+        $this->actingAs($this->admin())->postJson('/admin/usuarios', $this->payload(['password' => 'abc']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.password.0', 'La contraseña debe tener al menos 8 caracteres.');
+
+        $this->assertSame($before, Usuario::count());
+        $this->assertNull(Usuario::where('numero_control', '2030-9999')->first());
+    }
+
+    public function test_update_rejects_a_short_password_and_keeps_the_hash(): void
+    {
+        $student = $this->user('2021-0002');
+        $hash = $student->password_hash;
+
+        $this->actingAs($this->admin())->putJson("/admin/usuarios/{$student->id}", ['password' => 'abc'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.password.0', 'La contraseña debe tener al menos 8 caracteres.');
+
+        $this->assertSame($hash, $student->fresh()->password_hash);
+    }
+
+    public function test_update_without_password_keeps_the_hash(): void
+    {
+        $student = $this->user('2021-0002');
+        $hash = $student->password_hash;
+
+        $this->actingAs($this->admin())->putJson("/admin/usuarios/{$student->id}", ['nombre' => 'Sin clave'])->assertOk();
+
+        $this->assertSame($hash, $student->fresh()->password_hash);
+    }
+
     public function test_update_failures(): void
     {
         $admin = $this->admin();
