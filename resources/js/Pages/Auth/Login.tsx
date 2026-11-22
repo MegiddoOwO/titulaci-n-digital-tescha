@@ -75,7 +75,7 @@ const Login = ({ status, bloqueado, contactos }: LoginProps) => {
 
   return (
     <PublicShell widthClass="max-w-5xl">
-      <Head title="Iniciar Sesión" />
+      <Head title={showForgotModal ? "Recuperar contraseña" : "Iniciar Sesión"} />
 
       <div className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-8 md:px-6 md:py-14 lg:min-h-[calc(100dvh-7.5rem)] lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-center lg:gap-16">
         <section className="hidden lg:block" aria-label="Sobre el sistema">
