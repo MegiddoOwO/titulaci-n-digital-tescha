@@ -196,6 +196,7 @@ Para estos se usa `UPLOADS_DISK=s3`. Los nombres `AWS_*` son la convención del 
 - HTTPS, SMTP real (ver [Correo](#correo)) y contraseñas distintas a las de demostración.
 - Respaldos de la base de datos **y** de los documentos subidos (`storage/app/private` o el bucket, ver [Almacenamiento de archivos](#almacenamiento-de-archivos)).
 - Límites de subida de PHP (`upload_max_filesize`, `post_max_size`) mayores que el máximo por tipo de documento.
+- Cambiar o restablecer la contraseña cierra las demás sesiones de esa cuenta. Límite: las sesiones son de archivo, así que una sesión robada sigue siendo válida hasta que expire (`SESSION_LIFETIME`) o hasta que la cuenta cierre sesión o cambie de contraseña.
 
 ## Historial
 

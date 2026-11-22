@@ -49,7 +49,9 @@ Route::get('/invitacion/{token}', [InvitacionPublicaController::class, 'show'])-
 Route::post('/invitacion/{token}', [InvitacionPublicaController::class, 'store'])
     ->middleware('throttle:10,1,invitacion')->name('invitacion.aceptar');
 
-Route::middleware('auth')->group(function () {
+// AuthenticateSession ties each session to the password hash it was created with: resetting or
+// changing a password signs the account out everywhere else (sessions are file-backed).
+Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::class])->group(function () {
     Route::middleware('role:estudiante')->group(function () {
         Route::get('/dashboard', [TramiteController::class, 'show'])->name('dashboard');
         Route::get('/tramites/mi-dictamen/pdf', [EstudianteDictamenController::class, 'pdf'])
